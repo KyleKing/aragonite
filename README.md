@@ -14,11 +14,16 @@ than designed up front, so every package here has at least one real consumer.
 
 Planned, once a second consumer needs them:
 
-| Package | Source |
-| --- | --- |
-| `forge` | gh-repo-dashboard `internal/github`, GitHub through the `gh` CLI |
-| `vcs` | gh-repo-dashboard `internal/vcs`, git and jj behind one interface |
-| `codeintel` | wavez `internal/codeintel`, per-project SQLite store of symbols, edges, FTS, and line-to-test coverage |
+| Package | Source | Why it is shared |
+| --- | --- | --- |
+| `forge` | gh-repo-dashboard `internal/github` | GitHub through the `gh` CLI |
+| `vcs` | gh-repo-dashboard `internal/vcs` | git and jj behind one interface |
+| `filter` | gh-repo-dashboard `internal/filters` | The predicate, query, and sort engine behind both tools' pull request lists |
+| `tui/table` | gh-repo-dashboard `internal/ui/table` | Already depends on nothing but lipgloss and uniseg |
+| `codeintel` | wavez `internal/codeintel` | Symbols, edges, FTS, and line-to-test coverage in SQLite |
+
+Generic TUI helpers start under `tui/`. They only earn their own module if something
+that is not a git tool needs them.
 
 ## Consumers
 
@@ -34,6 +39,5 @@ to iterate across repos. `go.work` is gitignored.
 cd second-look && go work init . ../aragonite
 ```
 
-[docs/gh-repo-dashboard-cutover.patch](docs/gh-repo-dashboard-cutover.patch) is the
-`internal/cache` cutover, verified green against gh-repo-dashboard's full suite in a
-throwaway worktree. Apply it when the extraction lands.
+[docs/extraction.md](docs/extraction.md) records what the first extraction taught, so the
+next one costs less.

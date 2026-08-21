@@ -60,8 +60,8 @@ func TestUnreadableFilesAreAMiss(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
 		corrupt func(t *testing.T, path string)
+		name    string
 		dropped bool
 	}{
 		{

@@ -12,10 +12,10 @@ import (
 //nolint:paralleltest // stubs the package-global jj-availability check
 func TestDetectVCSType(t *testing.T) {
 	tests := []struct {
-		name        string
 		setup       func(dir string) error
-		jjAvailable bool
+		name        string
 		expected    vcs.Type
+		jjAvailable bool
 	}{
 		{
 			name:        "git repo",
@@ -87,8 +87,8 @@ func TestDetectVCSType(t *testing.T) {
 func TestGetOperations(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name        string
 		setup       func(dir string) error
+		name        string
 		expectedVCS vcs.Type
 	}{
 		{
@@ -122,8 +122,8 @@ func TestGetOperations(t *testing.T) {
 func TestIsRepo(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
 		setup    func(dir string) error
+		name     string
 		expected bool
 	}{
 		{
@@ -167,8 +167,8 @@ func TestIsRepo(t *testing.T) {
 func TestGetGitHubEnv(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name        string
 		setup       func(dir string) error
+		name        string
 		expectEmpty bool
 	}{
 		{

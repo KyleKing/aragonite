@@ -36,6 +36,9 @@ func PersistUsing[T any](d *DiskCache, c *TTLCache[T], upstream, key string, sta
 	persistTo(d, c, upstream, key, stamp, value)
 }
 
+// PersistedUsing drives Persisted against an explicit store, so a test works in its
+// own directory instead of the installed one and stays parallel-safe.
+//
 //nolint:ireturn // T is the cache's own type parameter, not an abstraction leak
 func PersistedUsing[T any](d *DiskCache, c *TTLCache[T], upstream, key string, stamp Stamp) (T, bool) {
 	return persistedFrom(d, c, upstream, key, stamp)

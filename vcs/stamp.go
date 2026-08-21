@@ -188,8 +188,8 @@ func branchConfig(commonDir, branch string) tracking {
 // refResolver reads ref OIDs out of a repository's common directory, loading
 // packed-refs at most once.
 type refResolver struct {
-	commonDir string
 	packed    map[string]string
+	commonDir string
 }
 
 func (r *refResolver) resolve(ref string) string {

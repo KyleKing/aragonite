@@ -11,12 +11,11 @@ import (
 )
 
 type prByNumberResponse struct {
-	prResponse
-
 	HeadRefOid          string `json:"headRefOid"`
 	HeadRepositoryOwner struct {
 		Login string `json:"login"`
 	} `json:"headRepositoryOwner"`
+	prResponse
 }
 
 // GetPR reads one pull request by number, including the head commit a review

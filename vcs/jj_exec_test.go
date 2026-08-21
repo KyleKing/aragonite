@@ -148,11 +148,11 @@ func TestJJGetAheadBehind(t *testing.T) {
 	key := jjKey("bookmark list --all-remotes -T " + vcs.JJBookmarkListFormat)
 
 	tests := []struct {
+		canned   map[string]string
+		failures map[string]error
 		name     string
 		branch   string
 		upstream string
-		canned   map[string]string
-		failures map[string]error
 		ahead    int
 		behind   int
 	}{
@@ -243,14 +243,14 @@ func TestJJCountMethods(t *testing.T) {
 	j := vcs.NewJJOperations()
 
 	tests := []struct {
-		name     string
 		fn       func(context.Context, string) (int, error)
+		name     string
 		expected int
 	}{
-		{"staged always zero", j.GetStagedCount, 0},
-		{"unstaged from status", j.GetUnstagedCount, 2},
-		{"untracked always zero", j.GetUntrackedCount, 0},
-		{"conflicted always zero", j.GetConflictedCount, 0},
+		{name: "staged always zero", fn: j.GetStagedCount, expected: 0},
+		{name: "unstaged from status", fn: j.GetUnstagedCount, expected: 2},
+		{name: "untracked always zero", fn: j.GetUntrackedCount, expected: 0},
+		{name: "conflicted always zero", fn: j.GetConflictedCount, expected: 0},
 	}
 
 	for _, tt := range tests {
@@ -495,9 +495,9 @@ func TestJJGetLastModified(t *testing.T) {
 	key := jjKey("log -r @ -T " + jjTimestampFormat + " --no-graph")
 
 	tests := []struct {
-		name     string
 		canned   map[string]string
 		failures map[string]error
+		name     string
 		expected int64
 		wantErr  bool
 	}{
@@ -584,12 +584,12 @@ func TestJJPushAndSwitchBranch(t *testing.T) {
 	editKey := jjKey("edit feature")
 
 	tests := []struct {
-		name       string
 		canned     map[string]string
 		failures   map[string]error
 		run        func(context.Context, *vcs.JJOperations) (bool, string, error)
-		expectedOK bool
+		name       string
 		expected   string
+		expectedOK bool
 	}{
 		{
 			name:   "push existing bookmark",
@@ -653,12 +653,12 @@ func TestJJFetchAllAndPruneRemote(t *testing.T) {
 	fetchKey := jjKey("git fetch --all-remotes")
 
 	tests := []struct {
-		name       string
 		canned     map[string]string
 		failures   map[string]error
 		run        func(context.Context, *vcs.JJOperations) (bool, string, error)
-		expectedOK bool
+		name       string
 		expected   string
+		expectedOK bool
 	}{
 		{
 			name:   "fetch success",
@@ -713,12 +713,12 @@ func TestJJCleanupMergedBranches(t *testing.T) {
 	listKey := jjKey("bookmark list --all-remotes -T " + vcs.JJBookmarkListFormat)
 
 	tests := []struct {
-		name         string
 		canned       map[string]string
 		failures     map[string]error
+		name         string
+		expected     string
 		squashMerged []string
 		expectedOK   bool
-		expected     string
 	}{
 		{
 			name: "deletes merged bookmark",

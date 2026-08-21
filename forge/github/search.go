@@ -81,18 +81,18 @@ func SearchPRsEverywhere(ctx context.Context, repoPath, query string) ([]forge.P
 func parseSearchResults(out []byte) ([]forge.PullRequest, error) {
 	//nolint:tagliatelle // gh speaks camelCase, and these tags name its fields
 	var results []struct {
-		Number     int    `json:"number"`
-		Title      string `json:"title"`
-		URL        string `json:"url"`
-		State      string `json:"state"`
-		IsDraft    bool   `json:"isDraft"`
+		UpdatedAt  time.Time `json:"updatedAt"`
+		Title      string    `json:"title"`
+		URL        string    `json:"url"`
+		State      string    `json:"state"`
 		Repository struct {
 			NameWithOwner string `json:"nameWithOwner"`
 		} `json:"repository"`
 		Author struct {
 			Login string `json:"login"`
 		} `json:"author"`
-		UpdatedAt time.Time `json:"updatedAt"`
+		Number  int  `json:"number"`
+		IsDraft bool `json:"isDraft"`
 	}
 
 	if err := json.Unmarshal(out, &results); err != nil {

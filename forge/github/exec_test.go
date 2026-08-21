@@ -93,10 +93,10 @@ func TestGetPRForBranch(t *testing.T) {
 }
 
 type getPRForBranchCase struct {
-	name      string
-	output    []byte
 	runErr    error
 	expected  *forge.PullRequest
+	name      string
+	output    []byte
 	expectErr bool
 }
 
@@ -264,10 +264,10 @@ func TestGetPRDetail(t *testing.T) {
 }
 
 type getPRDetailCase struct {
-	name      string
-	output    []byte
 	runErr    error
 	expected  *forge.PRDetail
+	name      string
+	output    []byte
 	expectErr bool
 }
 
@@ -493,9 +493,9 @@ func TestPRCachesAreScopedByRemote(t *testing.T) {
 //nolint:paralleltest // asserts against shared global cache.ClearAll() state
 func TestGetPRCount(t *testing.T) {
 	tests := []struct {
+		runErr    error
 		name      string
 		output    []byte
-		runErr    error
 		expected  int
 		expectErr bool
 	}{
@@ -530,10 +530,10 @@ func TestGetPRCount(t *testing.T) {
 //nolint:paralleltest // asserts against shared global cache.ClearAll() state
 func TestGetMergedPRHeads(t *testing.T) {
 	tests := []struct {
-		name      string
-		output    []byte
 		runErr    error
 		expected  map[string]string
+		name      string
+		output    []byte
 		expectErr bool
 	}{
 		{
@@ -699,11 +699,11 @@ func TestGetWorkflowRunsForCommit(t *testing.T) {
 }
 
 type getWorkflowRunsCase struct {
+	runErr    error
+	expected  *forge.WorkflowSummary
 	name      string
 	commitSHA string
 	output    []byte
-	runErr    error
-	expected  *forge.WorkflowSummary
 	expectErr bool
 	expectGH  bool
 }

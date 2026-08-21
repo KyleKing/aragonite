@@ -91,33 +91,24 @@ type GitConfigOverride struct {
 // RepoSummary is what a checkout says about itself: its branch, its position
 // against its upstream, and the state of its working tree.
 type RepoSummary struct {
-	Path         string
-	VCSType      Type
-	Branch       string
-	Upstream     string
-	Ahead        int
-	Behind       int
-	Staged       int
-	Unstaged     int
-	Untracked    int
-	Conflicted   int
-	StashCount   int
-	LastModified time.Time
-
-	RemoteProtocol string // "ssh", "https", or "" if unknown/no remote
-	RemoteRepo     string // "owner/repo" derived from the remote URL, "" if unknown/no remote
-	// RemoteID is the cache identity of the remote, "host/owner/repo"
-	// lowercased, and "" when there is no resolvable remote. Values read off
-	// the remote are cached under it so parallel checkouts share one fetch.
+	LastModified    time.Time
+	ParentPath      string
+	Branch          string
+	Upstream        string
+	Path            string
 	RemoteID        string
+	RemoteRepo      string
+	RemoteProtocol  string
 	ConfigOverrides []GitConfigOverride
-	// ParentPath is the repo this one borrows its refs from, set only for a
-	// git worktree or jj workspace. It makes a linked checkout recognizable
-	// from anywhere, not just from the parent that listed it.
-	ParentPath string
-	// NoCommits marks a repo whose branch has no commits yet, which has no
-	// upstream for a different reason than a branch that was never pushed.
-	NoCommits bool
+	Ahead           int
+	StashCount      int
+	Conflicted      int
+	Untracked       int
+	Unstaged        int
+	Staged          int
+	Behind          int
+	VCSType         Type
+	NoCommits       bool
 }
 
 // IsDetached reports whether the repo's HEAD points at a commit rather than a
@@ -187,34 +178,31 @@ func (r RepoSummary) Status() RepoStatus {
 
 // BranchInfo summarizes a single branch's tracking state.
 type BranchInfo struct {
+	LastCommit time.Time
 	Name       string
 	Upstream   string
+	Head       string
 	Ahead      int
 	Behind     int
-	LastCommit time.Time
 	IsCurrent  bool
 	IsRemote   bool
-	// Head is the branch tip's commit OID (git) or change target commit id
-	// (jj), used to detect squash-merged branches whose tip matches a merged
-	// pull request's head OID even though the branch itself was never merged.
-	Head string
 }
 
 // CommitInfo summarizes a single commit.
 type CommitInfo struct {
+	Date      time.Time
 	Hash      string
 	ShortHash string
 	Subject   string
 	Author    string
-	Date      time.Time
 }
 
 // StashDetail summarizes a single stash entry.
 type StashDetail struct {
-	Index   int
+	Date    time.Time
 	Message string
 	Branch  string
-	Date    time.Time
+	Index   int
 }
 
 // WorktreeInfo summarizes a single git worktree.

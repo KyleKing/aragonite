@@ -12,8 +12,8 @@ import (
 )
 
 type fakeClock struct {
-	mu sync.Mutex
 	t  time.Time
+	mu sync.Mutex
 }
 
 func newFakeClock() *fakeClock { return &fakeClock{t: time.Now()} }

@@ -30,10 +30,10 @@ type entry[T any] struct {
 
 // TTLCache is a generic in-memory cache whose entries expire after a fixed duration.
 type TTLCache[T any] struct {
-	mu      sync.RWMutex
 	entries map[string]entry[T]
-	ttl     time.Duration
 	now     func() time.Time
+	ttl     time.Duration
+	mu      sync.RWMutex
 }
 
 // NewTTLCache returns an empty TTLCache with the given entry lifetime.
@@ -57,7 +57,7 @@ var (
 	registry   []clearer
 )
 
-// newRegisteredTTLCache builds a TTLCache like NewTTLCache and appends it to
+// NewRegistered builds a TTLCache like NewTTLCache and appends it to
 // the package-level registry that ClearAll drains. Reserved for the
 // package-level cache variables below; tests wanting a throwaway cache should
 // use NewTTLCache directly so they don't accumulate in the registry.

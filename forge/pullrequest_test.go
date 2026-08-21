@@ -10,9 +10,9 @@ func TestPRInfoMatchesUpstream(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		pr       forge.PullRequest
 		owner    string
 		upstream string
+		pr       forge.PullRequest
 		expected bool
 	}{
 		{

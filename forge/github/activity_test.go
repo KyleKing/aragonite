@@ -58,8 +58,8 @@ func TestGetPRsForRepoDerivesLatestActivity(t *testing.T) {
 	}
 
 	want := map[int]struct {
-		author string
 		at     time.Time
+		author string
 	}{
 		7: {author: "reviewer", at: time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)},
 		8: {author: "commenter", at: time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)},

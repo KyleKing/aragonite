@@ -31,9 +31,9 @@ const (
 // A corrupt, truncated, or unreadable file is dropped and refetched, never
 // reported as an error.
 type DiskCache struct {
-	mu       sync.Mutex
 	dir      string
 	maxBytes int64
+	mu       sync.Mutex
 }
 
 // NewDiskCache returns a store writing under dir, which is created on first
@@ -80,15 +80,15 @@ func installedDiskCache() *DiskCache {
 // back before the entries, so a file from another schema or another key is
 // dropped instead of decoded.
 type diskFile struct {
-	Version  int                  `json:"version"`
-	Upstream string               `json:"upstream"`
 	Entries  map[string]diskEntry `json:"entries"`
+	Upstream string               `json:"upstream"`
+	Version  int                  `json:"version"`
 }
 
 type diskEntry struct {
-	Value     json.RawMessage   `json:"value"`
 	ExpiresAt time.Time         `json:"expires_at"`
 	Seen      map[string]string `json:"seen"`
+	Value     json.RawMessage   `json:"value"`
 }
 
 // Persisted returns the value for key, reading the upstream's cache file when
@@ -337,9 +337,9 @@ func (d *DiskCache) touch(upstream string) {
 }
 
 type diskFileInfo struct {
+	used time.Time
 	path string
 	size int64
-	used time.Time
 }
 
 // evict trims the store to its byte budget, least recently used first, so a

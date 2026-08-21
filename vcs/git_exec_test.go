@@ -217,9 +217,9 @@ func TestGitGetUpstream(t *testing.T) {
 func TestGitGetAheadBehind(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
 		canned   map[string]string
 		failures map[string]error
+		name     string
 		ahead    int
 		behind   int
 		wantErr  bool
@@ -261,9 +261,9 @@ func TestGitGetAheadBehind(t *testing.T) {
 
 // compareBranchesTest is shared by the git and jj CompareBranches exec tests.
 type compareBranchesTest struct {
-	name     string
 	canned   map[string]string
 	failures map[string]error
+	name     string
 	ahead    int
 	behind   int
 	wantErr  bool
@@ -318,14 +318,14 @@ func TestGitStatusCountMethods(t *testing.T) {
 	g := vcs.NewGitOperations()
 
 	tests := []struct {
-		name     string
 		fn       func(context.Context, string) (int, error)
+		name     string
 		expected int
 	}{
-		{"staged", g.GetStagedCount, 1},
-		{"unstaged", g.GetUnstagedCount, 1},
-		{"untracked", g.GetUntrackedCount, 1},
-		{"conflicted", g.GetConflictedCount, 1},
+		{name: "staged", fn: g.GetStagedCount, expected: 1},
+		{name: "unstaged", fn: g.GetUnstagedCount, expected: 1},
+		{name: "untracked", fn: g.GetUntrackedCount, expected: 1},
+		{name: "conflicted", fn: g.GetConflictedCount, expected: 1},
 	}
 
 	for _, tt := range tests {
@@ -370,14 +370,14 @@ func TestGitStatusCounts_PorcelainEdgeCases(t *testing.T) {
 
 			g := vcs.NewGitOperations()
 			counts := []struct {
-				name     string
 				fn       func(context.Context, string) (int, error)
+				name     string
 				expected int
 			}{
-				{"staged", g.GetStagedCount, tt.staged},
-				{"unstaged", g.GetUnstagedCount, tt.unstaged},
-				{"untracked", g.GetUntrackedCount, tt.untracked},
-				{"conflicted", g.GetConflictedCount, tt.conflicted},
+				{name: "staged", fn: g.GetStagedCount, expected: tt.staged},
+				{name: "unstaged", fn: g.GetUnstagedCount, expected: tt.unstaged},
+				{name: "untracked", fn: g.GetUntrackedCount, expected: tt.untracked},
+				{name: "conflicted", fn: g.GetConflictedCount, expected: tt.conflicted},
 			}
 
 			for _, c := range counts {
@@ -737,9 +737,9 @@ func TestGitGetCommitLog(t *testing.T) {
 func TestGitGetLastModified(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
 		canned   map[string]string
 		failures map[string]error
+		name     string
 		expected int64
 		wantErr  bool
 	}{
@@ -818,12 +818,12 @@ func TestGitGetRemoteURL(t *testing.T) {
 func TestGitFetchAllAndPruneRemote(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name       string
 		canned     map[string]string
 		failures   map[string]error
 		run        func(context.Context, *vcs.GitOperations) (bool, string, error)
-		expectedOK bool
+		name       string
 		expected   string
+		expectedOK bool
 	}{
 		{
 			name:   "fetch success",
@@ -885,12 +885,12 @@ func TestGitFetchAllAndPruneRemote(t *testing.T) {
 func TestGitPushAndSwitchBranch(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name       string
 		canned     map[string]string
 		failures   map[string]error
 		run        func(context.Context, *vcs.GitOperations) (bool, string, error)
-		expectedOK bool
+		name       string
 		expected   string
+		expectedOK bool
 	}{
 		{
 			name:   "push follows tags",
@@ -967,12 +967,12 @@ func mergedRefsKey(branch string) string {
 }
 
 type cleanupCase struct {
-	name         string
 	canned       map[string]string
 	failures     map[string]error
+	name         string
+	expected     string
 	squashMerged []string
 	expectedOK   bool
-	expected     string
 }
 
 //nolint:dupl // same table shape as TestJJCleanupMergedBranches, different VCS output formats/literals
@@ -1114,10 +1114,10 @@ const forEachRefKey = "git for-each-ref --format=%(refname:short)\t%(upstream:sh
 func TestGitCleanupMergedBranchesSquashMerged(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name         string
 		canned       map[string]string
-		squashMerged []string
+		name         string
 		expected     string
+		squashMerged []string
 	}{
 		{
 			name: "deletes squash-merged branches with -D",

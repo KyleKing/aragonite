@@ -38,13 +38,13 @@ func GetWorkflowRunsForCommit(
 	}
 
 	var runs []struct {
-		DatabaseID int64  `json:"databaseId"`
 		Name       string `json:"name"`
 		Status     string `json:"status"`
 		Conclusion string `json:"conclusion"`
 		URL        string `json:"url"`
 		CreatedAt  string `json:"createdAt"`
 		UpdatedAt  string `json:"updatedAt"`
+		DatabaseID int64  `json:"databaseId"`
 	}
 
 	if err := json.Unmarshal(out, &runs); err != nil {
@@ -166,13 +166,13 @@ func latestRunPerWorkflow(ctx context.Context, repoPath, sha string) ([]forge.CI
 	}
 
 	var raw []struct {
-		DatabaseID   int64  `json:"databaseId"`
 		WorkflowName string `json:"workflowName"`
 		Status       string `json:"status"`
 		Conclusion   string `json:"conclusion"`
 		URL          string `json:"url"`
 		StartedAt    string `json:"startedAt"`
 		UpdatedAt    string `json:"updatedAt"`
+		DatabaseID   int64  `json:"databaseId"`
 	}
 	if err := json.Unmarshal(out, &raw); err != nil {
 		return nil, fmt.Errorf("parsing gh run list output: %w", err)

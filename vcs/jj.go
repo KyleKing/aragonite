@@ -41,9 +41,9 @@ const jjWorkspaceListFormat = `self.name() ++ "\t" ++ self.root() ++ "\n"`
 type jjBookmark struct {
 	name     string
 	upstream string
+	head     string
 	ahead    int
 	behind   int
-	head     string
 }
 
 func parseJJBookmarkList(out string) []jjBookmark {

@@ -1,3 +1,4 @@
+//nolint:testpackage // exercises currentTestTransport and safetyTransport directly
 package transport
 
 import (
@@ -56,7 +57,9 @@ func TestCurrentPrefersRegisteredFake(t *testing.T) {
 
 	rt := Current(http.DefaultTransport)
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com/thing", http.NoBody)
+	req, err := http.NewRequestWithContext(
+		context.Background(), http.MethodGet, "https://example.com/thing", http.NoBody,
+	)
 	if err != nil {
 		t.Fatalf("NewRequestWithContext() error = %v", err)
 	}

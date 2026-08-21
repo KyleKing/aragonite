@@ -52,37 +52,37 @@ func TestStampMovesWithEveryLocalChangeThatMattersToACache(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
 		change  func(repo string) error
+		name    string
 		differs bool
 	}{
-		{"an untouched checkout stamps the same", func(string) error { return nil }, false},
-		{"a write outside the git dir changes nothing", func(repo string) error {
+		{name: "an untouched checkout stamps the same", change: func(string) error { return nil }, differs: false},
+		{name: "a write outside the git dir changes nothing", change: func(repo string) error {
 			return write(filepath.Join(repo, "notes.txt"), "scratch")
-		}, false},
-		{"a commit moves HEAD's OID", func(repo string) error {
+		}, differs: false},
+		{name: "a commit moves HEAD's OID", change: func(repo string) error {
 			return write(filepath.Join(repo, ".git", "refs", "heads", "main"), oidFeature+"\n")
-		}, true},
-		{"a push moves the remote-tracking ref", func(repo string) error {
+		}, differs: true},
+		{name: "a push moves the remote-tracking ref", change: func(repo string) error {
 			return write(filepath.Join(repo, ".git", "refs", "remotes", "origin", "main"), oidPushed+"\n")
-		}, true},
-		{"a switch changes the branch HEAD names", func(repo string) error {
+		}, differs: true},
+		{name: "a switch changes the branch HEAD names", change: func(repo string) error {
 			if err := write(filepath.Join(repo, ".git", "refs", "heads", "feature"), oidFeature+"\n"); err != nil {
 				return err
 			}
 
 			return write(filepath.Join(repo, ".git", "HEAD"), "ref: refs/heads/feature\n")
-		}, true},
-		{"a new branch shows in the refs tree", func(repo string) error {
+		}, differs: true},
+		{name: "a new branch shows in the refs tree", change: func(repo string) error {
 			return write(filepath.Join(repo, ".git", "refs", "heads", "spike"), oidFeature+"\n")
-		}, true},
-		{"a fetch writes FETCH_HEAD", func(repo string) error {
+		}, differs: true},
+		{name: "a fetch writes FETCH_HEAD", change: func(repo string) error {
 			return write(filepath.Join(repo, ".git", "FETCH_HEAD"), oidPushed+"\tbranch 'main' of acme/app\n")
-		}, true},
-		{"a pack of the refs replaces them", func(repo string) error {
+		}, differs: true},
+		{name: "a pack of the refs replaces them", change: func(repo string) error {
 			return write(filepath.Join(repo, ".git", "packed-refs"),
 				"# pack-refs with: peeled fully-peeled sorted \n"+oidMain+" refs/heads/main\n")
-		}, true},
+		}, differs: true},
 	}
 
 	for _, tt := range tests {

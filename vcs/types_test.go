@@ -82,8 +82,8 @@ func TestRepoSummaryDirtyLabel(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		summary  vcs.RepoSummary
 		expected string
+		summary  vcs.RepoSummary
 	}{
 		{name: "clean", summary: vcs.RepoSummary{}, expected: ""},
 		{name: "uncommitted", summary: vcs.RepoSummary{Unstaged: 1}, expected: "uncommitted"},

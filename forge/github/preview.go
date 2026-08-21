@@ -51,11 +51,11 @@ func GetPRPreview(ctx context.Context, repoPath, prURL string) (*forge.PRPreview
 	var resp struct {
 		Body           string `json:"body"`
 		ReviewDecision string `json:"reviewDecision"`
-		Additions      int    `json:"additions"`
-		Deletions      int    `json:"deletions"`
 		ReviewRequests []struct {
 			Login string `json:"login"`
 		} `json:"reviewRequests"`
+		Additions int `json:"additions"`
+		Deletions int `json:"deletions"`
 	}
 
 	if err := json.Unmarshal(out, &resp); err != nil {

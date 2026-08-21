@@ -5,12 +5,10 @@ package cache_test
 type (
 	checksStatus struct{ Total, Passing, Failing, Pending int }
 	prInfo       struct {
-		Number  int
 		Title   string
 		State   string
 		HeadRef string
 		Checks  checksStatus
+		Number  int
 	}
-	branchInfo struct{ Name string }
-	commitInfo struct{ Subject string }
 )

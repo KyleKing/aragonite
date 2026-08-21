@@ -559,9 +559,9 @@ func TestDetectRemoteProtocol(t *testing.T) {
 func TestParseConfigList(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
+		expected map[string]string
 		name     string
 		input    string
-		expected map[string]string
 	}{
 		{
 			name:     "single key",

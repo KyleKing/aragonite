@@ -15,15 +15,15 @@ import (
 )
 
 type prResponse struct {
-	Number            int           `json:"number"`
 	Title             string        `json:"title"`
 	State             string        `json:"state"`
 	URL               string        `json:"url"`
-	IsDraft           bool          `json:"isDraft"`
 	MergeStateStatus  string        `json:"mergeStateStatus"`
 	HeadRefName       string        `json:"headRefName"`
 	BaseRefName       string        `json:"baseRefName"`
 	StatusCheckRollup []statusCheck `json:"statusCheckRollup"`
+	Number            int           `json:"number"`
+	IsDraft           bool          `json:"isDraft"`
 }
 
 type statusCheck struct {
@@ -235,31 +235,31 @@ func GetPRDetail(ctx context.Context, repoPath, remoteID string, prNumber int) (
 	}
 
 	var resp struct {
-		Number           int    `json:"number"`
-		Title            string `json:"title"`
-		State            string `json:"state"`
-		URL              string `json:"url"`
-		IsDraft          bool   `json:"isDraft"`
+		CreatedAt string `json:"createdAt"`
+		UpdatedAt string `json:"updatedAt"`
+		State     string `json:"state"`
+		Author    struct {
+			Login string `json:"login"`
+		} `json:"author"`
+		ReviewDecision   string `json:"reviewDecision"`
 		MergeStateStatus string `json:"mergeStateStatus"`
 		HeadRefName      string `json:"headRefName"`
 		BaseRefName      string `json:"baseRefName"`
+		Title            string `json:"title"`
 		Body             string `json:"body"`
-		Author           struct {
+		URL              string `json:"url"`
+		ReviewRequests   []struct {
 			Login string `json:"login"`
-		} `json:"author"`
+		} `json:"reviewRequests"`
 		Assignees []struct {
 			Login string `json:"login"`
 		} `json:"assignees"`
-		ReviewRequests []struct {
-			Login string `json:"login"`
-		} `json:"reviewRequests"`
-		CreatedAt         string          `json:"createdAt"`
-		UpdatedAt         string          `json:"updatedAt"`
+		Comments          []prComment     `json:"comments"`
+		StatusCheckRollup []detailedCheck `json:"statusCheckRollup"`
+		Number            int             `json:"number"`
 		Additions         int             `json:"additions"`
 		Deletions         int             `json:"deletions"`
-		Comments          []prComment     `json:"comments"`
-		ReviewDecision    string          `json:"reviewDecision"`
-		StatusCheckRollup []detailedCheck `json:"statusCheckRollup"`
+		IsDraft           bool            `json:"isDraft"`
 	}
 
 	if err := json.Unmarshal(out, &resp); err != nil {
@@ -390,27 +390,27 @@ func prListPage(ctx context.Context, repoPath string, env []string, filter ...st
 	}
 
 	var prList []struct {
-		Number              int    `json:"number"`
-		Title               string `json:"title"`
-		State               string `json:"state"`
-		URL                 string `json:"url"`
-		IsDraft             bool   `json:"isDraft"`
-		HeadRefName         string `json:"headRefName"`
-		BaseRefName         string `json:"baseRefName"`
+		UpdatedAt      time.Time `json:"updatedAt"`
+		BaseRefName    string    `json:"baseRefName"`
+		ReviewDecision string    `json:"reviewDecision"`
+		URL            string    `json:"url"`
+		Title          string    `json:"title"`
+		HeadRefName    string    `json:"headRefName"`
+		Author         struct {
+			Login string `json:"login"`
+		} `json:"author"`
 		HeadRepositoryOwner struct {
 			Login string `json:"login"`
 		} `json:"headRepositoryOwner"`
-		ReviewDecision string `json:"reviewDecision"`
+		State          string `json:"state"`
 		ReviewRequests []struct {
 			Login string `json:"login"`
 		} `json:"reviewRequests"`
 		StatusCheckRollup []statusCheck `json:"statusCheckRollup"`
 		Comments          []prComment   `json:"comments"`
 		Reviews           []prReview    `json:"reviews"`
-		Author            struct {
-			Login string `json:"login"`
-		} `json:"author"`
-		UpdatedAt time.Time `json:"updatedAt"`
+		Number            int           `json:"number"`
+		IsDraft           bool          `json:"isDraft"`
 	}
 
 	if err := json.Unmarshal(out, &prList); err != nil {

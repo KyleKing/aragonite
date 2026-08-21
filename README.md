@@ -11,12 +11,13 @@ than designed up front, so every package here has at least one real consumer.
 | Package | What it holds |
 | --- | --- |
 | `cache` | Generic TTL cache with a disk store, a registry for package-level caches, and remote-scoped keys so parallel checkouts of one remote share a read |
+| `forge` | The pull request model shared by every tool that reads a code host: `PullRequest`, its detail and preview forms, checks, and workflow runs |
 
 Planned, once a second consumer needs them:
 
 | Package | Source | Why it is shared |
 | --- | --- | --- |
-| `forge` | gh-repo-dashboard `internal/github` | GitHub through the `gh` CLI |
+| `forge` (client) | gh-repo-dashboard `internal/github` | GitHub through the `gh` CLI, alongside the model already here |
 | `vcs` | gh-repo-dashboard `internal/vcs` | git and jj behind one interface |
 | `filter` | gh-repo-dashboard `internal/filters` | The predicate, query, and sort engine behind both tools' pull request lists |
 | `tui/table` | gh-repo-dashboard `internal/ui/table` | Already depends on nothing but lipgloss and uniseg |

@@ -49,9 +49,11 @@ report what you found.
 
 ## Layout
 
-Public API lives in `pkg/`, importable by other modules, so treat every exported
-symbol there as a compatibility promise. The compiler blocks imports of
-`internal/` from outside this module, so anything under it can change freely.
+Public API is whatever this module exports, so treat every exported symbol as a
+compatibility promise for downstream importers. Group packages by purpose at
+whatever depth fits the project (a `pkg/` root, or flat top-level packages); keep
+anything not meant for consumers unexported, or under `internal/`, which the
+compiler blocks from outside this module.
 
 One package, one purpose. Short lowercase names, no underscores (`httputil`, not
 `http_util`), and no grab-bags (`util`, `common`, `misc`). Name a file after the

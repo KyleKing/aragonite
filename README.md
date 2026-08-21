@@ -6,20 +6,24 @@ skeletons are built from, which puts it alongside calcipy and corallium.
 Extracted from [gh-repo-dashboard](https://github.com/KyleKing/gh-repo-dashboard) rather
 than designed up front, so every package here has at least one real consumer.
 
+Every package holds data and predicates only. Anything that emits a glyph, a
+placeholder, or a human-readable duration stays with the tool that renders it, because
+two tools reading the same checkout render it differently.
+
 ## Packages
 
 | Package | What it holds |
 | --- | --- |
 | `cache` | Generic TTL cache with a disk store, a registry for package-level caches, and remote-scoped keys so parallel checkouts of one remote share a read |
 | `forge` | The pull request model shared by every tool that reads a code host: `PullRequest`, its detail and preview forms, checks, and workflow runs |
+| `forge/github` | GitHub through the `gh` CLI: pull requests, reviews, comments, search, workflow runs, and the caches typed on them. A second host is a sibling directory, not a rename |
 | `transport` | A test seam and mutation guard for an `http.RoundTripper`-based API client: register a fake transport in tests, or get a guard that panics on a real mutating request when none is registered |
+| `vcs` | git and jj behind one interface, with the working-tree summary, branches, commits, stashes, worktrees, diff, checkout identity, and stamp |
 
 Planned, once a second consumer needs them:
 
 | Package | Source | Why it is shared |
 | --- | --- | --- |
-| `forge` (client) | gh-repo-dashboard `internal/github` | GitHub through the `gh` CLI, alongside the model already here |
-| `vcs` | gh-repo-dashboard `internal/vcs` | git and jj behind one interface |
 | `filter` | gh-repo-dashboard `internal/filters` | The predicate, query, and sort engine behind both tools' pull request lists |
 | `tui/table` | gh-repo-dashboard `internal/ui/table` | Already depends on nothing but lipgloss and uniseg |
 | `codeintel` | wavez `internal/codeintel` | Symbols, edges, FTS, and line-to-test coverage in SQLite |

@@ -31,6 +31,8 @@ that is not a git tool needs them.
 
 - [gh-repo-dashboard](https://github.com/KyleKing/gh-repo-dashboard)
 - [second-look](https://github.com/KyleKing/second-look)
+- [gh-sweep](https://github.com/KyleKing/gh-sweep) (`transport` only; see
+  [docs/gh-sweep.md](docs/gh-sweep.md) for why `cache` and `forge` were not a fit)
 
 ## Local development
 

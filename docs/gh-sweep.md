@@ -46,19 +46,29 @@ confirm nothing broke, then repeat.
 | Package | Status | Note |
 | --- | --- | --- |
 | `cache` | Landed | gh-sweep's own `internal/cache.MemoryManager` was already dead code (no callers) and was deleted rather than migrated — `cache.TTLCache[T]` already covers what it did, and better (stamp-based invalidation, not just a flat TTL) |
-| Transport seam + mutation guard | Landing now | See below |
+| `transport` | Landed | See below |
 | `forge.PullRequest` / `WorkflowRun` | Not attempted | See "Why the PR model did not move" |
 
 ### Transport seam + mutation guard
 
-gh-sweep's `internal/github/transport.go` (~99 lines) is an injectable
-`http.RoundTripper` for fake transports in tests, plus a `safetyTransport` that panics on
-any real mutating request (`POST`/`PATCH`/`PUT`/`DELETE`) reached during `go test`. It has
-no GitHub-domain coupling beyond a host/token pinned for the no-fake-registered case, and
-its own comment already says it mirrors a hand-rolled equivalent in gh-lazydispatch's
-`exec.RealExecutor` — a third project re-deriving the same pattern is exactly the signal
-`docs/extraction.md` describes: this is generic go-gh client-safety infrastructure, not
-gh-sweep-specific.
+Moved to aragonite's `transport` package. gh-sweep's `internal/github/transport.go`
+(~99 lines) was an injectable `http.RoundTripper` for fake transports in tests, plus a
+`safetyTransport` that panics on any real mutating request (`POST`/`PATCH`/`PUT`/`DELETE`)
+reached during `go test`. It had no GitHub-domain coupling beyond a host/token pinned for
+the no-fake-registered case, and its own comment already said it mirrored a hand-rolled
+equivalent in gh-lazydispatch's `exec.RealExecutor` — a third project re-deriving the same
+pattern was exactly the signal `docs/extraction.md` describes: generic go-gh client-safety
+infrastructure, not gh-sweep-specific.
+
+gh-sweep's `internal/github/transport.go` is now a thin wrapper: `SetTestTransport`
+delegates straight to `transport.SetTestTransport`, and `clientOptions()` calls
+`transport.Current(http.DefaultTransport)` for the `Transport` field. No call site outside
+that one file changed. `go.mod` pins a real released aragonite commit
+(`go get github.com/kyleking/aragonite@<commit>`); a gitignored `go.work` overrides it to
+the sibling checkout for day-to-day local development, and `mise run verify-released`
+(wired into hk's `pre-push` hook, already in this template's `hk.pkl` since before this
+change) runs the same build and test with `GOWORK=off`, so a push proves the pinned,
+published version actually works rather than only the local override.
 
 Landing in this pass as a new package (name pending — a short survey of what to call a
 "safe transport for a go-gh-backed client" package, distinct from `forge`, is worth doing
@@ -135,8 +145,21 @@ says don't build ahead of a real want.
 
 ## Sequencing
 
-1. Land the transport seam in this pass (aragonite first, then gh-sweep switches its
-   import and confirms its test suite is unchanged).
+1. ~~Land the transport seam~~ Done: aragonite's `transport` package, gh-sweep's
+   `internal/github/transport.go` switched to it, `go.mod`/`go.work`/`verify-released`
+   wired up. gh-sweep is now aragonite's third consumer.
 2. Everything else here waits for either a concrete want (CI-history depth, the batch/
    progress helper) or a second real consumer, matching the project's own "planned, once a
    second consumer needs them" rule in the README.
+
+## A found gap: my_go_template is behind its own main
+
+gh-sweep is generated from [my_go_template](https://github.com/KyleKing/my_go_template),
+pinned to `v0.11.4`. The `verify-released` task and its `hk` pre-push wiring already exist
+on the template's `main` branch (`feat: guard pushes against an unpublished sibling
+module`), just not in a tagged release yet, so gh-sweep's copy was hand-applied to match
+rather than pulled in via `copier update` — bumping `_commit` would have also pulled in
+several unrelated commits (a tombi TOML-formatting fix, a Python bytecode gitignore, a
+tool-version-pin refactor) that are out of scope here. Worth a `v0.11.5` tag on the
+template's own terms, so the next project generated from it (or the next `copier update`
+on an existing one) gets this for free instead of needing the same manual backport.

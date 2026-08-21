@@ -7,6 +7,7 @@
 package vcs
 
 import (
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -150,6 +151,11 @@ func (r RepoSummary) IsLinkedCheckout() bool {
 // that differs from the same key's global value.
 func (r RepoSummary) HasConfigOverrides() bool {
 	return len(r.ConfigOverrides) > 0
+}
+
+// Name returns the checkout's directory name.
+func (r RepoSummary) Name() string {
+	return filepath.Base(r.Path)
 }
 
 // UncommittedCount returns the total number of staged, unstaged, untracked, and

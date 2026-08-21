@@ -89,72 +89,11 @@ type PRActivity struct {
 	At     time.Time `json:"at"`
 }
 
-// ActivitySummary renders the latest activity as an age and an author, or
-// emDash when the pull request has neither comments nor reviews.
-func (p *PullRequest) ActivitySummary() string {
-	if p.Activity == nil || p.Activity.At.IsZero() {
-		return emDash
-	}
-
-	return RelativeTime(p.Activity.At) + " " + p.Activity.Author
-}
-
 // NeedsReviewer reports whether an open, non-draft pull request has nobody
 // currently requested to review it, the case GitHub's own reviewDecision
 // leaves unflagged since it only tracks reviews already submitted.
 func (p PullRequest) NeedsReviewer() bool {
 	return p.State == PRStatusOpen && !p.IsDraft && len(p.Reviewers) == 0
-}
-
-// ReviewGlyph marks an approval or a change request, or is empty otherwise.
-func (p *PullRequest) ReviewGlyph() string {
-	switch p.ReviewDecision {
-	case "APPROVED":
-		return "✓"
-	case "CHANGES_REQUESTED":
-		return "✗"
-	default:
-		return ""
-	}
-}
-
-// StatusDisplay returns the pull request's display status label.
-func (p PullRequest) StatusDisplay() string {
-	if p.IsDraft {
-		return "DRAFT"
-	}
-	switch p.State {
-	case "OPEN":
-		return "OPEN"
-	case PRStatusMerged:
-		return PRStatusMerged
-	case PRStatusClosed:
-		return PRStatusClosed
-	default:
-		return p.State
-	}
-}
-
-// ReviewStatus returns a human-readable summary of the pull request's review decision.
-func (p PullRequest) ReviewStatus() string {
-	return reviewStatus(p.ReviewDecision, p.ApprovedBy)
-}
-
-func reviewStatus(decision string, approvedBy []string) string {
-	switch decision {
-	case "APPROVED":
-		return ReviewApproved
-	case "CHANGES_REQUESTED":
-		return ReviewChangesRequested
-	case "REVIEW_REQUIRED":
-		return "review required"
-	default:
-		if len(approvedBy) > 0 {
-			return ReviewApproved
-		}
-
-		return emDash
-	}
 }
 
 // ChecksStatus tallies a pull request's CI check outcomes.
@@ -164,24 +103,6 @@ type ChecksStatus struct {
 	Failing int `json:"failing"`
 	Pending int `json:"pending"`
 	Skipped int `json:"skipped"`
-}
-
-// Summary returns a one-word overall status for the checks.
-func (c ChecksStatus) Summary() string {
-	if c.Total == 0 {
-		return emDash
-	}
-	if c.Failing > 0 {
-		return StatusFailing
-	}
-	if c.Pending > 0 {
-		return "pending"
-	}
-	if c.Passing == c.Total {
-		return StatusPassing
-	}
-
-	return "mixed"
 }
 
 // CheckDetail is a single CI check on a pull request.
@@ -194,44 +115,11 @@ type CheckDetail struct {
 	CompletedAt time.Time
 }
 
-// StatusDisplay returns the check's lowercased conclusion once it has
-// completed, or its in-flight status ("queued", "in progress") before then.
-func (c CheckDetail) StatusDisplay() string {
-	status := strings.ToLower(c.Status)
-	if status == StatusCompleted && c.Conclusion != "" {
-		return strings.ToLower(c.Conclusion)
-	}
-	if status == "" {
-		return emDash
-	}
-
-	return strings.ReplaceAll(status, "_", " ")
-}
-
-// Duration renders how long the check ran, or emDash while it's still running.
-func (c CheckDetail) Duration() string {
-	if c.StartedAt.IsZero() || c.CompletedAt.IsZero() {
-		return emDash
-	}
-
-	elapsed := c.CompletedAt.Sub(c.StartedAt).Round(time.Second)
-	if elapsed < 0 {
-		return emDash
-	}
-
-	return elapsed.String()
-}
-
 // PRComment is a single issue comment on a pull request.
 type PRComment struct {
 	Author    string
 	Body      string
 	CreatedAt time.Time
-}
-
-// RelativeCreated returns a human-readable relative time for the comment.
-func (c PRComment) RelativeCreated() string {
-	return RelativeTime(c.CreatedAt)
 }
 
 // PRDetail holds the full detail view state for a single pull request.
@@ -253,16 +141,6 @@ type PRDetail struct {
 	ReviewsURL    string
 }
 
-// RelativeCreated returns a human-readable relative time for the pull request's creation.
-func (p PRDetail) RelativeCreated() string {
-	return RelativeTime(p.CreatedAt)
-}
-
-// RelativeUpdated returns a human-readable relative time for the pull request's last update.
-func (p PRDetail) RelativeUpdated() string {
-	return RelativeTime(p.UpdatedAt)
-}
-
 // WorkflowRun summarizes a single CI workflow run.
 type WorkflowRun struct {
 	ID         int64
@@ -274,46 +152,12 @@ type WorkflowRun struct {
 	UpdatedAt  time.Time
 }
 
-// StatusDisplay returns the workflow run's display status label.
-func (w WorkflowRun) StatusDisplay() string {
-	if w.Status == StatusCompleted {
-		return w.Conclusion
-	}
-
-	return w.Status
-}
-
 // DefaultBranchCI is the CI state of a repo's default branch head: the latest
 // run of each workflow on that commit.
 type DefaultBranchCI struct {
 	Branch    string          `json:"branch"`
 	SHA       string          `json:"sha"`
 	Workflows []CIWorkflowRun `json:"workflows"`
-}
-
-// Conclusion rolls the workflows up into one word: failing if any failed,
-// pending while any is still going, passing when all succeeded, and emDash
-// when the commit has no runs at all.
-func (c *DefaultBranchCI) Conclusion() string {
-	if len(c.Workflows) == 0 {
-		return emDash
-	}
-
-	pending := false
-	for i := range c.Workflows {
-		switch {
-		case c.Workflows[i].Conclusion == "failure":
-			return StatusFailing
-		case c.Workflows[i].Status != StatusCompleted:
-			pending = true
-		}
-	}
-
-	if pending {
-		return "pending"
-	}
-
-	return StatusPassing
 }
 
 // CIWorkflowRun is one workflow's latest run on a commit.
@@ -341,24 +185,6 @@ type WorkflowSummary struct {
 	InProgress int
 }
 
-// StatusDisplay returns a one-word overall status for the workflow runs.
-func (w WorkflowSummary) StatusDisplay() string {
-	if w.Total == 0 {
-		return emDash
-	}
-	if w.Failing > 0 {
-		return StatusFailing
-	}
-	if w.InProgress > 0 {
-		return "running"
-	}
-	if w.Passing == w.Total {
-		return StatusPassing
-	}
-
-	return "mixed"
-}
-
 // PRPreview is the little a PRs-tab row needs to show under the table: enough
 // to judge whether the pull request is worth opening, and nothing that costs
 // GitHub a second query to answer.
@@ -368,10 +194,4 @@ type PRPreview struct {
 	ReviewDecision string
 	Additions      int
 	Deletions      int
-}
-
-// ReviewStatus reports the preview's review state in the same vocabulary the
-// full detail uses.
-func (p PRPreview) ReviewStatus() string {
-	return reviewStatus(p.ReviewDecision, nil)
 }

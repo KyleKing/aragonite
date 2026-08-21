@@ -22,13 +22,17 @@ const (
 
 // PullRequest summarizes a pull request for the repo list and detail views.
 type PullRequest struct {
-	Number          int          `json:"number"`
-	Title           string       `json:"title"`
-	State           string       `json:"state"`
-	URL             string       `json:"url"`
-	IsDraft         bool         `json:"is_draft"`
-	Mergeable       string       `json:"mergeable,omitempty"`
-	HeadRef         string       `json:"head_ref"`
+	Number    int    `json:"number"`
+	Title     string `json:"title"`
+	State     string `json:"state"`
+	URL       string `json:"url"`
+	IsDraft   bool   `json:"is_draft"`
+	Mergeable string `json:"mergeable,omitempty"`
+	HeadRef   string `json:"head_ref"`
+	// HeadSHA is the head branch's tip commit. A review anchors to it, so a
+	// reader that only lists pull requests leaves it empty rather than paying
+	// for it.
+	HeadSHA         string       `json:"head_sha,omitempty"`
 	HeadRepoOwner   string       `json:"head_repo_owner,omitempty"`
 	BaseRef         string       `json:"base_ref"`
 	Checks          ChecksStatus `json:"checks"`

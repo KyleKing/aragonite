@@ -26,8 +26,6 @@ const testRemoteID = "github.com/owner/repo"
 // of shelling out, plus a pointer to the recorded call args. It's local to the
 // returned context, so subtests using their own stubRunGH call can run with
 // t.Parallel() safely.
-//
-//nolint:gocritic // context.Context and *[][]string are unambiguous by type
 func stubRunGH(out []byte, err error) (context.Context, *[][]string) {
 	var calls [][]string
 	stub := func(_ context.Context, _ string, _ []string, args ...string) ([]byte, error) {

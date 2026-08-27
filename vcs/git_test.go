@@ -189,8 +189,6 @@ func TestParseStatusCounts(t *testing.T) {
 
 // classifyStatusEntry mirrors GitOperations.classifyPorcelainEntry for testing
 // the porcelain XY status code classification without shelling out to git.
-//
-//nolint:gocritic // named results trip nonamedreturns instead; (staged, unstaged, untracked, conflicted) by position
 func classifyStatusEntry(x, y byte) (int, int, int, int) {
 	switch {
 	case x == 'U' || y == 'U' || (x == 'D' && y == 'D') || (x == 'A' && y == 'A'):
@@ -210,7 +208,6 @@ func classifyStatusEntry(x, y byte) (int, int, int, int) {
 	}
 }
 
-//nolint:gocritic // named results trip nonamedreturns instead; (staged, unstaged, untracked, conflicted) by position
 func parseStatusOutput(out string) (int, int, int, int) {
 	var staged, unstaged, untracked, conflicted int
 
@@ -285,8 +282,6 @@ func TestParseBranchTrackingInfo(t *testing.T) {
 }
 
 // parseBranchTracking returns (ahead, behind) parsed from a git branch tracking annotation.
-//
-//nolint:gocritic // see doc comment for result order
 func parseBranchTracking(s string) (int, int) {
 	if s == "" || s == "[gone]" {
 		return 0, 0
@@ -517,8 +512,6 @@ func TestParseRevListOutput(t *testing.T) {
 }
 
 // parseRevListOutput returns (ahead, behind) parsed from `git rev-list --left-right --count` output.
-//
-//nolint:gocritic // see doc comment for result order
 func parseRevListOutput(out string) (int, int) {
 	parts := strings.Fields(out)
 	if len(parts) != 2 {

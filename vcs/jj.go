@@ -186,8 +186,6 @@ func (j *JJOperations) GetUpstream(ctx context.Context, repoPath, branch string)
 }
 
 // GetAheadBehind implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ahead, behind int, err error)
 func (j *JJOperations) GetAheadBehind(ctx context.Context, repoPath, branch, upstream string) (int, int, error) {
 	if branch == "@" || branch == "" || upstream == "" {
 		return 0, 0, nil
@@ -215,8 +213,6 @@ const jjCommitLineFormat = `commit_id.short() ++ "\n"`
 // jj, so ahead/behind are the sizes of the `::branch ~ ::target` and
 // `::target ~ ::branch` revsets. Bookmark names are quoted so names with
 // slashes resolve.
-//
-//nolint:gocritic // matches the Operations interface's (ahead, behind int, err error)
 func (j *JJOperations) CompareBranches(ctx context.Context, repoPath, branch, target string) (int, int, error) {
 	ahead, err := j.countRevset(ctx, repoPath, fmt.Sprintf("::%q ~ ::%q", branch, target))
 	if err != nil {
@@ -438,8 +434,6 @@ func (j *JJOperations) GetRemoteURL(ctx context.Context, repoPath string) (strin
 }
 
 // FetchAll implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (j *JJOperations) FetchAll(ctx context.Context, repoPath string) (bool, string, error) {
 	_, err := j.runJJ(ctx, repoPath, "git", "fetch", "--all-remotes")
 	if err != nil {
@@ -452,8 +446,6 @@ func (j *JJOperations) FetchAll(ctx context.Context, repoPath string) (bool, str
 
 // PushBranch implements Operations. Pushing a bookmark carries the tags on the
 // commits it points at, so --follow-tags has no jj equivalent.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (j *JJOperations) PushBranch(
 	ctx context.Context, repoPath, branch string, setUpstream bool,
 ) (bool, string, error) {
@@ -472,8 +464,6 @@ func (j *JJOperations) PushBranch(
 
 // SwitchBranch implements Operations, moving the working copy onto the
 // bookmark's own change rather than creating a child change.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (j *JJOperations) SwitchBranch(ctx context.Context, repoPath, branch string) (bool, string, error) {
 	if _, err := j.runJJ(ctx, repoPath, "edit", branch); err != nil {
 		//nolint:nilerr // failure is reported through the message, not the error field
@@ -485,8 +475,6 @@ func (j *JJOperations) SwitchBranch(ctx context.Context, repoPath, branch string
 
 // DeleteBranch implements Operations. Bookmarks carry no merged/unmerged
 // distinction for the delete itself, so force changes nothing here.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (j *JJOperations) DeleteBranch(ctx context.Context, repoPath, branch string, _ bool) (bool, string, error) {
 	if _, err := j.runJJ(ctx, repoPath, "bookmark", "delete", branch); err != nil {
 		//nolint:nilerr // failure is reported through the message, not the error field
@@ -498,22 +486,16 @@ func (j *JJOperations) DeleteBranch(ctx context.Context, repoPath, branch string
 
 // ApplyStash implements Operations. JJ has no stash: a change is already a
 // change, so there is nothing to restore.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (*JJOperations) ApplyStash(_ context.Context, _ string, _ int) (bool, string, error) {
 	return false, "JJ has no stashes", nil
 }
 
 // DropStash implements Operations. See ApplyStash.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (*JJOperations) DropStash(_ context.Context, _ string, _ int) (bool, string, error) {
 	return false, "JJ has no stashes", nil
 }
 
 // PruneRemote implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (*JJOperations) PruneRemote(_ context.Context, _ string) (bool, string, error) {
 	return true, "JJ doesn't require explicit pruning", nil
 }
@@ -554,8 +536,6 @@ func (j *JJOperations) resolveDefaultBookmark(ctx context.Context, repoPath stri
 // PreviewMergedBranches reports the default bookmark and the bookmarks fully
 // merged into it, without deleting anything. Used by the `:cleanup --dry-run`
 // preview; not part of the Mutator interface since it's read-only.
-//
-//nolint:gocritic // matches GitOperations.PreviewMergedBranches's (default branch, merged, err)
 func (j *JJOperations) PreviewMergedBranches(ctx context.Context, repoPath string) (string, []string, error) {
 	defaultBookmark := j.resolveDefaultBookmark(ctx, repoPath)
 
@@ -589,8 +569,6 @@ func (j *JJOperations) isMergedIntoDefault(ctx context.Context, repoPath, bookma
 // as squash-merged. `jj bookmark delete` doesn't distinguish a true merge
 // from a squash merge, so squash-merged bookmarks are deleted the same way
 // as fully-merged ones.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (j *JJOperations) CleanupMergedBranches(
 	ctx context.Context, repoPath string, squashMerged []string,
 ) (bool, string, error) {

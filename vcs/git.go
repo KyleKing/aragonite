@@ -151,8 +151,6 @@ func (g *GitOperations) GetUpstream(ctx context.Context, repoPath, branch string
 }
 
 // GetAheadBehind implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ahead, behind int, err error)
 func (g *GitOperations) GetAheadBehind(ctx context.Context, repoPath, branch, upstream string) (int, int, error) {
 	out, err := g.runGit(ctx, repoPath, "rev-list", "--left-right", "--count", fmt.Sprintf("%s...%s", branch, upstream))
 	if err != nil {
@@ -175,8 +173,6 @@ func (g *GitOperations) GetAheadBehind(ctx context.Context, repoPath, branch, up
 // CompareBranches implements Operations. Git's rev-list comparison works for
 // any two local refs, so this reuses GetAheadBehind with the default branch as
 // the right-hand side.
-//
-//nolint:gocritic // matches the Operations interface's (ahead, behind int, err error)
 func (g *GitOperations) CompareBranches(ctx context.Context, repoPath, branch, target string) (int, int, error) {
 	return g.GetAheadBehind(ctx, repoPath, branch, target)
 }
@@ -596,8 +592,6 @@ func (g *GitOperations) GetRemoteURL(ctx context.Context, repoPath string) (stri
 }
 
 // FetchAll implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) FetchAll(ctx context.Context, repoPath string) (bool, string, error) {
 	_, err := g.runGit(ctx, repoPath, "fetch", "--all", "--prune")
 	if err != nil {
@@ -609,8 +603,6 @@ func (g *GitOperations) FetchAll(ctx context.Context, repoPath string) (bool, st
 }
 
 // PushBranch implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) PushBranch(
 	ctx context.Context, repoPath, branch string, setUpstream bool,
 ) (bool, string, error) {
@@ -629,8 +621,6 @@ func (g *GitOperations) PushBranch(
 }
 
 // SwitchBranch implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) SwitchBranch(ctx context.Context, repoPath, branch string) (bool, string, error) {
 	if _, err := g.runGit(ctx, repoPath, "switch", branch); err != nil {
 		//nolint:nilerr // failure is reported through the message, not the error field
@@ -641,8 +631,6 @@ func (g *GitOperations) SwitchBranch(ctx context.Context, repoPath, branch strin
 }
 
 // DeleteBranch implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) DeleteBranch(ctx context.Context, repoPath, branch string, force bool) (bool, string, error) {
 	flag := "-d"
 	if force {
@@ -658,8 +646,6 @@ func (g *GitOperations) DeleteBranch(ctx context.Context, repoPath, branch strin
 }
 
 // ApplyStash implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) ApplyStash(ctx context.Context, repoPath string, index int) (bool, string, error) {
 	ref := stashRef(index)
 	if _, err := g.runGit(ctx, repoPath, "stash", "apply", ref); err != nil {
@@ -671,8 +657,6 @@ func (g *GitOperations) ApplyStash(ctx context.Context, repoPath string, index i
 }
 
 // DropStash implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) DropStash(ctx context.Context, repoPath string, index int) (bool, string, error) {
 	ref := stashRef(index)
 	if _, err := g.runGit(ctx, repoPath, "stash", "drop", ref); err != nil {
@@ -688,8 +672,6 @@ func stashRef(index int) string {
 }
 
 // PruneRemote implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) PruneRemote(ctx context.Context, repoPath string) (bool, string, error) {
 	_, err := g.runGit(ctx, repoPath, "remote", "prune", "origin")
 	if err != nil {
@@ -727,8 +709,6 @@ func (g *GitOperations) resolveDefaultBranch(ctx context.Context, repoPath strin
 // PreviewMergedBranches reports the default branch and the local branches
 // fully merged into it, without deleting anything. Used by the `:cleanup
 // --dry-run` preview; not part of the Mutator interface since it's read-only.
-//
-//nolint:gocritic // matches JJOperations.PreviewMergedBranches's (default branch, merged, err)
 func (g *GitOperations) PreviewMergedBranches(ctx context.Context, repoPath string) (string, []string, error) {
 	mainBranch, ok := g.resolveDefaultBranch(ctx, repoPath)
 	if !ok {
@@ -813,8 +793,6 @@ func (g *GitOperations) localBranchNames(ctx context.Context, repoPath string) (
 // not the current branch, and not checked out in any worktree. Squash-merged
 // branches need `-D` because git's own merge-base check considers them
 // unmerged (the squash commit differs from the branch's own tip).
-//
-//nolint:gocritic // matches CleanupMergedBranches's (deleted, failed []string)
 func (g *GitOperations) deleteSquashMerged(
 	ctx context.Context, repoPath string, squashMerged []string,
 ) ([]string, []string) {
@@ -859,8 +837,6 @@ func cleanupMessage(noun string, deleted, failed []string) string {
 // commit differs from the original branch tip, so they're deleted with `-D`
 // instead of `-d`, and only when not the current branch and not checked out
 // in a worktree.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (g *GitOperations) CleanupMergedBranches(
 	ctx context.Context, repoPath string, squashMerged []string,
 ) (bool, string, error) {

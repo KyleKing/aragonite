@@ -31,8 +31,6 @@ type MockOperations struct {
 }
 
 // DeleteBranch implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) DeleteBranch(
 	ctx context.Context, repoPath, branch string, force bool,
 ) (bool, string, error) {
@@ -44,8 +42,6 @@ func (m *MockOperations) DeleteBranch(
 }
 
 // ApplyStash implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) ApplyStash(ctx context.Context, repoPath string, index int) (bool, string, error) {
 	if m.ApplyStashFn != nil {
 		return m.ApplyStashFn(ctx, repoPath, index)
@@ -55,8 +51,6 @@ func (m *MockOperations) ApplyStash(ctx context.Context, repoPath string, index 
 }
 
 // DropStash implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) DropStash(ctx context.Context, repoPath string, index int) (bool, string, error) {
 	if m.DropStashFn != nil {
 		return m.DropStashFn(ctx, repoPath, index)
@@ -93,8 +87,6 @@ func (m *MockOperations) GetUpstream(ctx context.Context, repoPath, branch strin
 }
 
 // GetAheadBehind implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ahead, behind int, err error)
 func (m *MockOperations) GetAheadBehind(ctx context.Context, repoPath, branch, upstream string) (int, int, error) {
 	if m.GetAheadBehindFn != nil {
 		return m.GetAheadBehindFn(ctx, repoPath, branch, upstream)
@@ -104,8 +96,6 @@ func (m *MockOperations) GetAheadBehind(ctx context.Context, repoPath, branch, u
 }
 
 // CompareBranches implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ahead, behind int, err error)
 func (m *MockOperations) CompareBranches(ctx context.Context, repoPath, branch, target string) (int, int, error) {
 	if m.CompareBranchesFn != nil {
 		return m.CompareBranchesFn(ctx, repoPath, branch, target)
@@ -187,8 +177,6 @@ func (m *MockOperations) VCSType() Type {
 }
 
 // FetchAll implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) FetchAll(ctx context.Context, repoPath string) (bool, string, error) {
 	if m.FetchAllFn != nil {
 		return m.FetchAllFn(ctx, repoPath)
@@ -198,8 +186,6 @@ func (m *MockOperations) FetchAll(ctx context.Context, repoPath string) (bool, s
 }
 
 // PruneRemote implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) PruneRemote(ctx context.Context, repoPath string) (bool, string, error) {
 	if m.PruneRemoteFn != nil {
 		return m.PruneRemoteFn(ctx, repoPath)
@@ -209,8 +195,6 @@ func (m *MockOperations) PruneRemote(ctx context.Context, repoPath string) (bool
 }
 
 // PushBranch implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) PushBranch(
 	ctx context.Context, repoPath, branch string, setUpstream bool,
 ) (bool, string, error) {
@@ -222,8 +206,6 @@ func (m *MockOperations) PushBranch(
 }
 
 // SwitchBranch implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) SwitchBranch(ctx context.Context, repoPath, branch string) (bool, string, error) {
 	if m.SwitchBranchFn != nil {
 		return m.SwitchBranchFn(ctx, repoPath, branch)
@@ -233,8 +215,6 @@ func (m *MockOperations) SwitchBranch(ctx context.Context, repoPath, branch stri
 }
 
 // CleanupMergedBranches implements Operations.
-//
-//nolint:gocritic // matches the Operations interface's (ok bool, msg string, err error)
 func (m *MockOperations) CleanupMergedBranches(
 	ctx context.Context, repoPath string, squashMerged []string,
 ) (bool, string, error) {

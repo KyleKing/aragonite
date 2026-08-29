@@ -1,3 +1,17 @@
+## v0.2.0 (2026-08-29)
+
+### Feat
+
+- **display**: render forge and vcs models as plain text
+- **tui**: add the markdown body renderer
+- **tui**: add Catppuccin palettes with terminal-background detection
+- **tui**: add the expandable region renderer
+- **tui**: add the table column-fitting engine
+
+### Fix
+
+- **ci**: serialize Bump Version so duplicate runs cannot race on the tag
+
 ## v0.1.1 (2026-08-27)
 
 ### Fix

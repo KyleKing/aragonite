@@ -37,19 +37,12 @@ type Fact struct {
 // Head renders its body straight under the opening rule, and one with no
 // Section runs the two together.
 type Region struct {
-	// Title names the opening rule, Section the rule between the head and the
-	// body, and Caption sits right-aligned in the closing divider.
-	Title string
-	Head  []Fact
-	// HeadColumns is the most fact columns the head may pack onto one line
-	// where width allows. It belongs to the caller because only the caller
-	// knows how long its values run: facts holding a word or two read well
-	// side by side, and facts holding a sentence do not. Zero and one both
-	// mean one fact per line.
-	HeadColumns int
+	Title       string
 	Section     string
-	Body        []string
 	Caption     string
+	Head        []Fact
+	Body        []string
+	HeadColumns int
 }
 
 // ruleLead is the ─ run on the short side of a rule, and ruleSpaces the blank

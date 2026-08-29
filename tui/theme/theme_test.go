@@ -10,16 +10,16 @@ func TestSelect(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		want     theme.Palette
 		name     string
 		override string
-		want     theme.Palette
 		probes   bool
 	}{
-		{"override light", "Light", theme.Latte(), false},
-		{"override latte", "latte", theme.Latte(), false},
-		{"override dark", "dark", theme.Macchiato(), false},
-		{"unknown override falls through", "solarized", theme.Macchiato(), true},
-		{"empty override probes", "", theme.Macchiato(), true},
+		{name: "override light", override: "Light", want: theme.Latte()},
+		{name: "override latte", override: "latte", want: theme.Latte()},
+		{name: "override dark", override: "dark", want: theme.Macchiato()},
+		{name: "unknown override falls through", override: "solarized", want: theme.Macchiato(), probes: true},
+		{name: "empty override probes", override: "", want: theme.Macchiato(), probes: true},
 	}
 
 	for _, tc := range tests {

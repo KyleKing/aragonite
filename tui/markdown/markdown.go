@@ -93,9 +93,9 @@ func clamp(lines []string, maxLines int, muted lipgloss.Style) []string {
 // segment is one rendered block: a paragraph, a list item, a folded details
 // summary, or a blank separator.
 type segment struct {
+	style    lipgloss.Style
 	text     string
 	prefix   string
-	style    lipgloss.Style
 	blank    bool
 	rule     bool
 	verbatim bool
@@ -143,10 +143,10 @@ func clip(text string, width int) string {
 // inside a fenced code block, and how deep in a `<details>` block it is.
 type parser struct {
 	styles  Styles
-	fenced  bool
+	summary string
 	depth   int
 	hidden  int
-	summary string
+	fenced  bool
 }
 
 func parse(body string, s Styles) []segment {

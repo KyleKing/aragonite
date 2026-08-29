@@ -4,17 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyleking/aragonite/forge"
-
 	"github.com/kyleking/aragonite/display"
+	"github.com/kyleking/aragonite/forge"
 )
 
 func TestPRInfoStatusDisplay(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		pr       forge.PullRequest
 		expected string
+		pr       forge.PullRequest
 	}{
 		{
 			name:     "draft pr",
@@ -58,8 +57,8 @@ func TestPRInfoReviewStatus(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		pr       forge.PullRequest
 		expected string
+		pr       forge.PullRequest
 	}{
 		{
 			name:     "approved via decision",
@@ -103,8 +102,8 @@ func TestChecksStatusSummary(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		checks   forge.ChecksStatus
 		expected string
+		checks   forge.ChecksStatus
 	}{
 		{
 			name:     "no checks",
@@ -153,8 +152,8 @@ func TestWorkflowRunStatusDisplay(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		run      forge.WorkflowRun
 		expected string
+		run      forge.WorkflowRun
 	}{
 		{
 			name:     "completed shows conclusion",
@@ -188,8 +187,8 @@ func TestWorkflowSummaryStatusDisplay(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		summary  forge.WorkflowSummary
 		expected string
+		summary  forge.WorkflowSummary
 	}{
 		{
 			name:     "no runs",
@@ -277,8 +276,8 @@ func TestDefaultBranchCIConclusion(t *testing.T) {
 
 	tests := []struct {
 		name string
-		ci   forge.DefaultBranchCI
 		want string
+		ci   forge.DefaultBranchCI
 	}{
 		{name: "no runs", ci: forge.DefaultBranchCI{}, want: "—"},
 		{

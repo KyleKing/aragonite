@@ -61,13 +61,10 @@ type Column struct {
 // Layout is a resolved table: the columns that survived collapse, in render
 // order, each with a final width.
 type Layout struct {
-	Columns []Column
-	Hidden  int
-
-	// unmarked suppresses the hidden-column marker, for a table too narrow to
-	// spend five cells saying what it dropped.
-	unmarked bool
 	widths   map[string]int
+	Columns  []Column
+	Hidden   int
+	unmarked bool
 }
 
 // Width returns the resolved width of the named column, or zero when it was

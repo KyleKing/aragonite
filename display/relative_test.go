@@ -4,9 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kyleking/aragonite/vcs"
-
 	"github.com/kyleking/aragonite/display"
+	"github.com/kyleking/aragonite/vcs"
 )
 
 func TestRelativeTimeJustNow(t *testing.T) {
@@ -127,8 +126,8 @@ func TestRepoStatusSummary(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		summary  vcs.RepoSummary
 		expected string
+		summary  vcs.RepoSummary
 	}{
 		{name: "clean", summary: vcs.RepoSummary{}, expected: "✓"},
 		{name: "staged only", summary: vcs.RepoSummary{Staged: 2}, expected: "+2"},

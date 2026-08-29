@@ -95,8 +95,8 @@ func TestFitCollapsesByAscendingPriority(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		width   int
 		want    []string
+		width   int
 		hidden  int
 		overrun bool
 	}{
@@ -160,9 +160,9 @@ func TestPadMeasuresDisplayWidth(t *testing.T) {
 	tests := []struct {
 		name  string
 		text  string
+		want  string
 		width int
 		align table.Align
-		want  string
 	}{
 		{name: "left pads on the right", text: "ab", width: 5, want: "ab   "},
 		{name: "right pads on the left", text: "ab", width: 5, align: table.AlignRight, want: "   ab"},

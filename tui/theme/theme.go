@@ -69,7 +69,7 @@ func (p Palette) Semantic() Semantic {
 }
 
 // Latte returns the Catppuccin Latte (light) palette.
-func Latte() Palette {
+func Latte() Palette { //nolint:dupl // two flavors of one struct are duplicates by construction
 	return Palette{
 		Base:     lipgloss.Color("#eff1f5"),
 		Mantle:   lipgloss.Color("#e6e9ef"),
@@ -102,7 +102,7 @@ func Latte() Palette {
 }
 
 // Macchiato returns the Catppuccin Macchiato (medium-dark) palette.
-func Macchiato() Palette {
+func Macchiato() Palette { //nolint:dupl // two flavors of one struct are duplicates by construction
 	return Palette{
 		Base:     lipgloss.Color("#24273a"),
 		Mantle:   lipgloss.Color("#1e2030"),

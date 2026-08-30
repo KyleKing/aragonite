@@ -2,6 +2,7 @@ package github_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -42,8 +43,12 @@ func TestPRDiff_ReturnsPatchVerbatim(t *testing.T) {
 
 	patch := "diff --git a/x b/x\n@@ -1 +1 @@\n-old\n+new\n"
 
+	var args []string
+
 	ctx := github.WithGHRunner(t.Context(),
-		func(_ context.Context, _ string, _ []string, _ ...string) ([]byte, error) {
+		func(_ context.Context, _ string, _ []string, a ...string) ([]byte, error) {
+			args = a
+
 			return []byte(patch), nil
 		})
 
@@ -54,5 +59,11 @@ func TestPRDiff_ReturnsPatchVerbatim(t *testing.T) {
 
 	if string(out) != patch {
 		t.Errorf("diff = %q, want %q", out, patch)
+	}
+
+	// --patch returns a format-patch series numbered per commit, which anchors
+	// a review comment to the wrong line.
+	if slices.Contains(args, "--patch") {
+		t.Errorf("gh was asked for a patch series: %v", args)
 	}
 }

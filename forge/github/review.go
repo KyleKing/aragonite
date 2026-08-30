@@ -51,11 +51,17 @@ func GetPR(ctx context.Context, repoPath string, number int) (*forge.PullRequest
 	}, nil
 }
 
-// PRDiff returns the pull request's unified diff. The bytes are what a review
-// anchors against, so callers keep them verbatim rather than re-rendering.
+// PRDiff returns the pull request's cumulative unified diff against its merge
+// base, which is what review comment line numbers are relative to. The bytes
+// are what a review anchors against, so callers keep them verbatim rather than
+// re-rendering.
+//
+// Never pass --patch: that returns a format-patch series, one diff per commit,
+// where a file touched twice appears twice and the line numbers are the
+// intermediate commit's rather than the head's.
 func PRDiff(ctx context.Context, repoPath string, number int) ([]byte, error) {
 	out, err := runGH(ctx, repoPath, vcs.GetGitHubEnv(repoPath),
-		"pr", "diff", strconv.Itoa(number), "--patch")
+		"pr", "diff", strconv.Itoa(number))
 	if err != nil {
 		return nil, fmt.Errorf("reading the diff of pull request #%d: %w", number, err)
 	}

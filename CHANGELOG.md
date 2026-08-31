@@ -1,3 +1,9 @@
+## v0.2.1 (2026-08-31)
+
+### Fix
+
+- **forge**: read the cumulative pull request diff, not a patch series
+
 ## v0.2.0 (2026-08-29)
 
 ### Feat

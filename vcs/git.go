@@ -682,12 +682,12 @@ func (g *GitOperations) PruneRemote(ctx context.Context, repoPath string) (bool,
 	return true, "Pruned stale remote branches", nil
 }
 
-// resolveDefaultBranch returns the repository's default branch and whether one
+// ResolveDefaultBranch returns the repository's default branch and whether one
 // was found. It prefers the remote's advertised HEAD (`git symbolic-ref
 // refs/remotes/origin/HEAD`), which reflects the actual default even when it's
 // neither "main" nor "master", falling back to probing for local main/master
 // when no such ref exists (e.g. no remote, or origin/HEAD was never set).
-func (g *GitOperations) resolveDefaultBranch(ctx context.Context, repoPath string) (string, bool) {
+func (g *GitOperations) ResolveDefaultBranch(ctx context.Context, repoPath string) (string, bool) {
 	const originHEADPrefix = "refs/remotes/origin/"
 
 	if out, err := g.runGit(ctx, repoPath, "symbolic-ref", "refs/remotes/origin/HEAD"); err == nil {
@@ -710,7 +710,7 @@ func (g *GitOperations) resolveDefaultBranch(ctx context.Context, repoPath strin
 // fully merged into it, without deleting anything. Used by the `:cleanup
 // --dry-run` preview; not part of the Mutator interface since it's read-only.
 func (g *GitOperations) PreviewMergedBranches(ctx context.Context, repoPath string) (string, []string, error) {
-	mainBranch, ok := g.resolveDefaultBranch(ctx, repoPath)
+	mainBranch, ok := g.ResolveDefaultBranch(ctx, repoPath)
 	if !ok {
 		return "", nil, nil
 	}
@@ -840,7 +840,7 @@ func cleanupMessage(noun string, deleted, failed []string) string {
 func (g *GitOperations) CleanupMergedBranches(
 	ctx context.Context, repoPath string, squashMerged []string,
 ) (bool, string, error) {
-	mainBranch, ok := g.resolveDefaultBranch(ctx, repoPath)
+	mainBranch, ok := g.ResolveDefaultBranch(ctx, repoPath)
 	if !ok {
 		return false, "Could not find main or master branch", nil
 	}

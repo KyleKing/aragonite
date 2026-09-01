@@ -1,3 +1,9 @@
+## v0.6.0 (2026-09-01)
+
+### Feat
+
+- **forge**: report whether a workflow run finished and passed
+
 ## v0.5.1 (2026-09-01)
 
 ### Refactor

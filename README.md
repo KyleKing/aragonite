@@ -33,6 +33,7 @@ Planned, once a second consumer needs them:
 | --- | --- | --- |
 | `filter` | gh-repo-dashboard `internal/filters` | The predicate, query, and sort engine behind both tools' pull request lists |
 | `codeintel` | wavez `internal/codeintel` | Symbols, edges, FTS, and line-to-test coverage in SQLite |
+| `tui/editor` | second-look `internal/tui` | A text box with modal editing: normal and insert modes, `hjkl w b 0 $`, `x dd D cc`, `i a o` and their capitals, and undo. Every tool here writes prose in a terminal (a review comment, a pull request body, a commit message) and `bubbles/textarea` gives them arrow keys. Two open questions: how far to go before the missing key is worse than no modes at all (counts, registers, and `/` are where the subset starts lying), and whether the honest answer is to hand the buffer to the user's own `nvim` in a small pane the way Claude Code's ctrl+g does, which costs nothing to learn and gets their real config |
 
 Generic TUI helpers start under `tui/`. They only earn their own module if something
 that is not a git tool needs them.

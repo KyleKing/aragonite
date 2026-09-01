@@ -23,6 +23,31 @@ const (
 	daysPerYear  = 365
 )
 
+// RelativeTimeCompact renders t as a duration relative to now in the narrowest
+// form that stays readable ("3m ago", "2h ago", "5d ago"), falling back to a
+// calendar date past a week. A table column holding a time is a handful of
+// cells wide, which RelativeTime's "3 minutes ago" does not fit in.
+func RelativeTimeCompact(t time.Time) string {
+	if t.IsZero() {
+		return EmDash
+	}
+
+	diff := time.Since(t)
+
+	switch {
+	case diff < time.Minute:
+		return "just now"
+	case diff < time.Hour:
+		return fmt.Sprintf("%dm ago", int(diff.Minutes()))
+	case diff < hoursPerDay*time.Hour:
+		return fmt.Sprintf("%dh ago", int(diff.Hours()))
+	case diff < daysPerWeek*hoursPerDay*time.Hour:
+		return fmt.Sprintf("%dd ago", int(diff.Hours()/hoursPerDay))
+	default:
+		return t.Format("Jan 2")
+	}
+}
+
 // RelativeTime renders t as a human-readable duration relative to now (e.g. "3 days ago").
 func RelativeTime(t time.Time) string {
 	if t.IsZero() {

@@ -162,3 +162,39 @@ func TestRepoRelativeModified(t *testing.T) {
 		t.Error("expected non-empty relative time")
 	}
 }
+
+// A table's time column is a handful of cells wide, so the compact form has to
+// stay short at every scale and say something for a time the model lacks.
+func TestRelativeTimeCompact(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ago  time.Duration
+		want string
+	}{
+		{name: "seconds", ago: 30 * time.Second, want: "just now"},
+		{name: "minutes", ago: 21 * time.Minute, want: "21m ago"},
+		{name: "hours", ago: 5 * time.Hour, want: "5h ago"},
+		{name: "days", ago: 3 * 24 * time.Hour, want: "3d ago"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := display.RelativeTimeCompact(time.Now().Add(-tt.ago)); got != tt.want {
+				t.Errorf("%v ago reads %q, want %q", tt.ago, got, tt.want)
+			}
+		})
+	}
+
+	if got := display.RelativeTimeCompact(time.Time{}); got != display.EmDash {
+		t.Errorf("a zero time reads %q, want an em dash", got)
+	}
+
+	old := time.Now().AddDate(0, -2, 0)
+	if got := display.RelativeTimeCompact(old); got != old.Format("Jan 2") {
+		t.Errorf("a two-month-old time reads %q, want a calendar date", got)
+	}
+}

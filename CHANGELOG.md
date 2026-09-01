@@ -1,3 +1,9 @@
+## v0.5.1 (2026-09-01)
+
+### Refactor
+
+- **forge**: reduce a run listing to current state per branch
+
 ## v0.5.0 (2026-09-01)
 
 ### Feat

@@ -18,6 +18,7 @@ measurement underneath. [DESIGN.md](DESIGN.md) has the layering rule in full.
 | `cache` | Generic TTL cache with a disk store, a registry for package-level caches, and remote-scoped keys so parallel checkouts of one remote share a read |
 | `display` | `forge` and `vcs` models as plain text: relative times, status summaries, review glyphs, and the em-dash placeholder. Importing both is what keeps `forge` and `vcs` from importing each other |
 | `forge` | The pull request model shared by every tool that reads a code host: `PullRequest`, its detail and preview forms, checks, and workflow runs |
+| `ghcassette` | Records and replays `gh` subprocess calls through a stand-in binary on PATH, so a test replays the bytes GitHub sent in the shape gh prints them. The subprocess counterpart to `transport` |
 | `forge/github` | GitHub through the `gh` CLI: pull requests, reviews, comments, search, workflow runs, and the caches typed on them. A second host is a sibling directory, not a rename |
 | `transport` | A test seam and mutation guard for an `http.RoundTripper`-based API client: register a fake transport in tests, or get a guard that panics on a real mutating request when none is registered |
 | `tui/markdown` | Markdown and raw HTML flattened to terminal lines, folding `<details>` to its summary so a bot's changelog costs one line |

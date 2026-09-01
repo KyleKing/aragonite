@@ -23,6 +23,7 @@ mechanical rename at the call sites instead of a redesign.
 flowchart TD
     cache["cache"]
     transport["transport"]
+    ghcassette["ghcassette"]
     vcs["vcs"]
     forge["forge"]
     github["forge/github"]
@@ -44,9 +45,11 @@ Three properties hold across that graph:
 - The `tui/` packages import lipgloss and nothing else from this module. They are
   the only place a rendering library appears, so a consumer that wants the data
   packages pays nothing for the terminal ones
-- `cache` sits under everything and depends on nothing. `transport` has no in-module
-  consumer at all: it exists purely as a seam a tool wires into its own client, which
-  is why gh-sweep can take it without taking `forge`
+- `cache` sits under everything and depends on nothing. `transport` and `ghcassette`
+  have no in-module consumer at all: each exists purely as a seam a tool wires into
+  its own client, which is why gh-sweep can take one without taking `forge`. They
+  divide by where the tool talks to GitHub, `transport` at an `http.RoundTripper` and
+  `ghcassette` at the `gh` binary PATH resolves
 
 ## Rendering without a vocabulary
 
@@ -81,6 +84,9 @@ checkout:
 - `transport` registers a fake `http.RoundTripper`, and its mutation guard panics on a
   real mutating request when no fake is registered, so a test can never write to a
   live API
+- `ghcassette` puts a stand-in `gh` ahead of the real one on PATH, recording what the
+  real binary printed or replaying it. Replay reaches nothing at all, since the stub
+  has no `gh` to run
 - `cache/testing.go` supplies an advanceable clock, a byte-budgeted disk store, and a
   store pointed at a test directory
 

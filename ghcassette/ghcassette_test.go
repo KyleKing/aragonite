@@ -104,6 +104,35 @@ func TestRoundTrip(t *testing.T) {
 	play.RequireAllPlayed(t)
 }
 
+// A program that makes several calls at once makes them in whatever order the
+// scheduler picks, so replay answers each by the first interaction matching it
+// that nothing has taken yet, rather than by a cursor that only moves forward.
+func TestReplayAnswersCallsMadeOutOfOrder(t *testing.T) {
+	cassette := filepath.Join(t.TempDir(), "out-of-order.golden")
+
+	t.Setenv(ghcassette.RecordEnv, "1")
+
+	rec := ghcassette.Start(t, cassette)
+	ghPath := fakeGH(t, 0)
+
+	runGH(t, rec, ghPath, "search", "prs", "--first")
+	runGH(t, rec, ghPath, "search", "prs", "--second")
+	runGH(t, rec, ghPath, "search", "prs", "--third")
+
+	t.Setenv(ghcassette.RecordEnv, "0")
+
+	play := ghcassette.Start(t, cassette)
+
+	for _, which := range []string{"--third", "--first", "--second"} {
+		want := "args: search prs " + which + "\n"
+		if out, _, _ := runGH(t, play, "/nonexistent/gh", "search", "prs", which); out != want {
+			t.Fatalf("replaying %s out of order gave %q", which, out)
+		}
+	}
+
+	play.RequireAllPlayed(t)
+}
+
 // TestReplayRejectsAnUnrecordedCall is what stops a cassette drifting behind
 // the code: a call nobody recorded fails loudly rather than returning nothing,
 // which would read as a run with no logs.

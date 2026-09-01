@@ -68,12 +68,12 @@ func replay(path string, args []string, stdin string) (int, error) {
 
 	journal := os.Getenv("GH_CASSETTE_JOURNAL")
 
-	cursor, err := nextIndex(journal)
+	played, err := alreadyPlayed(journal)
 	if err != nil {
 		return 0, err
 	}
 
-	i, err := c.Match(cursor, args)
+	i, err := c.Next(played, args)
 	if err != nil {
 		return 0, fmt.Errorf("matching the call: %w\nstdin: %s", err, stdin)
 	}
@@ -142,29 +142,33 @@ func record(path string, args []string, stdin string) (int, error) {
 	return code, nil
 }
 
-// nextIndex reads the journal of already-replayed interactions and returns the
-// index replay resumes from.
-func nextIndex(journal string) (int, error) {
+// alreadyPlayed reads the journal of interactions this session has answered
+// from. It is the whole set rather than a high-water mark, because a program
+// making several calls at once answers them in no particular order.
+func alreadyPlayed(journal string) ([]int, error) {
 	if journal == "" {
-		return 0, nil
+		return nil, nil
 	}
 
 	raw, err := os.ReadFile(journal) // #nosec G304,G703 -- a path the harness wrote
 	if err != nil {
-		return 0, nil //nolint:nilerr // an absent journal means nothing has replayed yet
+		return nil, nil //nolint:nilerr // an absent journal means nothing has replayed yet
 	}
 
-	lines := strings.Fields(string(raw))
-	if len(lines) == 0 {
-		return 0, nil
+	fields := strings.Fields(string(raw))
+
+	out := make([]int, 0, len(fields))
+
+	for _, f := range fields {
+		at, err := strconv.Atoi(f)
+		if err != nil {
+			return nil, fmt.Errorf("reading journal %s: %w", journal, err)
+		}
+
+		out = append(out, at)
 	}
 
-	last, err := strconv.Atoi(lines[len(lines)-1])
-	if err != nil {
-		return 0, fmt.Errorf("reading journal %s: %w", journal, err)
-	}
-
-	return last + 1, nil
+	return out, nil
 }
 
 func appendLine(path, s string) error {

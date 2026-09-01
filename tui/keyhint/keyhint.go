@@ -17,6 +17,8 @@ import (
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/kyleking/aragonite/tui/table"
 )
 
 // Hint is one key and the thing it does.
@@ -93,4 +95,43 @@ func index(key, what string) int {
 	}
 
 	return inside
+}
+
+// Indent is the left margin a help legend is drawn in.
+const Indent = "  "
+
+// Gutter separates the key column from what the key does.
+const Gutter = "  "
+
+// Help renders a key legend: the keys right-aligned in a column as wide as the
+// widest one, then what each does. Right-aligning them gives the reader one
+// edge to scan rather than two, and a chord as long as `S then S / a / r / c`
+// widens the column instead of running into the description beside it.
+//
+// A Hint carrying no Key is a line of prose, drawn in the description column,
+// which is how a legend says the sentence or two the keys cannot.
+func Help(s Styles, hints []Hint, width int) []string {
+	keys := 0
+	for _, h := range hints {
+		keys = max(keys, lipgloss.Width(h.Key))
+	}
+
+	room := max(1, width-len(Indent)-keys-len(Gutter))
+
+	out := make([]string, 0, len(hints))
+
+	for _, h := range hints {
+		if h.Key == "" {
+			out = append(out, Indent+strings.Repeat(" ", keys+len(Gutter))+
+				s.Text.Render(table.Truncate(h.What, room)))
+
+			continue
+		}
+
+		out = append(out, Indent+
+			s.Key.Render(table.Pad(h.Key, keys, table.AlignRight))+
+			Gutter+s.Text.Render(table.Truncate(h.What, room)))
+	}
+
+	return out
 }

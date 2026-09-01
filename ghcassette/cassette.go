@@ -115,3 +115,27 @@ func (c *Cassette) Match(start int, args []string) (int, error) {
 
 	return 0, fmt.Errorf("%w: gh %v", ErrNoMatch, args)
 }
+
+// Next finds the first interaction matching args that has not been played.
+//
+// It keeps what Match gives — a call made twice with different responses
+// replays both in the order recorded, because the earlier of the two is the
+// first unplayed match — and drops the assumption that calls arrive in the
+// order they were recorded in. A program that runs several searches at once
+// makes them in whatever order the scheduler picks, and a cursor that only ever
+// moves forward answers the first of them and then finds nothing for the rest.
+//
+// Two calls with identical args racing each other can still take the same
+// interaction, since nothing here locks. Recorded responses to identical calls
+// are interchangeable often enough that this has not been worth a lock file.
+func (c *Cassette) Next(played []int, args []string) (int, error) {
+	for i := range c.Interactions {
+		if slices.Contains(played, i) || !slices.Equal(c.Interactions[i].Args, args) {
+			continue
+		}
+
+		return i, nil
+	}
+
+	return 0, fmt.Errorf("%w: gh %v", ErrNoMatch, args)
+}

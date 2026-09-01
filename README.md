@@ -21,8 +21,9 @@ measurement underneath. [DESIGN.md](DESIGN.md) has the layering rule in full.
 | `ghcassette` | Records and replays `gh` subprocess calls through a stand-in binary on PATH, so a test replays the bytes GitHub sent in the shape gh prints them. The subprocess counterpart to `transport` |
 | `forge/github` | GitHub through the `gh` CLI: pull requests, reviews, comments, search, Actions runs (by ID, by query, and the latest per workflow on a ref) with their jobs and step timings, and the caches typed on them. `WithRunner` puts a consumer's own executor behind every call, which is how a tool keeps its own recording seam or mutation guard. A second host is a sibling directory, not a rename |
 | `transport` | A test seam and mutation guard for an `http.RoundTripper`-based API client: register a fake transport in tests, or get a guard that panics on a real mutating request when none is registered |
-| `tui/keyhint` | The keys a screen offers, bracketed inside the word they do (`[p]ost one`, `[tab] switch`) so a footer needs no legend. The same shape captions the second key of a chord while it waits |
+| `tui/keyhint` | The keys a screen offers, bracketed inside the word they do (`[p]ost one`, `[tab] switch`) so a footer needs no legend. The same shape captions the second key of a chord while it waits, and `Help` lays out the full legend with the keys right-aligned in one column |
 | `tui/markdown` | Markdown and raw HTML flattened to terminal lines, folding `<details>` to its summary so a bot's changelog costs one line |
+| `tui/skin` | The faces every screen here draws with, built from a palette and the one accent that tells a tool from its siblings, so a title looks like a title in each of them |
 | `tui/region` | The block a list opens beneath itself: a rule, label/value facts, a body, and a captioned divider |
 | `tui/table` | Fits columns to an available width and pads cells to it, measuring in display cells so wide glyphs never shift a row |
 | `tui/theme` | Catppuccin Latte and Macchiato palettes, terminal-background detection with a `CATPPUCCIN_THEME` override, and an eight-role semantic view over a palette |

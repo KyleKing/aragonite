@@ -1,3 +1,9 @@
+## v0.8.0 (2026-09-01)
+
+### Feat
+
+- **display**: render a relative time narrow enough for a table column
+
 ## v0.7.0 (2026-09-01)
 
 ### Feat

@@ -1,3 +1,9 @@
+## v0.4.0 (2026-09-01)
+
+### Feat
+
+- **forge**: name the repository a pull request read is for
+
 ## v0.3.0 (2026-09-01)
 
 ### Feat

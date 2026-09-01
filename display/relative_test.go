@@ -170,8 +170,8 @@ func TestRelativeTimeCompact(t *testing.T) {
 
 	tests := []struct {
 		name string
-		ago  time.Duration
 		want string
+		ago  time.Duration
 	}{
 		{name: "seconds", ago: 30 * time.Second, want: "just now"},
 		{name: "minutes", ago: 21 * time.Minute, want: "21m ago"},

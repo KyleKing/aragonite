@@ -1,3 +1,9 @@
+## v0.3.0 (2026-09-01)
+
+### Feat
+
+- **ghcassette**: record and replay gh subprocess calls
+
 ## v0.2.1 (2026-08-31)
 
 ### Fix

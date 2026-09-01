@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyleking/aragonite/forge"
 	"github.com/kyleking/aragonite/forge/github"
 )
 
@@ -133,5 +134,21 @@ func TestLatestRunsOnBranch_KeepsOneCurrentStatePerWorkflowAndMode(t *testing.T)
 				}
 			}
 		})
+	}
+}
+
+func TestLatestPerWorkflow_KeepsOneStatePerBranch(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	runs := []forge.WorkflowRun{
+		{ID: 1, Path: "ci.yml", Name: "CI", HeadBranch: "topic", CreatedAt: now.Add(-time.Minute)},
+		{ID: 2, Path: "ci.yml", Name: "CI", HeadBranch: "topic", CreatedAt: now.Add(-time.Hour)},
+		{ID: 3, Path: "ci.yml", Name: "CI", HeadBranch: "other", CreatedAt: now.Add(-2 * time.Hour)},
+	}
+
+	kept := github.LatestPerWorkflow(runs, 0)
+	if len(kept) != 2 || kept[0].ID != 1 || kept[1].ID != 3 {
+		t.Fatalf("kept %+v, want run 1 for topic and run 3 for other", kept)
 	}
 }

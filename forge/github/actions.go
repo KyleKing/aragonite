@@ -167,12 +167,6 @@ func RunJobs(ctx context.Context, repoPath, repo string, runID int64) ([]forge.J
 
 // LatestRunsOnBranch returns the newest run of each distinct workflow on a
 // branch, newest first.
-//
-// A branch's run list is mostly history: one workflow re-run twenty times says
-// nothing a reader needs beyond its current state. Runs are keyed by workflow
-// file and display title together, because a workflow that reports a mode in
-// its title (a Pulumi preview against a Pulumi deploy) has two current states
-// rather than one.
 func LatestRunsOnBranch(
 	ctx context.Context, repoPath, repo, branch string, within time.Duration,
 ) ([]forge.WorkflowRun, error) {
@@ -181,6 +175,19 @@ func LatestRunsOnBranch(
 		return nil, err
 	}
 
+	return LatestPerWorkflow(runs, within), nil
+}
+
+// LatestPerWorkflow reduces a run listing to each workflow's current state,
+// newest first, dropping anything that finished before within elapsed. A
+// non-positive within keeps every age.
+//
+// A run listing is mostly history: one workflow re-run twenty times says
+// nothing a reader needs beyond its current state. Runs are keyed by branch,
+// workflow file, and display title together, because a workflow that reports a
+// mode in its title (a Pulumi preview against a Pulumi deploy) has two current
+// states rather than one.
+func LatestPerWorkflow(runs []forge.WorkflowRun, within time.Duration) []forge.WorkflowRun {
 	cutoff := time.Time{}
 	if within > 0 {
 		cutoff = time.Now().Add(-within)
@@ -196,7 +203,7 @@ func LatestRunsOnBranch(
 			continue
 		}
 
-		key := run.Path + "\x00" + run.Name
+		key := run.HeadBranch + "\x00" + run.Path + "\x00" + run.Name
 		if seen, ok := latest[key]; ok && !seen.CreatedAt.Before(run.CreatedAt) {
 			continue
 		}
@@ -211,5 +218,5 @@ func LatestRunsOnBranch(
 
 	sort.Slice(kept, func(i, j int) bool { return kept[i].CreatedAt.After(kept[j].CreatedAt) })
 
-	return kept, nil
+	return kept
 }

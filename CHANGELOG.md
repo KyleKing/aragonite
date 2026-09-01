@@ -1,3 +1,10 @@
+## v0.7.0 (2026-09-01)
+
+### Feat
+
+- **vcs**: name a repository's remote branches and its default branch
+- **keyhint**: draw a screen's keys one way
+
 ## v0.6.0 (2026-09-01)
 
 ### Feat

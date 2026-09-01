@@ -1,3 +1,9 @@
+## v0.4.1 (2026-09-01)
+
+### Fix
+
+- **forge**: pass search terms after a separator so a negated qualifier survives
+
 ## v0.4.0 (2026-09-01)
 
 ### Feat

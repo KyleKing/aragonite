@@ -1,3 +1,9 @@
+## v0.5.0 (2026-09-01)
+
+### Feat
+
+- **forge**: read Actions runs, jobs, and step timings through gh
+
 ## v0.4.1 (2026-09-01)
 
 ### Fix

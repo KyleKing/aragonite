@@ -36,13 +36,27 @@ func TestFleetSearchArgs(t *testing.T) {
 			notWant: []string{"involves:@me"},
 			want:    []string{"org:acme"},
 		},
+		{
+			// gh reads a leading dash as a bundle of short flags, so a negated
+			// qualifier only survives after the separator.
+			name:  "a negated qualifier is a term rather than a flag",
+			query: "-org:acme author:@me is:open",
+			want:  []string{"-- -org:acme"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := strings.Join(github.FleetSearchArgs(tt.query), " ")
+			got := strings.Join(github.FleetSearchArgs(tt.query, "--json", "number"), " ")
+
+			// Every flag has to precede the separator, since anything after it
+			// is a search term.
+			if terms := strings.Index(got, " -- "); terms > 0 && strings.Contains(got[terms:], "--json") {
+				t.Errorf("args %q put a flag after the separator", got)
+			}
+
 			for _, want := range tt.want {
 				if !strings.Contains(got, want) {
 					t.Errorf("args %q are missing %q", got, want)

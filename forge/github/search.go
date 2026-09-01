@@ -60,8 +60,8 @@ func SearchPRsEverywhere(ctx context.Context, repoPath, query string) ([]forge.P
 		return cached, nil
 	}
 
-	args := append([]string{"search", "prs"}, FleetSearchArgs(query)...)
-	args = append(args, "--json", searchFields, "--limit", strconv.Itoa(SearchLimit))
+	args := append([]string{"search", "prs"},
+		FleetSearchArgs(query, "--json", searchFields, "--limit", strconv.Itoa(SearchLimit))...)
 
 	out, err := runGH(ctx, repoPath, vcs.GetGitHubEnv(repoPath), args...)
 	if err != nil {
@@ -118,11 +118,22 @@ func parseSearchResults(out []byte) ([]forge.PullRequest, error) {
 }
 
 // FleetSearchArgs turns a saved view's query into the arguments gh search prs
-// takes: its terms, a subject if the view named none, and the sort as flags.
-func FleetSearchArgs(query string) []string {
+// takes: the flags the caller adds, the sort the query asked for, then its
+// terms, with a subject when the view named none.
+//
+// The terms follow a -- separator, because a negated qualifier such as
+// -org:acme is otherwise read as a bundle of short flags and gh refuses the
+// call. That is also why flags are passed in here rather than appended by the
+// caller: anything after the separator is a term.
+func FleetSearchArgs(query string, flags ...string) []string {
 	terms, sortArgs := splitSortQualifier(query)
 
-	return append(withSubject(terms), sortArgs...)
+	args := make([]string, 0, len(flags)+len(sortArgs)+len(terms)+1)
+	args = append(args, flags...)
+	args = append(args, sortArgs...)
+	args = append(args, "--")
+
+	return append(args, withSubject(terms)...)
 }
 
 // scopingQualifiers name a subject a search is about. A query carrying none of

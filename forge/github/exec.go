@@ -9,15 +9,25 @@ import (
 	"strings"
 )
 
-type ghRunner func(ctx context.Context, dir string, env []string, args ...string) ([]byte, error)
+// Runner executes one gh invocation. A consumer supplies its own to route every
+// call in this package through machinery of its own: a recording seam, or a
+// guard that refuses a mutating subcommand.
+type Runner func(ctx context.Context, dir string, env []string, args ...string) ([]byte, error)
+
+type ghRunner = Runner
 
 type ghRunnerKey struct{}
 
-// withGHRunner returns a context that makes runGH call fn instead of executing
-// a real gh subprocess. Used by tests to stub gh invocations without touching
-// shared package state, so subtests can run in parallel.
-func withGHRunner(ctx context.Context, fn ghRunner) context.Context {
+// WithRunner returns a context that makes every gh call in this package go
+// through fn instead of executing a subprocess directly. The runner travels on
+// the context rather than in package state, so callers and tests can hold
+// different ones concurrently.
+func WithRunner(ctx context.Context, fn Runner) context.Context {
 	return context.WithValue(ctx, ghRunnerKey{}, fn)
+}
+
+func withGHRunner(ctx context.Context, fn ghRunner) context.Context {
+	return WithRunner(ctx, fn)
 }
 
 func runGH(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {

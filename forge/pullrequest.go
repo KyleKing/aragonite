@@ -144,7 +144,44 @@ type WorkflowRun struct {
 	Status     string
 	Conclusion string
 	URL        string
-	ID         int64
+	// HeadBranch is the ref the run was started against, and Event is what
+	// started it ("workflow_dispatch", "pull_request", "schedule").
+	HeadBranch string
+	Event      string
+	// Path is the workflow's file ("ci.yml"), which is what the Actions API
+	// filters on. A run listed without it leaves this empty.
+	Path string
+	ID   int64
+}
+
+// IsActive reports whether the run has not reached a conclusion yet.
+func (r WorkflowRun) IsActive() bool {
+	return r.Status == "queued" || r.Status == "in_progress"
+}
+
+// Job is one job of a workflow run, with the steps it ran.
+type Job struct {
+	StartedAt time.Time `json:"started_at"`
+	// CompletedAt is the zero time while the job is still running.
+	CompletedAt time.Time `json:"completed_at"`
+	Name        string    `json:"name"`
+	Status      string    `json:"status"`
+	Conclusion  string    `json:"conclusion"`
+	Steps       []Step    `json:"steps"`
+	ID          int64     `json:"id"`
+}
+
+// Step is one step of a job. Laying steps on a time axis is what the timings
+// are for, so both are reported even while the step is still running.
+type Step struct {
+	StartedAt time.Time `json:"started_at"`
+	// CompletedAt is the zero time while the step is still running, and
+	// StartedAt is zero for a step that has not begun.
+	CompletedAt time.Time `json:"completed_at"`
+	Name        string    `json:"name"`
+	Status      string    `json:"status"`
+	Conclusion  string    `json:"conclusion"`
+	Number      int       `json:"number"`
 }
 
 // DefaultBranchCI is the CI state of a repo's default branch head: the latest

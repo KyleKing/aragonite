@@ -159,6 +159,12 @@ func (r WorkflowRun) IsActive() bool {
 	return r.Status == "queued" || r.Status == "in_progress"
 }
 
+// IsSuccess reports whether the run finished and passed. A run still going has
+// no conclusion, so a conclusion check alone would read a queued run as failed.
+func (r WorkflowRun) IsSuccess() bool {
+	return r.Status == StatusCompleted && r.Conclusion == "success"
+}
+
 // Job is one job of a workflow run, with the steps it ran.
 type Job struct {
 	StartedAt time.Time `json:"started_at"`

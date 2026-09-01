@@ -1,3 +1,9 @@
+## v0.9.0 (2026-09-01)
+
+### Feat
+
+- **tui**: share the help legend and the faces a screen draws with
+
 ## v0.8.0 (2026-09-01)
 
 ### Feat

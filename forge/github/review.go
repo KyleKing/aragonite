@@ -22,11 +22,16 @@ type prByNumberResponse struct {
 // anchors to. It does not cache: the cached readers key on a branch and a
 // remote, which a lookup by number cannot supply, and a review that reads a
 // stale head would anchor its comments to the wrong commit.
-func GetPR(ctx context.Context, repoPath string, number int) (*forge.PullRequest, error) {
+//
+// The repository is named as owner/name in remoteRepo, for a caller holding
+// pull requests from several repositories at once or standing outside a
+// checkout of this one. Empty leaves the repository to gh's own resolution, which reads the
+// remotes of repoPath and picks a fork's upstream correctly.
+func GetPR(ctx context.Context, repoPath, remoteRepo string, number int) (*forge.PullRequest, error) {
 	out, err := runGH(ctx, repoPath, vcs.GetGitHubEnv(repoPath),
-		"pr", "view", strconv.Itoa(number),
-		"--json", "number,title,state,url,isDraft,mergeStateStatus,headRefName,headRefOid,"+
-			"headRepositoryOwner,baseRefName,statusCheckRollup")
+		against(remoteRepo, "pr", "view", strconv.Itoa(number),
+			"--json", "number,title,state,url,isDraft,mergeStateStatus,headRefName,headRefOid,"+
+				"headRepositoryOwner,baseRefName,statusCheckRollup")...)
 	if err != nil {
 		return nil, fmt.Errorf("reading pull request #%d: %w", number, err)
 	}
@@ -59,12 +64,23 @@ func GetPR(ctx context.Context, repoPath string, number int) (*forge.PullRequest
 // Never pass --patch: that returns a format-patch series, one diff per commit,
 // where a file touched twice appears twice and the line numbers are the
 // intermediate commit's rather than the head's.
-func PRDiff(ctx context.Context, repoPath string, number int) ([]byte, error) {
+func PRDiff(ctx context.Context, repoPath, remoteRepo string, number int) ([]byte, error) {
 	out, err := runGH(ctx, repoPath, vcs.GetGitHubEnv(repoPath),
-		"pr", "diff", strconv.Itoa(number))
+		against(remoteRepo, "pr", "diff", strconv.Itoa(number))...)
 	if err != nil {
 		return nil, fmt.Errorf("reading the diff of pull request #%d: %w", number, err)
 	}
 
 	return out, nil
+}
+
+// against names the repository when the caller supplied one, so the same call
+// works from a checkout of it and from anywhere else. The flag goes last
+// because gh accepts --repo on the subcommand rather than on the root command.
+func against(remoteRepo string, args ...string) []string {
+	if remoteRepo == "" {
+		return args
+	}
+
+	return append(args, "--repo", remoteRepo)
 }

@@ -1,3 +1,9 @@
+## v0.11.0 (2026-09-02)
+
+### Feat
+
+- **github**: read what is left of each rate-limit pool
+
 ## v0.10.1 (2026-09-02)
 
 ### Fix

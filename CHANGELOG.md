@@ -1,3 +1,9 @@
+## v0.12.0 (2026-09-02)
+
+### Feat
+
+- **ratelimit**: fail usefully when a GitHub allowance runs out
+
 ## v0.11.0 (2026-09-02)
 
 ### Feat

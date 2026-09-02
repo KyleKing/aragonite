@@ -1,3 +1,9 @@
+## v0.10.0 (2026-09-02)
+
+### Feat
+
+- **tui**: center an overlay as one block rather than line by line
+
 ## v0.9.0 (2026-09-01)
 
 ### Feat

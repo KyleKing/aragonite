@@ -1,3 +1,9 @@
+## v0.10.1 (2026-09-02)
+
+### Fix
+
+- **vcs**: read a colocated jj checkout's head through git
+
 ## v0.10.0 (2026-09-02)
 
 ### Feat

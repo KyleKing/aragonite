@@ -4,22 +4,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
-// HeadSHA returns the commit the working copy is checked out on. A jj repo
-// reports its colocated git HEAD, because that is the commit a code host
-// compares against.
+// HeadSHA returns the commit the working copy is checked out on, which is the
+// commit a code host compares against.
+//
+// A colocated jj repository is read through its own .git rather than through a
+// revset, because jj removed git_head() and a version that has dropped it
+// answers "Function `git_head` doesn't exist", failing every read of the
+// checkout. Git answers the same question with nothing left to rename, and it does not
+// snapshot the working copy the way any jj command does. A jj repository with
+// no .git has no commit a code host knows about, so the working copy's first
+// parent stands in, which is what jj names as git_head()'s replacement.
 func HeadSHA(ctx context.Context, repoPath string) (string, error) {
-	if DetectVCSType(repoPath) == TypeJJ {
+	if DetectVCSType(repoPath) == TypeJJ && !colocated(repoPath) {
 		out, err := runCommand(ctx, "", "jj", "-R", repoPath,
-			"log", "--no-graph", "-r", "git_head()", "-T", "commit_id")
+			"log", "--no-graph", "-r", "first_parent(@)", "-T", "commit_id")
 		if err != nil {
-			return "", fmt.Errorf("resolving the jj git head: %w", err)
+			return "", fmt.Errorf("resolving the jj working-copy parent: %w", err)
 		}
 
-		return strings.TrimSpace(out), nil
+		return out, nil
 	}
 
 	sha, err := runCommand(ctx, repoPath, "git", "rev-parse", "HEAD")
@@ -28,6 +37,13 @@ func HeadSHA(ctx context.Context, repoPath string) (string, error) {
 	}
 
 	return sha, nil
+}
+
+// colocated reports a jj repository that keeps a git repository beside it.
+func colocated(repoPath string) bool {
+	_, err := os.Stat(filepath.Join(repoPath, ".git"))
+
+	return err == nil
 }
 
 // PullFastForward advances the current branch to its upstream and changes

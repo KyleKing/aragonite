@@ -1,3 +1,9 @@
+## v0.12.1 (2026-09-03)
+
+### Fix
+
+- **ratelimit**: use real time in transport tests instead of a fixed past date
+
 ## v0.12.0 (2026-09-02)
 
 ### Feat

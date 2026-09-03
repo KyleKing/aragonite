@@ -60,7 +60,7 @@ func request(t *testing.T, method, url string) *http.Request {
 func TestTransport(t *testing.T) {
 	t.Parallel()
 
-	now := time.Date(2026, time.September, 2, 4, 0, 0, 0, time.UTC)
+	now := time.Now()
 	reset := strconv.FormatInt(now.Add(time.Hour).Unix(), 10)
 
 	tests := []struct {
@@ -131,7 +131,7 @@ func TestTransport(t *testing.T) {
 func TestTransportBlocksPerPool(t *testing.T) {
 	t.Parallel()
 
-	now := time.Date(2026, time.September, 2, 4, 0, 0, 0, time.UTC)
+	now := time.Now()
 
 	base := &stub{respond: func(call int) *http.Response {
 		if call == 1 {

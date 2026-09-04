@@ -1,3 +1,9 @@
+## v0.13.0 (2026-09-04)
+
+### Feat
+
+- **keyhint**: draw a heading over a group of hints
+
 ## v0.12.1 (2026-09-03)
 
 ### Fix

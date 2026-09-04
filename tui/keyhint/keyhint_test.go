@@ -18,16 +18,16 @@ func TestOne(t *testing.T) {
 
 	tests := []struct {
 		name string
-		hint keyhint.Hint
 		want string
+		hint keyhint.Hint
 	}{
-		{"at the start", keyhint.Hint{Key: "p", What: "pr"}, "[p]r"},
-		{"a word in", keyhint.Hint{Key: "o", What: "post one"}, "post [o]ne"},
-		{"inside a word", keyhint.Hint{Key: "u", What: "submit"}, "s[u]bmit"},
-		{"shifted keeps its case", keyhint.Hint{Key: "S", What: "submit"}, "[S]ubmit"},
-		{"not in the word", keyhint.Hint{Key: "tab", What: "switch"}, "[tab] switch"},
-		{"punctuation", keyhint.Hint{Key: "/", What: "search"}, "[/] search"},
-		{"nothing to sit in", keyhint.Hint{Key: "q", What: ""}, "[q] "},
+		{"at the start", "[p]r", keyhint.Hint{Key: "p", What: "pr"}},
+		{"a word in", "post [o]ne", keyhint.Hint{Key: "o", What: "post one"}},
+		{"inside a word", "s[u]bmit", keyhint.Hint{Key: "u", What: "submit"}},
+		{"shifted keeps its case", "[S]ubmit", keyhint.Hint{Key: "S", What: "submit"}},
+		{"not in the word", "[tab] switch", keyhint.Hint{Key: "tab", What: "switch"}},
+		{"punctuation", "[/] search", keyhint.Hint{Key: "/", What: "search"}},
+		{"nothing to sit in", "[q] ", keyhint.Hint{Key: "q", What: ""}},
 	}
 
 	for _, tc := range tests {
@@ -76,6 +76,35 @@ func TestHelp(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("line %d = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+// A heading sits in the description column, so the keys under it keep the one
+// edge a reader scans, and it is drawn in its own face.
+func TestHelpDrawsAHeadingWithTheDescriptions(t *testing.T) {
+	t.Parallel()
+
+	hints := []keyhint.Hint{
+		{What: "moving", Head: true},
+		{Key: "j / k", What: "move a line"},
+	}
+
+	// Measured with no face on the heading, since an escape in the line would
+	// make a byte index lie about the column.
+	got := keyhint.Help(plain, hints, 40)
+	if len(got) != 2 {
+		t.Fatalf("Help() gave %d lines, want 2: %q", len(got), got)
+	}
+
+	if head, desc := strings.Index(got[0], "moving"), strings.Index(got[1], "move a line"); head != desc {
+		t.Errorf("the heading starts at column %d and the description at %d: %q", head, desc, got[0])
+	}
+
+	styled := plain
+	styled.Head = lipgloss.NewStyle().Bold(true)
+
+	if got := keyhint.Help(styled, hints, 40); !strings.Contains(got[0], styled.Head.Render("moving")) {
+		t.Errorf("the heading is not drawn in Head: %q", got[0])
 	}
 }
 

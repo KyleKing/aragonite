@@ -25,6 +25,9 @@ import (
 type Hint struct {
 	Key  string
 	What string
+	// Head makes this a heading over the hints under it, drawn in Styles.Head
+	// where the descriptions are. A heading carries no key.
+	Head bool
 }
 
 // Styles are the two faces a hint is drawn with, passed in so the package never
@@ -34,6 +37,8 @@ type Styles struct {
 	Key lipgloss.Style
 	// Text draws everything around it.
 	Text lipgloss.Style
+	// Head draws a heading row, and draws it unstyled until it is set.
+	Head lipgloss.Style
 }
 
 // Gap separates two hints on one line. It is two spaces because one reads as a
@@ -109,7 +114,8 @@ const Gutter = "  "
 // widens the column instead of running into the description beside it.
 //
 // A Hint carrying no Key is a line of prose, drawn in the description column,
-// which is how a legend says the sentence or two the keys cannot.
+// which is how a legend says the sentence or two the keys cannot. One marked
+// Head is a heading in that same column, so a long legend reads in groups.
 func Help(s Styles, hints []Hint, width int) []string {
 	keys := 0
 	for _, h := range hints {
@@ -122,8 +128,13 @@ func Help(s Styles, hints []Hint, width int) []string {
 
 	for _, h := range hints {
 		if h.Key == "" {
+			face := s.Text
+			if h.Head {
+				face = s.Head
+			}
+
 			out = append(out, Indent+strings.Repeat(" ", keys+len(Gutter))+
-				s.Text.Render(table.Truncate(h.What, room)))
+				face.Render(table.Truncate(h.What, room)))
 
 			continue
 		}

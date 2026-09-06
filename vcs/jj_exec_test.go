@@ -777,3 +777,68 @@ func TestJJCleanupMergedBranches(t *testing.T) {
 		})
 	}
 }
+
+func TestJJBlame(t *testing.T) {
+	t.Parallel()
+
+	key := jjKey("--ignore-working-copy file annotate -T " + vcs.JJBlameFormat + " -- f.txt")
+
+	tests := []struct {
+		name     string
+		canned   map[string]string
+		failures map[string]error
+		ranges   []vcs.LineRange
+		expected []blameExpectation
+		wantErr  bool
+	}{
+		{
+			name: "filters to requested ranges",
+			canned: map[string]string{
+				key: "0ecbeb4636bd\tKyle King\tkyle@example.com\t2020-01-01T10:00:00-06:00\t1\n" +
+					"328ffc0a6206\ttest\ttest@example.com\t2021-06-01T09:00:00+02:00\t2\n" +
+					"328ffc0a6206\ttest\ttest@example.com\t2021-06-01T09:00:00+02:00\t3\n" +
+					"328ffc0a6206\ttest\ttest@example.com\t2021-06-01T09:00:00+02:00\t4\n" +
+					"0ecbeb4636bd\tKyle King\tkyle@example.com\t2020-01-01T10:00:00-06:00\t5\n",
+			},
+			ranges: []vcs.LineRange{{From: 1, To: 1}, {From: 5, To: 5}},
+			expected: []blameExpectation{
+				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 1, unix: 1577894400},
+				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 5, unix: 1577894400},
+			},
+		},
+		{
+			name: "empty ranges keeps every line",
+			canned: map[string]string{
+				key: "0ecbeb4636bd\tKyle King\tkyle@example.com\t2020-01-01T10:00:00-06:00\t1\n" +
+					"328ffc0a6206\ttest\ttest@example.com\t2021-06-01T09:00:00+02:00\t2\n",
+			},
+			expected: []blameExpectation{
+				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 1, unix: 1577894400},
+				{commit: "328ffc0a6206", author: "test", email: "test@example.com", line: 2, unix: 1622530800},
+			},
+		},
+		{
+			name:     "command failure",
+			failures: map[string]error{key: errBoom},
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := stubCommands(t, tt.canned, tt.failures)
+
+			j := vcs.NewJJOperations()
+			got, err := j.Blame(ctx, testRepoPath, "f.txt", tt.ranges)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("unexpected error state: %v", err)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			assertBlameLines(t, got, tt.expected)
+		})
+	}
+}

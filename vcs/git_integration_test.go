@@ -83,6 +83,60 @@ func TestGitGetStashListAgainstRealGit(t *testing.T) {
 	}
 }
 
+func TestGitBlameAgainstRealGit(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+
+		cmd := exec.CommandContext(t.Context(), "git", args...) // #nosec G204 -- args are literals from this test
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		)
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	write := func(body string) {
+		t.Helper()
+
+		if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte(body), 0o600); err != nil {
+			t.Fatalf("writing f.txt: %v", err)
+		}
+	}
+
+	run("init", "--initial-branch=main")
+	write("one\ntwo\n")
+	run("add", "f.txt")
+	run("commit", "-m", "first")
+	write("one\ntwo\nthree\nfour\n")
+	run("commit", "-am", "second")
+
+	got, err := vcs.NewGitOperations().Blame(t.Context(), dir, "f.txt", []vcs.LineRange{{From: 1, To: 2}})
+	if err != nil {
+		t.Fatalf("Blame: %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("got %d blame lines, want 2: %+v", len(got), got)
+	}
+
+	for i, line := range got {
+		if line.Author != "test" || line.Email != "test@example.com" || line.Line != i+1 {
+			t.Errorf("line %d: unexpected %+v", i, line)
+		}
+	}
+}
+
 func TestGitGetNewestModifiedFileAgainstRealGit(t *testing.T) {
 	t.Parallel()
 

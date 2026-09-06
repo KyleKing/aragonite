@@ -28,6 +28,7 @@ type MockOperations struct {
 	DeleteBranchFn          func(ctx context.Context, repoPath, branch string, force bool) (bool, string, error)
 	ApplyStashFn            func(ctx context.Context, repoPath string, index int) (bool, string, error)
 	DropStashFn             func(ctx context.Context, repoPath string, index int) (bool, string, error)
+	BlameFn                 func(ctx context.Context, repoPath, path string, ranges []LineRange) ([]BlameLine, error)
 }
 
 // DeleteBranch implements Operations.
@@ -223,6 +224,17 @@ func (m *MockOperations) CleanupMergedBranches(
 	}
 
 	return true, "No branches to cleanup", nil
+}
+
+// Blame implements Operations.
+func (m *MockOperations) Blame(
+	ctx context.Context, repoPath, path string, ranges []LineRange,
+) ([]BlameLine, error) {
+	if m.BlameFn != nil {
+		return m.BlameFn(ctx, repoPath, path, ranges)
+	}
+
+	return nil, nil
 }
 
 var _ Operations = (*MockOperations)(nil)

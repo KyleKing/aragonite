@@ -197,6 +197,18 @@ type CommitInfo struct {
 	Author    string
 }
 
+// LineRange is an inclusive, 1-based span of a file.
+type LineRange struct{ From, To int }
+
+// BlameLine attributes one line of a file to the change that introduced it.
+type BlameLine struct {
+	When   time.Time
+	Commit string
+	Author string
+	Email  string
+	Line   int
+}
+
 // StashDetail summarizes a single stash entry.
 type StashDetail struct {
 	Date    time.Time

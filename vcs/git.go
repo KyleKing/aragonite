@@ -960,6 +960,134 @@ func ExtractRepoPath(remoteURL string) string {
 	return ""
 }
 
+// gitBlameHeaderRe matches a `git blame --porcelain` group header: the
+// commit's sha, the line's number in the source revision, and its number in
+// the file being annotated, with an optional trailing group size present only
+// on a group's first line.
+var gitBlameHeaderRe = regexp.MustCompile(`^([0-9a-f]{40,64}) \d+ (\d+)(?: \d+)?$`)
+
+// Blame implements Operations. One git process handles every range: -L may
+// repeat and overlapping ranges are allowed, so the walk stays proportional to
+// what was asked for rather than the whole file.
+func (g *GitOperations) Blame(ctx context.Context, repoPath, path string, ranges []LineRange) ([]BlameLine, error) {
+	args := make([]string, 0, 2+2*len(ranges)+2)
+	args = append(args, "blame", "--porcelain")
+	for _, r := range ranges {
+		args = append(args, "-L", fmt.Sprintf("%d,%d", r.From, r.To))
+	}
+	args = append(args, "--", path)
+
+	// Raw, not trimmed: a blamed file's last line can be empty, so its
+	// content line is nothing but a tab, which a trim of the whole output
+	// would read as trailing whitespace and drop along with that line's entry.
+	out, err := g.runGitRaw(ctx, repoPath, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseGitBlamePorcelain(out), nil
+}
+
+// parseGitBlamePorcelain parses `git blame --porcelain` output into BlameLine
+// values in emission order. A commit's author/committer metadata lines appear
+// only the first time that commit shows up anywhere in the output, so each
+// metadata line updates a per-commit cache that later groups of the same
+// commit read from instead.
+func parseGitBlamePorcelain(out string) []BlameLine {
+	type commitMeta struct {
+		when   time.Time
+		author string
+		email  string
+	}
+
+	meta := make(map[string]commitMeta)
+
+	var (
+		lines      []BlameLine
+		curSHA     string
+		curLine    int
+		authorTime int64
+		authorTZ   string
+	)
+
+	scanner := bufio.NewScanner(strings.NewReader(out))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if strings.HasPrefix(line, "\t") {
+			m := meta[curSHA]
+			lines = append(lines, BlameLine{
+				When:   m.when,
+				Commit: curSHA,
+				Author: m.author,
+				Email:  m.email,
+				Line:   curLine,
+			})
+
+			continue
+		}
+
+		if match := gitBlameHeaderRe.FindStringSubmatch(line); match != nil {
+			curSHA = match[1]
+			curLine, _ = strconv.Atoi(match[2]) //nolint:errcheck // regex guarantees digits
+
+			continue
+		}
+
+		key, value, found := strings.Cut(line, " ")
+		if !found {
+			continue
+		}
+
+		m := meta[curSHA]
+
+		switch key {
+		case "author":
+			m.author = value
+		case "author-mail":
+			m.email = strings.Trim(value, "<>")
+		case "author-time":
+			authorTime, _ = strconv.ParseInt(value, 10, 64) //nolint:errcheck // git emits a unix timestamp here
+		case "author-tz":
+			authorTZ = value
+			m.when = time.Unix(authorTime, 0).In(gitTZLocation(authorTZ))
+		}
+
+		meta[curSHA] = m
+	}
+
+	return lines
+}
+
+// gitTZLocation parses a git porcelain author-tz value (e.g. "-0600") into a
+// fixed-offset Location, falling back to UTC for anything malformed.
+func gitTZLocation(tz string) *time.Location {
+	const tzLen = 5
+	if len(tz) != tzLen {
+		return time.UTC
+	}
+
+	sign := 1
+
+	switch tz[0] {
+	case '-':
+		sign = -1
+	case '+':
+	default:
+		return time.UTC
+	}
+
+	hh, errH := strconv.Atoi(tz[1:3])
+	mm, errM := strconv.Atoi(tz[3:5])
+
+	if errH != nil || errM != nil {
+		return time.UTC
+	}
+
+	return time.FixedZone(tz, sign*(hh*3600+mm*60))
+}
+
 // DefaultBranch is a repo's default branch and the commit it points at, read
 // from origin/HEAD.
 type DefaultBranch struct {

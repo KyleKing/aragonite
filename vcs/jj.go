@@ -92,15 +92,32 @@ func (*JJOperations) runJJ(ctx context.Context, repoPath string, args ...string)
 	fullArgs := append([]string{"-R", repoPath}, args...)
 	out, err := runCommand(ctx, "", "jj", fullArgs...)
 	if err != nil {
-		exitErr := &exec.ExitError{}
-		if errors.As(err, &exitErr) {
-			return "", fmt.Errorf("jj %s: %s: %w", strings.Join(args, " "), string(exitErr.Stderr), ErrCommandFailed)
-		}
-
-		return "", err
+		return "", jjError(args, err)
 	}
 
 	return out, nil
+}
+
+// runJJInRepo is runJJ but run with repoPath as the process's working
+// directory. Needed for any jj subcommand taking a path argument: jj resolves
+// that path against the cwd, not against -R's target.
+func (*JJOperations) runJJInRepo(ctx context.Context, repoPath string, args ...string) (string, error) {
+	fullArgs := append([]string{"-R", repoPath}, args...)
+	out, err := runCommand(ctx, repoPath, "jj", fullArgs...)
+	if err != nil {
+		return "", jjError(args, err)
+	}
+
+	return out, nil
+}
+
+func jjError(args []string, err error) error {
+	exitErr := &exec.ExitError{}
+	if errors.As(err, &exitErr) {
+		return fmt.Errorf("jj %s: %s: %w", strings.Join(args, " "), string(exitErr.Stderr), ErrCommandFailed)
+	}
+
+	return err
 }
 
 // GetRepoSummary implements Operations.
@@ -562,6 +579,79 @@ func (j *JJOperations) isMergedIntoDefault(ctx context.Context, repoPath, bookma
 		bookmarkName+"@origin.."+defaultBookmark+"@origin", "-T", "change_id", "--no-graph")
 
 	return err == nil && strings.TrimSpace(out) == ""
+}
+
+// jjBlameFormat emits one tab-separated record per annotated line: the
+// commit's git hash, author name, author email, author timestamp (RFC3339,
+// via jj's "%+" strftime-like verb), and the line's number in the file.
+const jjBlameFormat = `commit.commit_id() ++ "\t" ++ commit.author().name() ++ "\t" ++ ` +
+	`commit.author().email() ++ "\t" ++ commit.author().timestamp().format("%+") ++ ` +
+	`"\t" ++ line_number ++ "\n"`
+
+// jjBlameFieldCount is the number of tab-separated fields in jjBlameFormat
+// (commit hash, author name, author email, timestamp, line number).
+const jjBlameFieldCount = 5
+
+// Blame implements Operations. There is no jj flag for a line range, so this
+// annotates the whole file and filters to ranges here; an empty ranges keeps
+// everything.
+func (j *JJOperations) Blame(ctx context.Context, repoPath, path string, ranges []LineRange) ([]BlameLine, error) {
+	out, err := j.runJJInRepo(
+		ctx, repoPath, "--ignore-working-copy", "file", "annotate", "-T", jjBlameFormat, "--", path,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var lines []BlameLine
+
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), "\t")
+		if len(parts) < jjBlameFieldCount {
+			continue
+		}
+
+		lineNum, err := strconv.Atoi(parts[4])
+		if err != nil {
+			continue
+		}
+
+		if !inAnyRange(lineNum, ranges) {
+			continue
+		}
+
+		when, err := time.Parse(time.RFC3339, parts[3])
+		if err != nil {
+			when = time.Time{}
+		}
+
+		lines = append(lines, BlameLine{
+			Commit: parts[0],
+			Author: parts[1],
+			Email:  parts[2],
+			When:   when,
+			Line:   lineNum,
+		})
+	}
+
+	return lines, nil
+}
+
+// inAnyRange reports whether line falls within any of ranges. An empty
+// ranges matches every line, for a whole-file blame.
+func inAnyRange(line int, ranges []LineRange) bool {
+	if len(ranges) == 0 {
+		return true
+	}
+
+	for _, r := range ranges {
+		if line >= r.From && line <= r.To {
+			return true
+		}
+	}
+
+	return false
 }
 
 // CleanupMergedBranches implements Operations. The squashMerged parameter

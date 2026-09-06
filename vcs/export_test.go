@@ -49,7 +49,12 @@ const (
 	JJCurrentBookmarkFormat = jjCurrentBookmarkFormat
 	JJBookmarkListFormat    = jjBookmarkListFormat
 	JJWorkspaceListFormat   = jjWorkspaceListFormat
+	JJBlameFormat           = jjBlameFormat
 )
+
+// ParseGitBlamePorcelain exposes the unexported parseGitBlamePorcelain helper
+// to black-box tests.
+var ParseGitBlamePorcelain = parseGitBlamePorcelain
 
 // DetectRemoteProtocol exposes the unexported detectRemoteProtocol helper to black-box tests.
 var DetectRemoteProtocol = detectRemoteProtocol

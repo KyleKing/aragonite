@@ -54,6 +54,13 @@ type DetailReader interface {
 	// uncommitted file and when it was touched. Name is empty with a nil
 	// error for a clean tree, where there is nothing uncommitted to report.
 	GetNewestModifiedFile(ctx context.Context, repoPath string) (name string, modTime time.Time, err error)
+	// Blame attributes each line of path in ranges to the change that introduced
+	// it, in ascending line order. Empty ranges annotate the whole file.
+	//
+	// Cost differs by backend: git scopes the walk with -L, so it is proportional
+	// to the ranges asked for, while jj has no line-range flag and annotates the
+	// whole file, filtering here.
+	Blame(ctx context.Context, repoPath, path string, ranges []LineRange) ([]BlameLine, error)
 }
 
 // Mutator performs write operations against a repository. Each method returns

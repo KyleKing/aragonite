@@ -1165,3 +1165,162 @@ func TestGitCleanupMergedBranchesSquashMerged(t *testing.T) {
 		})
 	}
 }
+
+// blameExpectation is the field-by-field shape of one expected BlameLine: the
+// custom time.Time field can't compare with reflect.DeepEqual or == across a
+// stubbed run because gitTZLocation allocates a fresh *time.Location per call.
+type blameExpectation struct {
+	commit string
+	author string
+	email  string
+	line   int
+	unix   int64
+}
+
+func assertBlameLines(t *testing.T, got []vcs.BlameLine, want []blameExpectation) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("got %d blame lines, want %d: %+v", len(got), len(want), got)
+	}
+
+	for i, w := range want {
+		g := got[i]
+		if g.Commit != w.commit || g.Author != w.author || g.Email != w.email || g.Line != w.line {
+			t.Errorf("line %d: got %+v, want %+v", i, g, w)
+		}
+		if !g.When.Equal(time.Unix(w.unix, 0)) {
+			t.Errorf("line %d: When = %v, want instant %v", i, g.When, time.Unix(w.unix, 0))
+		}
+	}
+}
+
+func TestParseGitBlamePorcelain(t *testing.T) {
+	t.Parallel()
+
+	// Two commits: "first" is blamed for line 1 and, non-contiguously, line 5.
+	// Its author metadata appears only in the first group; the second group
+	// (line 5) carries just the header and content, which is the case that
+	// catches a parser that forgets metadata between groups.
+	const multiCommit = "933a090c754dd1ab62d23c700a43cf5f3fbce8d7 1 1 1\n" +
+		"author test\n" +
+		"author-mail <test@example.com>\n" +
+		"author-time 1577894400\n" +
+		"author-tz -0600\n" +
+		"committer test\n" +
+		"committer-mail <test@example.com>\n" +
+		"committer-time 1577894400\n" +
+		"committer-tz -0600\n" +
+		"summary first\n" +
+		"boundary\n" +
+		"filename f.txt\n" +
+		"\tA\n" +
+		"875897cf2872915cdc4fbb7ca34cf053f4ff4558 2 2 3\n" +
+		"author test\n" +
+		"author-mail <test@example.com>\n" +
+		"author-time 1622530800\n" +
+		"author-tz +0200\n" +
+		"committer test\n" +
+		"committer-mail <test@example.com>\n" +
+		"committer-time 1622530800\n" +
+		"committer-tz +0200\n" +
+		"summary second\n" +
+		"previous 933a090c754dd1ab62d23c700a43cf5f3fbce8d7 f.txt\n" +
+		"filename f.txt\n" +
+		"\tX\n" +
+		"875897cf2872915cdc4fbb7ca34cf053f4ff4558 3 3\n" +
+		"\tY\n" +
+		"875897cf2872915cdc4fbb7ca34cf053f4ff4558 4 4\n" +
+		"\tZ\n" +
+		"933a090c754dd1ab62d23c700a43cf5f3fbce8d7 2 5 1\n" +
+		"\tB\n"
+
+	tests := []struct {
+		name     string
+		out      string
+		expected []blameExpectation
+	}{
+		{
+			name: "metadata reused for a later group of the same commit",
+			out:  multiCommit,
+			expected: []blameExpectation{
+				{
+					commit: "933a090c754dd1ab62d23c700a43cf5f3fbce8d7", author: "test",
+					email: "test@example.com", line: 1, unix: 1577894400,
+				},
+				{
+					commit: "875897cf2872915cdc4fbb7ca34cf053f4ff4558", author: "test",
+					email: "test@example.com", line: 2, unix: 1622530800,
+				},
+				{
+					commit: "875897cf2872915cdc4fbb7ca34cf053f4ff4558", author: "test",
+					email: "test@example.com", line: 3, unix: 1622530800,
+				},
+				{
+					commit: "875897cf2872915cdc4fbb7ca34cf053f4ff4558", author: "test",
+					email: "test@example.com", line: 4, unix: 1622530800,
+				},
+				{
+					commit: "933a090c754dd1ab62d23c700a43cf5f3fbce8d7", author: "test",
+					email: "test@example.com", line: 5, unix: 1577894400,
+				},
+			},
+		},
+		{
+			name:     "empty output",
+			out:      "",
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assertBlameLines(t, vcs.ParseGitBlamePorcelain(tt.out), tt.expected)
+		})
+	}
+}
+
+func TestGitBlame(t *testing.T) {
+	t.Parallel()
+
+	key := "git blame --porcelain -L 1,2 -L 10,12 -- file.txt"
+	canned := map[string]string{
+		key: "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111 1 1 1\n" +
+			"author Kyle King\n" +
+			"author-mail <kyle@example.com>\n" +
+			"author-time 1700000000\n" +
+			"author-tz +0000\n" +
+			"summary msg\n" +
+			"filename file.txt\n" +
+			"\tone\n",
+	}
+
+	ctx := stubCommands(t, canned, nil)
+	g := vcs.NewGitOperations()
+
+	got, err := g.Blame(ctx, testRepoPath, "file.txt", []vcs.LineRange{{From: 1, To: 2}, {From: 10, To: 12}})
+	if err != nil {
+		t.Fatalf("Blame: %v", err)
+	}
+
+	assertBlameLines(t, got, []blameExpectation{
+		{
+			commit: "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111", author: "Kyle King",
+			email: "kyle@example.com", line: 1, unix: 1700000000,
+		},
+	})
+}
+
+func TestGitBlameCommandFailure(t *testing.T) {
+	t.Parallel()
+
+	ctx := stubCommands(t, nil, map[string]error{
+		"git blame --porcelain -- file.txt": errBoom,
+	})
+
+	g := vcs.NewGitOperations()
+	if _, err := g.Blame(ctx, testRepoPath, "file.txt", nil); err == nil {
+		t.Fatal("expected error")
+	}
+}

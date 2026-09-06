@@ -1,3 +1,9 @@
+## v0.14.0 (2026-09-06)
+
+### Feat
+
+- **vcs**: attribute each line of a file to the change that introduced it
+
 ## v0.13.0 (2026-09-04)
 
 ### Feat

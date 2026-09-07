@@ -1,3 +1,9 @@
+## v0.15.0 (2026-09-07)
+
+### Feat
+
+- **filter**: add a generic predicate and scoped-query package
+
 ## v0.14.0 (2026-09-06)
 
 ### Feat

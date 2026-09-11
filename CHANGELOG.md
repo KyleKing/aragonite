@@ -1,3 +1,9 @@
+## v0.15.1 (2026-09-11)
+
+### Fix
+
+- **vcs**: recover from a diverged upstream in PullFastForward
+
 ## v0.15.0 (2026-09-07)
 
 ### Feat

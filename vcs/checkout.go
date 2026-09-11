@@ -46,8 +46,17 @@ func colocated(repoPath string) bool {
 	return err == nil
 }
 
+// ErrDiverged reports that the working branch and its upstream share no
+// fast-forward path in either direction, which is what a rebase or
+// force-push of the upstream leaves behind. Neither side is a superset of
+// the other, so no automatic pull is safe: only a caller that knows the
+// local commits are disposable (its own prior checkout of the same branch,
+// not independent work) can decide what happens next.
+var ErrDiverged = errors.New("local branch has diverged from its upstream")
+
 // PullFastForward advances the current branch to its upstream and changes
-// nothing when it cannot.
+// nothing when it cannot outright fast-forward, reporting ErrDiverged rather
+// than attempting a merge when the two histories have split.
 //
 // Never add --autostash. On git 2.x an --ff-only --autostash pull against a
 // dirty file the pull also touches exits 0 while leaving UU conflict markers
@@ -62,11 +71,52 @@ func PullFastForward(ctx context.Context, repoPath string) error {
 		return nil
 	}
 
-	if _, err := runCommand(ctx, repoPath, "git", "pull", "--ff-only"); err != nil {
-		return fmt.Errorf("git pull --ff-only: %w", withStderr(err))
+	if _, err := runCommand(ctx, repoPath, "git", "fetch"); err != nil {
+		return fmt.Errorf("git fetch: %w", withStderr(err))
+	}
+
+	if hasDiverged(ctx, repoPath) {
+		return ErrDiverged
+	}
+
+	if _, err := runCommand(ctx, repoPath, "git", "merge", "--ff-only", "@{u}"); err != nil {
+		return fmt.Errorf("git merge --ff-only @{u}: %w", withStderr(err))
 	}
 
 	return nil
+}
+
+// ResetHardToUpstream discards the working branch's commits and points it at
+// its upstream. The caller must have already established that discarding
+// those commits loses nothing real (they came from second-look's own prior
+// checkout, not from work done on top of it): this is not reversible in the
+// working tree.
+func ResetHardToUpstream(ctx context.Context, repoPath string) error {
+	if _, err := runCommand(ctx, repoPath, "git", "reset", "--hard", "@{u}"); err != nil {
+		return fmt.Errorf("git reset --hard @{u}: %w", withStderr(err))
+	}
+
+	return nil
+}
+
+// hasDiverged reports whether the working branch and its upstream share no
+// fast-forward path either way. The caller has already fetched, so @{u}
+// reflects the remote's current state.
+func hasDiverged(ctx context.Context, repoPath string) bool {
+	if isAncestor(ctx, repoPath, "@{u}", "HEAD") {
+		return false // upstream is reachable from HEAD: already up to date, or HEAD is ahead
+	}
+
+	return !isAncestor(ctx, repoPath, "HEAD", "@{u}")
+}
+
+// isAncestor reports whether ancestor is reachable from descendant. Any
+// failure of the underlying command, not just a confirmed "not an ancestor",
+// answers false: a merge-base that cannot answer is not grounds to guess.
+func isAncestor(ctx context.Context, repoPath, ancestor, descendant string) bool {
+	_, err := runCommand(ctx, repoPath, "git", "merge-base", "--is-ancestor", ancestor, descendant)
+
+	return err == nil
 }
 
 // withStderr surfaces the command's message, since (*exec.ExitError).Error()

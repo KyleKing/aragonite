@@ -1284,7 +1284,7 @@ func TestParseGitBlamePorcelain(t *testing.T) {
 func TestGitBlame(t *testing.T) {
 	t.Parallel()
 
-	key := "git blame --porcelain -L 1,2 -L 10,12 -- file.txt"
+	key := "git blame --porcelain -L 1,2 -L 10,12 abc1234 -- file.txt"
 	canned := map[string]string{
 		key: "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111 1 1 1\n" +
 			"author Kyle King\n" +
@@ -1299,7 +1299,7 @@ func TestGitBlame(t *testing.T) {
 	ctx := stubCommands(t, canned, nil)
 	g := vcs.NewGitOperations()
 
-	got, err := g.Blame(ctx, testRepoPath, "file.txt", []vcs.LineRange{{From: 1, To: 2}, {From: 10, To: 12}})
+	got, err := g.Blame(ctx, testRepoPath, "abc1234", "file.txt", []vcs.LineRange{{From: 1, To: 2}, {From: 10, To: 12}})
 	if err != nil {
 		t.Fatalf("Blame: %v", err)
 	}
@@ -1320,7 +1320,7 @@ func TestGitBlameCommandFailure(t *testing.T) {
 	})
 
 	g := vcs.NewGitOperations()
-	if _, err := g.Blame(ctx, testRepoPath, "file.txt", nil); err == nil {
+	if _, err := g.Blame(ctx, testRepoPath, "", "file.txt", nil); err == nil {
 		t.Fatal("expected error")
 	}
 }

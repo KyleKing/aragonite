@@ -121,7 +121,7 @@ func TestGitBlameAgainstRealGit(t *testing.T) {
 	write("one\ntwo\nthree\nfour\n")
 	run("commit", "-am", "second")
 
-	got, err := vcs.NewGitOperations().Blame(t.Context(), dir, "f.txt", []vcs.LineRange{{From: 1, To: 2}})
+	got, err := vcs.NewGitOperations().Blame(t.Context(), dir, "", "f.txt", []vcs.LineRange{{From: 1, To: 2}})
 	if err != nil {
 		t.Fatalf("Blame: %v", err)
 	}
@@ -134,6 +134,15 @@ func TestGitBlameAgainstRealGit(t *testing.T) {
 		if line.Author != "test" || line.Email != "test@example.com" || line.Line != i+1 {
 			t.Errorf("line %d: unexpected %+v", i, line)
 		}
+	}
+
+	// At HEAD~1 the file held only its original two lines.
+	older, err := vcs.NewGitOperations().Blame(t.Context(), dir, "HEAD~1", "f.txt", nil)
+	if err != nil {
+		t.Fatalf("Blame at HEAD~1: %v", err)
+	}
+	if len(older) != 2 {
+		t.Fatalf("got %d blame lines at HEAD~1, want 2: %+v", len(older), older)
 	}
 }
 

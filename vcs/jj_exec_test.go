@@ -782,11 +782,13 @@ func TestJJBlame(t *testing.T) {
 	t.Parallel()
 
 	key := jjKey("--ignore-working-copy file annotate -T " + vcs.JJBlameFormat + " -- f.txt")
+	revKey := jjKey("--ignore-working-copy file annotate -r abc1234 -T " + vcs.JJBlameFormat + " -- f.txt")
 
 	tests := []struct {
 		name     string
 		canned   map[string]string
 		failures map[string]error
+		rev      string
 		ranges   []vcs.LineRange
 		expected []blameExpectation
 		wantErr  bool
@@ -818,6 +820,16 @@ func TestJJBlame(t *testing.T) {
 			},
 		},
 		{
+			name: "annotates a named revision",
+			canned: map[string]string{
+				revKey: "0ecbeb4636bd\tKyle King\tkyle@example.com\t2020-01-01T10:00:00-06:00\t1\n",
+			},
+			rev: "abc1234",
+			expected: []blameExpectation{
+				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 1, unix: 1577894400},
+			},
+		},
+		{
 			name:     "command failure",
 			failures: map[string]error{key: errBoom},
 			wantErr:  true,
@@ -830,7 +842,7 @@ func TestJJBlame(t *testing.T) {
 			ctx := stubCommands(t, tt.canned, tt.failures)
 
 			j := vcs.NewJJOperations()
-			got, err := j.Blame(ctx, testRepoPath, "f.txt", tt.ranges)
+			got, err := j.Blame(ctx, testRepoPath, tt.rev, "f.txt", tt.ranges)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("unexpected error state: %v", err)
 			}

@@ -55,7 +55,7 @@ func TestJJBlameAgainstRealJJ(t *testing.T) {
 
 	dir := jjInit(t)
 
-	got, err := vcs.NewJJOperations().Blame(t.Context(), dir, "f.txt", []vcs.LineRange{{From: 1, To: 2}})
+	got, err := vcs.NewJJOperations().Blame(t.Context(), dir, "", "f.txt", []vcs.LineRange{{From: 1, To: 2}})
 	if err != nil {
 		t.Fatalf("Blame: %v", err)
 	}
@@ -68,5 +68,14 @@ func TestJJBlameAgainstRealJJ(t *testing.T) {
 		if line.Author != "test" || line.Email != "test@example.com" || line.Line != i+1 {
 			t.Errorf("line %d: unexpected %+v", i, line)
 		}
+	}
+
+	// At the first commit the file held only its original two lines.
+	older, err := vcs.NewJJOperations().Blame(t.Context(), dir, "@--", "f.txt", nil)
+	if err != nil {
+		t.Fatalf("Blame at @--: %v", err)
+	}
+	if len(older) != 2 {
+		t.Fatalf("got %d blame lines at @--, want 2: %+v", len(older), older)
 	}
 }

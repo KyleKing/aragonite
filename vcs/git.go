@@ -969,11 +969,16 @@ var gitBlameHeaderRe = regexp.MustCompile(`^([0-9a-f]{40,64}) \d+ (\d+)(?: \d+)?
 // Blame implements Operations. One git process handles every range: -L may
 // repeat and overlapping ranges are allowed, so the walk stays proportional to
 // what was asked for rather than the whole file.
-func (g *GitOperations) Blame(ctx context.Context, repoPath, path string, ranges []LineRange) ([]BlameLine, error) {
-	args := make([]string, 0, 2+2*len(ranges)+2)
+func (g *GitOperations) Blame(
+	ctx context.Context, repoPath, rev, path string, ranges []LineRange,
+) ([]BlameLine, error) {
+	args := make([]string, 0, 2+2*len(ranges)+3)
 	args = append(args, "blame", "--porcelain")
 	for _, r := range ranges {
 		args = append(args, "-L", fmt.Sprintf("%d,%d", r.From, r.To))
+	}
+	if rev != "" {
+		args = append(args, rev)
 	}
 	args = append(args, "--", path)
 

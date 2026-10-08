@@ -595,10 +595,14 @@ const jjBlameFieldCount = 5
 // Blame implements Operations. There is no jj flag for a line range, so this
 // annotates the whole file and filters to ranges here; an empty ranges keeps
 // everything.
-func (j *JJOperations) Blame(ctx context.Context, repoPath, path string, ranges []LineRange) ([]BlameLine, error) {
-	out, err := j.runJJInRepo(
-		ctx, repoPath, "--ignore-working-copy", "file", "annotate", "-T", jjBlameFormat, "--", path,
-	)
+func (j *JJOperations) Blame(ctx context.Context, repoPath, rev, path string, ranges []LineRange) ([]BlameLine, error) {
+	args := []string{"--ignore-working-copy", "file", "annotate"}
+	if rev != "" {
+		args = append(args, "-r", rev)
+	}
+	args = append(args, "-T", jjBlameFormat, "--", path)
+
+	out, err := j.runJJInRepo(ctx, repoPath, args...)
 	if err != nil {
 		return nil, err
 	}

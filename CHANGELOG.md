@@ -1,3 +1,9 @@
+## v0.16.0 (2026-10-07)
+
+### Feat
+
+- **vcs**: blame a file at a named revision
+
 ## v0.15.1 (2026-09-11)
 
 ### Fix

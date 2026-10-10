@@ -8,6 +8,10 @@ import (
 	"github.com/kyleking/aragonite/tui/table"
 )
 
+// chipDress is what a key picks up inside a chip: the brackets around it and
+// the space before its description.
+const chipDress = 3
+
 // Page draws one level of a legend as wrapped hint chips rather than a row a
 // key, which is what a legend long enough to scroll needs. A Hint marked Head
 // opens a group: its What is the label in the left margin and the hints under
@@ -31,6 +35,7 @@ func Page(s Styles, hints []Hint, width int) []string {
 	}
 
 	room := func() int { return max(1, width-len(Indent)-col) }
+	pad := Indent + strings.Repeat(" ", col)
 
 	var out []string
 	line, empty := "", true
@@ -44,19 +49,17 @@ func Page(s Styles, hints []Hint, width int) []string {
 			h.What += "…"
 		}
 
-		h.What = table.Truncate(h.What, max(1, room()-lipgloss.Width(h.Key)-3))
+		h.What = table.Truncate(h.What, max(1, room()-lipgloss.Width(h.Key)-chipDress))
 
 		one := One(s, h)
-		if line == "" {
-			line = Indent + strings.Repeat(" ", col)
-		}
-
 		if !empty && lipgloss.Width(line)+len(Gap)+lipgloss.Width(one) > width {
 			out = append(out, line)
-			line, empty = Indent+strings.Repeat(" ", col), true
+			line, empty = pad, true
 		}
 
-		if !empty {
+		if line == "" {
+			line = pad
+		} else if !empty {
 			line += Gap
 		}
 
@@ -64,35 +67,108 @@ func Page(s Styles, hints []Hint, width int) []string {
 		empty = false
 	}
 
+	flush := func() {
+		if line != "" {
+			out = append(out, line)
+			line, empty = "", true
+		}
+	}
+
 	for _, h := range hints {
 		switch {
 		case h.Head:
-			if line != "" {
-				out = append(out, line)
-			}
+			flush()
 
 			line = Indent + s.Head.Render(table.Pad(h.What, margin, table.AlignRight)) + Gutter
-			empty = true
 		case h.Key == "":
-			if line != "" {
-				out = append(out, line)
-				line, empty = "", true
-			}
-
-			if h.What == "" {
-				out = append(out, "")
-			} else {
-				for _, w := range prose(h.What, room()) {
-					out = append(out, Indent+strings.Repeat(" ", col)+s.Text.Render(w))
-				}
-			}
+			flush()
+			out = append(out, proseLines(s, h.What, pad, room())...)
 		default:
 			chip(h)
 		}
 	}
 
-	if line != "" {
-		out = append(out, line)
+	flush()
+
+	return out
+}
+
+// proseLines wraps one prose hint into lines under pad, an empty one staying a
+// blank line so a hint can hold a paragraph open.
+func proseLines(s Styles, what, pad string, room int) []string {
+	if what == "" {
+		return []string{""}
+	}
+
+	lines := prose(what, room)
+	out := make([]string, len(lines))
+	for i, w := range lines {
+		out[i] = pad + s.Text.Render(w)
+	}
+
+	return out
+}
+
+// Column draws one legend page as a single column of aligned key rows, which
+// is what a floating help box has room for: the keys right-aligned in a
+// column as wide as the widest one, heads as section lines, and prose in
+// Styles.Text, everything bounded to width. A hint with Kids carries an
+// ellipsis saying a press of its key opens that page.
+func Column(s Styles, hints []Hint, width int) []string {
+	keys := 0
+	for _, h := range hints {
+		keys = max(keys, lipgloss.Width(h.Key))
+	}
+
+	room := max(1, width-keys-len(Gutter))
+
+	out := make([]string, 0, len(hints))
+
+	for _, h := range hints {
+		switch {
+		case h.Head:
+			out = append(out, s.Head.Render(table.Truncate(h.What, width)))
+		case h.Key == "":
+			out = append(out, proseLines(s, h.What, "", width)...)
+		default:
+			out = append(out, colRow(s, h, keys, room)...)
+		}
+	}
+
+	return out
+}
+
+// colRow draws one key's row in a column, the description wrapping under
+// itself when it runs past the room a row leaves it.
+func colRow(s Styles, h Hint, keys, room int) []string {
+	what := h.What
+	if len(h.Kids) > 0 {
+		what += "…"
+	}
+
+	words := prose(what, room)
+	if len(words) == 0 {
+		words = []string{""}
+	}
+
+	key := table.Pad(h.Key, keys, table.AlignRight)
+	cont := strings.Repeat(" ", keys+len(Gutter))
+	out := make([]string, len(words))
+
+	for i, w := range words {
+		pad := cont
+		if i == 0 {
+			pad = key + Gutter
+		}
+
+		switch {
+		case h.Off:
+			out[i] = s.Off.Render(pad + w)
+		case i == 0:
+			out[i] = s.Key.Render(key) + Gutter + s.Text.Render(w)
+		default:
+			out[i] = pad + s.Text.Render(w)
+		}
 	}
 
 	return out

@@ -25,6 +25,11 @@ import (
 type Hint struct {
 	Key  string
 	What string
+	// Kids is the page of hints a prefix key opens, so a legend can be read a
+	// level at a time rather than listing every chord at once. Page draws the
+	// hint with an ellipsis to say there is more under it; the other
+	// renderers pay it no mind.
+	Kids []Hint
 	// Head makes this a heading over the hints under it, drawn in Styles.Head
 	// where the descriptions are. A heading carries no key.
 	Head bool
@@ -32,11 +37,6 @@ type Hint struct {
 	// Styles.Off rather than dropped so the legend says what the screen
 	// offers as well as what it offers here.
 	Off bool
-	// Kids is the page of hints a prefix key opens, so a legend can be read a
-	// level at a time rather than listing every chord at once. Page draws the
-	// hint with an ellipsis to say there is more under it; the other
-	// renderers pay it no mind.
-	Kids []Hint
 }
 
 // Styles are the faces a hint is drawn with, passed in so the package never

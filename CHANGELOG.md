@@ -1,3 +1,9 @@
+## v0.17.0 (2026-10-10)
+
+### Feat
+
+- **keyhint**: render a legend as paged chip groups
+
 ## v0.16.0 (2026-10-07)
 
 ### Feat

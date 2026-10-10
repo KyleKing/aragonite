@@ -28,9 +28,18 @@ type Hint struct {
 	// Head makes this a heading over the hints under it, drawn in Styles.Head
 	// where the descriptions are. A heading carries no key.
 	Head bool
+	// Off marks a key that does nothing where the cursor is, drawn flat in
+	// Styles.Off rather than dropped so the legend says what the screen
+	// offers as well as what it offers here.
+	Off bool
+	// Kids is the page of hints a prefix key opens, so a legend can be read a
+	// level at a time rather than listing every chord at once. Page draws the
+	// hint with an ellipsis to say there is more under it; the other
+	// renderers pay it no mind.
+	Kids []Hint
 }
 
-// Styles are the two faces a hint is drawn with, passed in so the package never
+// Styles are the faces a hint is drawn with, passed in so the package never
 // reaches for an application's palette.
 type Styles struct {
 	// Key draws the bracketed letter.
@@ -39,6 +48,8 @@ type Styles struct {
 	Text lipgloss.Style
 	// Head draws a heading row, and draws it unstyled until it is set.
 	Head lipgloss.Style
+	// Off draws a hint marked Off, key and text alike.
+	Off lipgloss.Style
 }
 
 // Gap separates two hints on one line. It is two spaces because one reads as a
@@ -57,8 +68,13 @@ func Line(s Styles, hints []Hint) string {
 
 // One renders a single hint. A single-character key is bracketed where it
 // appears in the word, preferring the start of a word, and the bracket carries
-// the key's own case, so a shifted binding reads as `[S]ubmit`.
+// the key's own case, so a shifted binding reads as `[S]ubmit`. A hint marked
+// Off is drawn flat in Styles.Off, and unstyled where that face is unset.
 func One(s Styles, h Hint) string {
+	if h.Off {
+		return s.Off.Render("[" + h.Key + "] " + h.What)
+	}
+
 	at := index(h.Key, h.What)
 	if at < 0 {
 		return s.Key.Render("["+h.Key+"]") + " " + s.Text.Render(h.What)

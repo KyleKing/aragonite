@@ -1,3 +1,9 @@
+## v0.18.0 (2026-10-10)
+
+### Feat
+
+- **tui**: float a legend as a titled column box
+
 ## v0.17.0 (2026-10-10)
 
 ### Feat

@@ -1,3 +1,9 @@
+## v0.20.0 (2026-10-15)
+
+### Feat
+
+- **skin**: tab and tab-active faces for the strips three tools draw
+
 ## v0.19.1 (2026-10-15)
 
 ### Fix

@@ -1,3 +1,9 @@
+## v0.18.1 (2026-10-14)
+
+### Fix
+
+- **keyhint**: a bracket key wears its face, not the brackets
+
 ## v0.18.0 (2026-10-10)
 
 ### Feat

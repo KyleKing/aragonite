@@ -1,3 +1,9 @@
+## v0.19.0 (2026-10-14)
+
+### Feat
+
+- **tui**: pane runs a program on a pty inside the frame
+
 ## v0.18.1 (2026-10-14)
 
 ### Fix

@@ -112,8 +112,9 @@ func proseLines(s Styles, what, pad string, room int) []string {
 // Column draws one legend page as a single column of aligned key rows, which
 // is what a floating help box has room for: the keys right-aligned in a
 // column as wide as the widest one, heads as section lines, and prose in
-// Styles.Text, everything bounded to width. A hint with Kids carries an
-// ellipsis saying a press of its key opens that page.
+// Styles.Text under the description column, so a line of it reads as the note
+// to the rows above rather than a fourth kind of thing at the margin. A hint
+// with Kids carries an ellipsis saying a press of its key opens that page.
 func Column(s Styles, hints []Hint, width int) []string {
 	keys := 0
 	for _, h := range hints {
@@ -121,6 +122,7 @@ func Column(s Styles, hints []Hint, width int) []string {
 	}
 
 	room := max(1, width-keys-len(Gutter))
+	prosePad := strings.Repeat(" ", keys+len(Gutter))
 
 	out := make([]string, 0, len(hints))
 
@@ -129,7 +131,7 @@ func Column(s Styles, hints []Hint, width int) []string {
 		case h.Head:
 			out = append(out, s.Head.Render(table.Truncate(h.What, width)))
 		case h.Key == "":
-			out = append(out, proseLines(s, h.What, "", width)...)
+			out = append(out, proseLines(s, h.What, prosePad, room)...)
 		default:
 			out = append(out, colRow(s, h, keys, room)...)
 		}

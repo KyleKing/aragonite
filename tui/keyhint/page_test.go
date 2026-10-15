@@ -127,6 +127,26 @@ func TestPageWritesProseInTheColumn(t *testing.T) {
 	}
 }
 
+// A column's prose belongs under the descriptions it annotates: at the
+// margin it is indistinguishable from a heading, which is the ugliness the
+// indent exists to keep out.
+func TestColumnWritesProseUnderTheDescriptions(t *testing.T) {
+	t.Parallel()
+
+	got := keyhint.Column(plain, []keyhint.Hint{
+		{What: "moving", Head: true},
+		{Key: "shift+tab", What: "and back"},
+		{What: "the same key takes a reaction back"},
+	}, 60)
+
+	prose := strings.Index(got[2], "the same")
+	what := strings.Index(got[1], "and back")
+	if prose != what {
+		t.Errorf("the prose sits at column %d and the descriptions at %d:\n%s",
+			prose, what, strings.Join(got, "\n"))
+	}
+}
+
 // A page has to fit the frame it is drawn in, since a help screen that wraps
 // is the one screen a reader cannot fall back on.
 func TestPageFitsItsWidth(t *testing.T) {

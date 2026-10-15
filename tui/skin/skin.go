@@ -46,6 +46,12 @@ type Skin struct {
 	Cursor lipgloss.Style
 	// Key is a keyboard hint's bracketed letter.
 	Key lipgloss.Style
+	// Tab is a tab strip's unfocused segment: the name and count on a surface
+	// one step above the background.
+	Tab lipgloss.Style
+	// TabActive is the segment being read: a filled chip in the accent, the
+	// same shape as the cursor's own.
+	TabActive lipgloss.Style
 
 	Success lipgloss.Style
 	Warning lipgloss.Style
@@ -66,9 +72,12 @@ func New(p theme.Palette, accent color.Color) Skin {
 		Accent:   base.Foreground(accent),
 		Cursor:   base.Foreground(accent).Bold(true),
 		Key:      base.Foreground(s.Primary),
-		Success:  base.Foreground(s.Success),
-		Warning:  base.Foreground(s.Warning),
-		Error:    base.Foreground(s.Error).Bold(true),
+		Tab:      base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
+		TabActive: base.Foreground(p.Base).Background(accent).Bold(true).
+			Padding(0, 1),
+		Success: base.Foreground(s.Success),
+		Warning: base.Foreground(s.Warning),
+		Error:   base.Foreground(s.Error).Bold(true),
 	}
 }
 

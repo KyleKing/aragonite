@@ -1,3 +1,9 @@
+## v0.19.1 (2026-10-15)
+
+### Fix
+
+- **keyhint**: a column's prose indents to the description column
+
 ## v0.19.0 (2026-10-14)
 
 ### Feat

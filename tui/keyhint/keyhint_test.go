@@ -28,6 +28,11 @@ func TestOne(t *testing.T) {
 		{"not in the word", "[tab] switch", keyhint.Hint{Key: "tab", What: "switch"}},
 		{"punctuation", "[/] search", keyhint.Hint{Key: "/", What: "search"}},
 		{"nothing to sit in", "[q] ", keyhint.Hint{Key: "q", What: ""}},
+		{"a closing bracket", "] go to", keyhint.Hint{Key: "]", What: "go to"}},
+		{"an opening bracket", "[ go back", keyhint.Hint{Key: "[", What: "go back"}},
+		{"a bracket in the word", "] hunk", keyhint.Hint{Key: "]", What: "] hunk"}},
+		{"a bracket off", "] go to", keyhint.Hint{Key: "]", What: "go to", Off: true}},
+		{"a bracketed key off", "[x] y", keyhint.Hint{Key: "x", What: "y", Off: true}},
 	}
 
 	for _, tc := range tests {

@@ -70,14 +70,22 @@ func Line(s Styles, hints []Hint) string {
 // appears in the word, preferring the start of a word, and the bracket carries
 // the key's own case, so a shifted binding reads as `[S]ubmit`. A hint marked
 // Off is drawn flat in Styles.Off, and unstyled where that face is unset.
+//
+// A bracket is the mark a key wears, so a bracket key wears its face alone:
+// `] go to` reads where `[]] go to` does not.
 func One(s Styles, h Hint) string {
+	mark := "[" + h.Key + "]"
+	if h.Key == "[" || h.Key == "]" {
+		mark = h.Key
+	}
+
 	if h.Off {
-		return s.Off.Render("[" + h.Key + "] " + h.What)
+		return s.Off.Render(mark + " " + h.What)
 	}
 
 	at := index(h.Key, h.What)
 	if at < 0 {
-		return s.Key.Render("["+h.Key+"]") + " " + s.Text.Render(h.What)
+		return s.Key.Render(mark) + " " + s.Text.Render(h.What)
 	}
 
 	// The letter matched in the word is not the key's own byte for a shifted or
@@ -85,7 +93,7 @@ func One(s Styles, h Hint) string {
 	_, size := utf8.DecodeRuneInString(h.What[at:])
 
 	return s.Text.Render(h.What[:at]) +
-		s.Key.Render("["+h.Key+"]") +
+		s.Key.Render(mark) +
 		s.Text.Render(h.What[at+size:])
 }
 

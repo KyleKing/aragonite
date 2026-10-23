@@ -1,3 +1,17 @@
+## v0.21.0 (2026-10-23)
+
+### Feat
+
+- **card**: a card drawn inline with a captioned border
+- **skin**: selection, card, and edge faces
+- **theme**: tint a background toward an accent, and mix two colors
+- **theme**: add the Ink flavor
+
+### Fix
+
+- **forge**: diff the files GitHub sends without a patch
+- **forge**: read a pull request past 300 files from the files API
+
 ## v0.20.0 (2026-10-15)
 
 ### Feat

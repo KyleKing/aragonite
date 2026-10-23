@@ -44,6 +44,8 @@ type Skin struct {
 	// rather than a reversed row: inverting a whole line means reading the
 	// content through it.
 	Cursor lipgloss.Style
+	// Selection is the background of the row under the cursor, a tint quiet enough to read through.
+	Selection lipgloss.Style
 	// Key is a keyboard hint's bracketed letter.
 	Key lipgloss.Style
 	// Tab is a tab strip's unfocused segment: the name and count on a surface
@@ -52,11 +54,22 @@ type Skin struct {
 	// TabActive is the segment being read: a filled chip in the accent, the
 	// same shape as the cursor's own.
 	TabActive lipgloss.Style
+	// Card is the background of a block raised off the frame.
+	Card lipgloss.Style
+	// Edge is the border of a raised block.
+	Edge lipgloss.Style
 
 	Success lipgloss.Style
 	Warning lipgloss.Style
 	Error   lipgloss.Style
 }
+
+const (
+	cardShare     = 0.75
+	edgeShare     = 0.35
+	selectionLift = 0.06
+	selectionSat  = 0.35
+)
 
 // New builds a skin from a palette and the accent that names this tool.
 func New(p theme.Palette, accent color.Color) Skin {
@@ -64,17 +77,20 @@ func New(p theme.Palette, accent color.Color) Skin {
 	base := lipgloss.NewStyle()
 
 	return Skin{
-		Title:    base.Foreground(s.Text).Bold(true),
-		Subtitle: base.Foreground(p.Subtext0),
-		Heading:  base.Foreground(p.Blue).Bold(true),
-		Body:     base.Foreground(s.Text),
-		Muted:    base.Foreground(p.Overlay1),
-		Accent:   base.Foreground(accent),
-		Cursor:   base.Foreground(accent).Bold(true),
-		Key:      base.Foreground(s.Primary),
-		Tab:      base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
+		Title:     base.Foreground(s.Text).Bold(true),
+		Subtitle:  base.Foreground(p.Subtext0),
+		Heading:   base.Foreground(p.Blue).Bold(true),
+		Body:      base.Foreground(s.Text),
+		Muted:     base.Foreground(p.Overlay1),
+		Accent:    base.Foreground(accent),
+		Cursor:    base.Foreground(accent).Bold(true),
+		Selection: base.Background(theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat})),
+		Key:       base.Foreground(s.Primary),
+		Tab:       base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
 		TabActive: base.Foreground(p.Base).Background(accent).Bold(true).
 			Padding(0, 1),
+		Card:    base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
+		Edge:    base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
 		Success: base.Foreground(s.Success),
 		Warning: base.Foreground(s.Warning),
 		Error:   base.Foreground(s.Error).Bold(true),

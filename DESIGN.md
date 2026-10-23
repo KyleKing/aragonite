@@ -55,7 +55,7 @@ Three properties hold across that graph:
 
 A palette is generic and style names are an application's vocabulary. `PROpenStyle`
 and `NotesBadgeStyle` mean something to one dashboard and nothing here, so the split
-runs between them: `tui/theme` ships the Catppuccin flavors and the
+runs between them: `tui/theme` ships the Catppuccin and Ink flavors and the
 terminal-background detection, and each consumer keeps its own named styles built
 from a palette.
 

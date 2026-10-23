@@ -24,6 +24,8 @@ func Detect() Palette {
 // only called when the override does not name a flavor.
 func Select(override string, dark func() bool) Palette {
 	switch strings.ToLower(override) {
+	case "ink":
+		return Ink()
 	case "latte", "light":
 		return Latte()
 	case "macchiato", "dark":

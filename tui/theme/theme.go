@@ -1,4 +1,4 @@
-// Package theme carries the Catppuccin palettes a terminal UI draws from, the
+// Package theme carries the palettes a terminal UI draws from, the
 // terminal-background detection that picks between them, and a semantic view
 // naming the eight roles most views actually reach for.
 package theme
@@ -9,8 +9,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Palette is one Catppuccin flavor. Fields are grouped as the upstream spec
-// groups them: monochromatic ramp first, then the accents.
+// Palette is one flavor. Fields are grouped as the Catppuccin spec groups them:
+// monochromatic ramp first, then the accents.
 type Palette struct {
 	Base     color.Color
 	Mantle   color.Color
@@ -131,5 +131,38 @@ func Macchiato() Palette { //nolint:dupl // two flavors of one struct are duplic
 		Sapphire:  lipgloss.Color("#7dc4e4"),
 		Blue:      lipgloss.Color("#8aadf4"),
 		Lavender:  lipgloss.Color("#b7bdf8"),
+	}
+}
+
+// Ink returns a darker palette with quieter accents than the Catppuccin flavors.
+func Ink() Palette { //nolint:dupl // flavors of one struct are duplicates by construction
+	return Palette{
+		Base:     lipgloss.Color("#14161b"),
+		Mantle:   lipgloss.Color("#101216"),
+		Crust:    lipgloss.Color("#0c0d10"),
+		Surface0: lipgloss.Color("#1c2027"),
+		Surface1: lipgloss.Color("#232833"),
+		Surface2: lipgloss.Color("#2a303b"),
+		Overlay0: lipgloss.Color("#5d6573"),
+		Overlay1: lipgloss.Color("#7c8594"),
+		Overlay2: lipgloss.Color("#8a93a2"),
+		Subtext0: lipgloss.Color("#a3abb8"),
+		Subtext1: lipgloss.Color("#b6bdc8"),
+		Text:     lipgloss.Color("#c8ced8"),
+
+		Rosewater: lipgloss.Color("#f0c8b8"),
+		Flamingo:  lipgloss.Color("#f0a8a8"),
+		Pink:      lipgloss.Color("#f29ac8"),
+		Mauve:     lipgloss.Color("#c39bff"),
+		Red:       lipgloss.Color("#f27a86"),
+		Maroon:    lipgloss.Color("#ee8f99"),
+		Peach:     lipgloss.Color("#ffa45c"),
+		Yellow:    lipgloss.Color("#e8c35a"),
+		Green:     lipgloss.Color("#5fd497"),
+		Teal:      lipgloss.Color("#7fcfc0"),
+		Sky:       lipgloss.Color("#56c8d8"),
+		Sapphire:  lipgloss.Color("#5fb8e0"),
+		Blue:      lipgloss.Color("#7aa8ff"),
+		Lavender:  lipgloss.Color("#94a8ff"),
 	}
 }

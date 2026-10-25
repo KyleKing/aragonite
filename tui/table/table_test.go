@@ -251,3 +251,210 @@ func TestRowPaintsEveryCell(t *testing.T) {
 		t.Errorf("painted %d spans, want %d: %q", got, want, row)
 	}
 }
+
+// han is n two-cell Han pairs, four cells each.
+func han(n int) string {
+	//nolint:gosmopolitan // CJK is the point: every rune here is two cells wide
+	return strings.Repeat("漢字", n)
+}
+
+func breakpointCols() []table.Column {
+	return []table.Column{
+		{Key: "title", Min: 20, Weight: 1},
+		{Key: "ref", Min: 12, From: 100},
+		{Key: "author", Min: 10, From: 112},
+	}
+}
+
+func TestFitHidesColumnsBelowTheirBreakpoint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		want    string
+		dropped string
+		width   int
+		hidden  int
+	}{
+		{name: "below both", width: 99, want: "title", dropped: "ref author", hidden: 2},
+		{name: "first floor", width: 100, want: "title ref", dropped: "author", hidden: 1},
+		{name: "just under second", width: 111, want: "title ref", dropped: "author", hidden: 1},
+		{name: "second floor", width: 112, want: "title ref author", dropped: "", hidden: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			l := table.Fit(breakpointCols(), tt.width)
+			if got := strings.Join(visibleKeys(l), " "); got != tt.want {
+				t.Errorf("visible = %q, want %q", got, tt.want)
+			}
+
+			if got := strings.Join(l.Dropped, " "); got != tt.dropped {
+				t.Errorf("dropped = %q, want %q", got, tt.dropped)
+			}
+
+			if l.Hidden != tt.hidden {
+				t.Errorf("hidden = %d, want %d", l.Hidden, tt.hidden)
+			}
+
+			if l.Total() > tt.width {
+				t.Errorf("total width %d exceeds %d", l.Total(), tt.width)
+			}
+		})
+	}
+}
+
+func TestDroppedListsKeysInColumnOrderWhateverDroppedThem(t *testing.T) {
+	t.Parallel()
+
+	cols := []table.Column{
+		{Key: "a", Min: 20, Weight: 1},
+		{Key: "b", Min: 10, Priority: 2},
+		{Key: "c", Min: 10, From: 100},
+		{Key: "d", Min: 10, Priority: 1},
+	}
+
+	tests := []struct {
+		want  string
+		width int
+	}{
+		{width: 200, want: ""},
+		{width: 60, want: "c"},
+		{width: 40, want: "c d"},
+		{width: 25, want: "b c d"},
+	}
+
+	for _, tt := range tests {
+		l := table.Fit(cols, tt.width)
+		if got := strings.Join(l.Dropped, " "); got != tt.want {
+			t.Errorf("width %d: dropped = %q, want %q", tt.width, got, tt.want)
+		}
+
+		if l.Hidden != len(l.Dropped) {
+			t.Errorf("width %d: hidden = %d, dropped %d keys", tt.width, l.Hidden, len(l.Dropped))
+		}
+	}
+}
+
+func TestRowCellsKeepsTheBandUnbrokenAcrossStyledCells(t *testing.T) {
+	t.Parallel()
+
+	const (
+		bandSeq = "48;2;51;102;153"
+		redSeq  = "48;2;255;0;0"
+	)
+
+	l := table.Fit(cols(), 70)
+	band := lipgloss.NewStyle().Background(lipgloss.Color("#336699"))
+	loud := lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Bold(true)
+	rogue := lipgloss.NewStyle().Background(lipgloss.Color("#ff0000"))
+
+	tests := []struct {
+		name  string
+		cells []table.Cell
+	}{
+		{name: "styled and plain", cells: []table.Cell{{Text: "alpha", Style: loud}, {Text: "main"}}},
+		{name: "cell background yields to the band", cells: []table.Cell{{Text: "alpha", Style: rogue}}},
+		{name: "wide glyphs", cells: []table.Cell{{Text: "⬆️ " + han(6), Style: loud}, {Text: han(3), Style: loud}}},
+		{name: "no cells", cells: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			row := table.RowCells(l, tt.cells, band)
+			if w := lipgloss.Width(row); w != l.Total() {
+				t.Errorf("row is %d cells, want the layout's %d", w, l.Total())
+			}
+
+			spans := 2*len(l.Columns) - 1
+			if l.Marker() != "" {
+				spans++
+			}
+
+			if got := strings.Count(row, bandSeq); got != spans {
+				t.Errorf("band painted %d spans, want %d: %q", got, spans, row)
+			}
+
+			if strings.Contains(row, redSeq) {
+				t.Errorf("a cell's own background broke the band: %q", row)
+			}
+
+			if len(tt.cells) > 0 && tt.cells[0].Style.GetBold() && !strings.Contains(row, "38;2;0;255;0") {
+				t.Errorf("cell foreground lost: %q", row)
+			}
+		})
+	}
+}
+
+func TestRuleFillsExactlyTheWidth(t *testing.T) {
+	t.Parallel()
+
+	plain := table.RuleStyles{}
+	dashes := func(n int) string { return strings.Repeat(table.RuleGlyph, n) }
+
+	tests := []struct {
+		name   string
+		label  string
+		count  string
+		want   string
+		width  int
+		narrow bool
+	}{
+		{name: "20", width: 20, label: "ready", count: "4", want: "ready " + dashes(12) + " 4"},
+		{name: "40", width: 40, label: "waiting on others", count: "3", want: "waiting on others " + dashes(20) + " 3"},
+		{
+			name: "count wider than half", width: 20, label: "ready", count: "123456789012345678",
+			want: "ready " + dashes(3) + " 123456789…",
+		},
+		{
+			name: "label wider than room", width: 20, label: "a very long label indeed", count: "7",
+			want: "a very long lab… " + dashes(1) + " 7",
+		},
+		{name: "no count", width: 12, label: "merged", want: "merged " + dashes(5)},
+		{name: "no label", width: 12, count: "5", want: dashes(10) + " 5"},
+		{name: "room for a count only", width: 2, label: "x", count: "5", want: " 5"},
+		{name: "one cell", width: 1, label: "x", count: "5", want: dashes(1)},
+		{name: "zero", width: 0, label: "x", count: "5", want: ""},
+		{name: "wide label", width: 20, label: han(8), count: "2"},
+		{name: "wide count", width: 20, label: "ready", count: "⬆️⬆️⬆️"},
+		{name: "wide count cut", width: 8, label: "ready", count: han(3)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := table.Rule(plain, tt.label, tt.count, tt.width)
+			if w := lipgloss.Width(got); w != tt.width {
+				t.Errorf("Rule is %d cells, want %d: %q", w, tt.width, got)
+			}
+
+			if tt.want != "" && got != tt.want {
+				t.Errorf("Rule = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMeasureReturnsTheWidestCellPerKey(t *testing.T) {
+	t.Parallel()
+
+	rows := [][]table.Cell{
+		{{Text: "short"}, {Text: "⬆️"}, {Text: "x"}},
+		{{Text: han(2)}, {Text: "ab"}},
+		{{Text: "mid"}},
+	}
+
+	got := table.Measure(rows, []string{"a", "b", "c", "unfilled"})
+	want := map[string]int{"a": 8, "b": 2, "c": 1, "unfilled": 0}
+
+	for key, w := range want {
+		if got[key] != w {
+			t.Errorf("Measure[%q] = %d, want %d", key, got[key], w)
+		}
+	}
+}

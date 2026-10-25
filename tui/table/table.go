@@ -47,6 +47,9 @@ const truncationEnds = 2
 // Priority orders collapse: the lowest positive Priority is hidden first, so
 // a column's Priority is its information value. Zero means the column is
 // never hidden and the table overflows instead. Max of zero is unbounded.
+//
+// From is a breakpoint: the column is hidden whenever the table is narrower
+// than From cells, whatever its Priority. Zero means no floor.
 type Column struct {
 	Key      string
 	Title    string
@@ -54,6 +57,7 @@ type Column struct {
 	Max      int
 	Weight   int
 	Priority int
+	From     int
 	Align    Align
 	Trim     Trim
 }
@@ -63,6 +67,7 @@ type Column struct {
 type Layout struct {
 	widths   map[string]int
 	Columns  []Column
+	Dropped  []string
 	Hidden   int
 	unmarked bool
 }
@@ -101,8 +106,9 @@ func (l Layout) Marker() string {
 	return Ellipsis + "+" + strconv.Itoa(l.Hidden)
 }
 
-// Fit resolves cols into width display cells. Columns are hidden by ascending
-// Priority until the remaining minimums fit, then the surplus is shared
+// Fit resolves cols into width display cells. Columns below their From
+// breakpoint are hidden first, then the rest by ascending Priority until the
+// remaining minimums fit, then the surplus is shared
 // between the weighted columns in proportion to their Weight and capped at
 // their Max.
 func Fit(cols []Column, width int) Layout {
@@ -139,14 +145,18 @@ func (l Layout) markedHidden() int {
 	return l.Hidden
 }
 
-// collapse hides the least valuable columns until the rest fit in width,
-// stopping once only never-hidden columns remain. The returned layout has no
-// resolved widths yet.
+// collapse hides the columns below their From breakpoint, then the least
+// valuable of the rest until they fit in width, stopping once only
+// never-hidden columns remain. The returned layout has no resolved widths yet.
 func collapse(cols []Column, width int, unmarked bool) Layout {
-	visible := make([]Column, len(cols))
-	copy(visible, cols)
+	visible := make([]Column, 0, len(cols))
+	for _, c := range cols {
+		if c.From <= width {
+			visible = append(visible, c)
+		}
+	}
 
-	hidden := 0
+	hidden := len(cols) - len(visible)
 	for minWidth(visible, marked(hidden, unmarked)) > width {
 		victim := -1
 		for i, c := range visible {
@@ -163,7 +173,24 @@ func collapse(cols []Column, width int, unmarked bool) Layout {
 		hidden++
 	}
 
-	return Layout{Columns: visible, Hidden: hidden}
+	return Layout{Columns: visible, Dropped: droppedKeys(cols, visible), Hidden: hidden}
+}
+
+// droppedKeys lists the keys of cols missing from visible, in cols order.
+func droppedKeys(cols, visible []Column) []string {
+	kept := make(map[string]bool, len(visible))
+	for _, c := range visible {
+		kept[c.Key] = true
+	}
+
+	var dropped []string
+	for _, c := range cols {
+		if !kept[c.Key] {
+			dropped = append(dropped, c.Key)
+		}
+	}
+
+	return dropped
 }
 
 func marked(hidden int, unmarked bool) int {
@@ -401,4 +428,105 @@ func Row(l Layout, cells []string, face lipgloss.Style) string {
 	}
 
 	return strings.Join(parts, "")
+}
+
+// Cell is one cell's text and the face it draws in, layered over the row's.
+// Text must be plain: it is measured and cut before any style is applied.
+type Cell struct {
+	Style lipgloss.Style
+	Text  string
+}
+
+// RowCells is Row for cells that carry their own face. Every cell, gutter, and
+// the marker slot is drawn in face with the cell's style filled in beneath it,
+// so a background on face is unbroken across the row. What face sets wins over
+// the cell, so give a band face a background and nothing else.
+func RowCells(l Layout, cells []Cell, face lipgloss.Style) string {
+	parts := make([]string, 0, 2*len(l.Columns)+1)
+	blank := face.Render(strings.Repeat(" ", Gutter))
+
+	for i, c := range l.Columns {
+		if i > 0 {
+			parts = append(parts, blank)
+		}
+
+		var cell Cell
+		if i < len(cells) {
+			cell = cells[i]
+		}
+
+		text := PadTrim(cell.Text, l.widths[c.Key], c.Align, c.Trim)
+		parts = append(parts, face.Inherit(cell.Style).Render(text))
+	}
+
+	if marker := l.Marker(); marker != "" {
+		parts = append(parts, face.Render(strings.Repeat(" ", Gutter+lipgloss.Width(marker))))
+	}
+
+	return strings.Join(parts, "")
+}
+
+// Measure returns the widest cell per key across rows, in display cells. A
+// row's cells are in the order of keys, and a short row leaves the rest alone.
+func Measure(rows [][]Cell, keys []string) map[string]int {
+	widest := make(map[string]int, len(keys))
+	for _, key := range keys {
+		widest[key] = 0
+	}
+
+	for _, row := range rows {
+		for i := range min(len(row), len(keys)) {
+			widest[keys[i]] = max(widest[keys[i]], lipgloss.Width(row[i].Text))
+		}
+	}
+
+	return widest
+}
+
+// RuleGlyph draws the line of a Rule.
+const RuleGlyph = "─"
+
+// RuleStyles are the faces a Rule draws with.
+type RuleStyles struct{ Line, Label, Count lipgloss.Style }
+
+// Rule draws "label ──── count" to exactly width cells. A count wider than
+// width/2 is cut, and a label wider than the room is truncated with an
+// ellipsis, or dropped when not even that fits beside one cell of line.
+func Rule(s RuleStyles, label, count string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+
+	count = Truncate(count, width/truncationEnds)
+
+	tail := 0
+	if count != "" {
+		tail = lipgloss.Width(count) + 1
+	}
+
+	const labelGaps = 2 // the space after the label and one cell of line
+
+	label = Truncate(label, width-tail-labelGaps)
+	head := 0
+	if label != "" {
+		head = lipgloss.Width(label) + 1
+	}
+
+	line := strings.Repeat(RuleGlyph, max(width-head-tail, 0))
+
+	var b strings.Builder
+
+	if label != "" {
+		b.WriteString(s.Label.Render(label))
+		b.WriteString(s.Line.Render(" "))
+	}
+
+	b.WriteString(s.Line.Render(line))
+
+	if count != "" {
+		b.WriteString(s.Line.Render(" "))
+		b.WriteString(s.Count.Render(count))
+	}
+
+	return b.String()
 }

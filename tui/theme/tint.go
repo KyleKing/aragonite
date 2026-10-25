@@ -37,3 +37,25 @@ func Mix(a, b color.Color, t float64) color.Color {
 
 	return from.BlendLab(to, t).Clamped()
 }
+
+// Contrast returns the WCAG 2 contrast ratio between a and b, from 1 for two
+// identical colors to 21 for black on white, whichever order they are given in.
+func Contrast(a, b color.Color) float64 {
+	const flare = 0.05
+
+	hi, lo := luminance(a), luminance(b)
+	if lo > hi {
+		hi, lo = lo, hi
+	}
+
+	return (hi + flare) / (lo + flare)
+}
+
+func luminance(c color.Color) float64 {
+	const red, green, blue = 0.2126, 0.7152, 0.0722
+
+	rgb, _ := colorful.MakeColor(c)
+	r, g, b := rgb.LinearRgb()
+
+	return red*r + green*g + blue*b
+}

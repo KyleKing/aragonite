@@ -106,3 +106,29 @@ func TestMixReturnsTheEndpoints(t *testing.T) {
 		})
 	}
 }
+
+func TestContrastMatchesTheWCAGDefinition(t *testing.T) {
+	t.Parallel()
+
+	black, white := color.RGBA{A: 0xff}, color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+
+	tests := []struct {
+		a, b color.Color
+		name string
+		want float64
+	}{
+		{name: "black on white", a: black, b: white, want: 21},
+		{name: "white on black", a: white, b: black, want: 21},
+		{name: "identical", a: white, b: white, want: 1},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := theme.Contrast(tc.a, tc.b); math.Abs(got-tc.want) > 0.01 {
+				t.Errorf("Contrast = %.3f, want %.1f", got, tc.want)
+			}
+		})
+	}
+}

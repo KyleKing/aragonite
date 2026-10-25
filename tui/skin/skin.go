@@ -54,6 +54,15 @@ type Skin struct {
 	// TabActive is the segment being read: a filled chip in the accent, the
 	// same shape as the cursor's own.
 	TabActive lipgloss.Style
+	// Badge is a count's chip on a surface one step above the background.
+	Badge lipgloss.Style
+	// BadgeActive is Badge for the count beside the segment being read.
+	BadgeActive lipgloss.Style
+	// Hairline is a rule between groups, quieter than an Edge.
+	Hairline lipgloss.Style
+	// Band is the background behind the row under the cursor, for faces drawn
+	// on top of it. Subtext0 and brighter keep 4.5:1 contrast on it, Overlay2 does not.
+	Band lipgloss.Style
 	// Card is the background of a block raised off the frame.
 	Card lipgloss.Style
 	// Edge is the border of a raised block.
@@ -69,6 +78,7 @@ const (
 	edgeShare     = 0.35
 	selectionLift = 0.06
 	selectionSat  = 0.35
+	bandShare     = 0.16
 )
 
 // New builds a skin from a palette and the accent that names this tool.
@@ -89,11 +99,15 @@ func New(p theme.Palette, accent color.Color) Skin {
 		Tab:       base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
 		TabActive: base.Foreground(p.Base).Background(accent).Bold(true).
 			Padding(0, 1),
-		Card:    base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
-		Edge:    base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
-		Success: base.Foreground(s.Success),
-		Warning: base.Foreground(s.Warning),
-		Error:   base.Foreground(s.Error).Bold(true),
+		Badge:       base.Foreground(s.Text).Background(p.Surface1).Bold(true).Padding(0, 1),
+		BadgeActive: base.Foreground(p.Base).Background(accent).Bold(true).Padding(0, 1),
+		Hairline:    base.Foreground(p.Surface2),
+		Band:        base.Background(theme.Mix(p.Base, p.Lavender, bandShare)),
+		Card:        base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
+		Edge:        base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
+		Success:     base.Foreground(s.Success),
+		Warning:     base.Foreground(s.Warning),
+		Error:       base.Foreground(s.Error).Bold(true),
 	}
 }
 

@@ -1,3 +1,12 @@
+## v0.24.0 (2026-10-25)
+
+### Feat
+
+- **handoff**: run another tool with the terminal and report its exit
+- **keyhint**: draw hints bare with a set gap
+- **skin**: badge, hairline, and selection band faces
+- **table**: breakpoints, styled cells, and a group rule
+
 ## v0.23.0 (2026-10-25)
 
 ### Feat

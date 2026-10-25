@@ -15,7 +15,7 @@ measurement underneath. [DESIGN.md](DESIGN.md) has the layering rule in full.
 
 | Package | What it holds |
 | --- | --- |
-| `cache` | Generic TTL cache with a disk store, a registry for package-level caches, and remote-scoped keys so parallel checkouts of one remote share a read |
+| `cache` | Generic TTL cache with a disk store, a registry for package-level caches, and remote-scoped keys so parallel checkouts of one remote share a read. `PersistedStale` returns the last disk value with its age past the TTL, for drawing at once while a refresh runs |
 | `display` | `forge` and `vcs` models as plain text: relative times, status summaries, review glyphs, and the em-dash placeholder. Importing both is what keeps `forge` and `vcs` from importing each other |
 | `forge` | The pull request model shared by every tool that reads a code host: `PullRequest`, its detail and preview forms, checks, and workflow runs |
 | `ghcassette` | Records and replays `gh` subprocess calls through a stand-in binary on PATH, so a test replays the bytes GitHub sent in the shape gh prints them. The subprocess counterpart to `transport` |

@@ -71,6 +71,16 @@ func CachedPRs(repoPath, remoteID, upstream string) ([]forge.PullRequest, bool) 
 	return cache.Persisted(PRListCache, remoteID, key, vcs.Stamp(repoPath))
 }
 
+// CachedPRsStale is CachedPRs for a caller that would rather draw the last
+// open pull request list at once than wait for a fresh one. It returns the
+// list however old it is, with its age, and a checkout that has since moved
+// still misses. Refresh behind it with GetPRsForRepo.
+func CachedPRsStale(repoPath, remoteID, upstream string) ([]forge.PullRequest, time.Duration, bool) {
+	key := PRListCacheKey(repoPath, remoteID, upstream)
+
+	return cache.PersistedStale(PRListCache, remoteID, key, vcs.Stamp(repoPath))
+}
+
 // GetPRForBranch returns the pull request associated with branch, if any, using the cache when fresh.
 func GetPRForBranch(ctx context.Context, repoPath, remoteID, branch, upstream string) (*forge.PullRequest, error) {
 	cacheKey := PRCacheKey(repoPath, remoteID, upstream, branch)

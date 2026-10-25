@@ -15,7 +15,11 @@ import (
 // diskSchemaVersion guards the shape of what is written. Bump it whenever a
 // persisted struct gains, loses, or renames a field: a file written under
 // another version is dropped rather than decoded into zero values.
-const diskSchemaVersion = 1
+const diskSchemaVersion = 2
+
+// staleRetention is how long past its expiry an entry stays on disk for
+// PersistedStale to find: a morning start reads yesterday's values.
+const staleRetention = 7 * 24 * time.Hour
 
 const (
 	diskFileMode   = 0o600
@@ -87,6 +91,7 @@ type diskFile struct {
 
 type diskEntry struct {
 	ExpiresAt time.Time         `json:"expires_at"`
+	StoredAt  time.Time         `json:"stored_at"`
 	Seen      map[string]string `json:"seen"`
 	Value     json.RawMessage   `json:"value"`
 }
@@ -116,7 +121,7 @@ func persistedFrom[T any](d *DiskCache, c *TTLCache[T], upstream, key string, st
 		return zero, false
 	}
 
-	e, ok := d.read(upstream, key, stamp, c.clock())
+	e, ok := d.read(upstream, key, stamp, c.clock(), false)
 	if !ok {
 		return zero, false
 	}
@@ -126,9 +131,56 @@ func persistedFrom[T any](d *DiskCache, c *TTLCache[T], upstream, key string, st
 		return zero, false
 	}
 
-	c.restore(key, value, e.ExpiresAt, e.Seen, stamp)
+	c.restore(key, value, e.StoredAt, e.ExpiresAt, e.Seen, stamp)
 
 	return value, true
+}
+
+// PersistedStale returns the last value stored for key and how long ago it was
+// stored, whatever its TTL says, so a caller can draw it at once, mark it
+// stale, and refresh behind it. A value from a checkout whose stamp has moved
+// still misses: that value is wrong, not old.
+//
+// An entry that expired is read from disk and not seeded into memory, so the
+// TTL keeps deciding what Persisted serves as fresh. Disk keeps an expired
+// entry for a week, and only where an upstream is named and a store installed.
+//
+//nolint:ireturn // T is the cache's own type parameter, not an abstraction leak
+func PersistedStale[T any](c *TTLCache[T], upstream, key string, stamp Stamp) (T, time.Duration, bool) {
+	return persistedStaleFrom(installedDiskCache(), c, upstream, key, stamp)
+}
+
+//nolint:ireturn // T is the cache's own type parameter, not an abstraction leak
+func persistedStaleFrom[T any](
+	d *DiskCache, c *TTLCache[T], upstream, key string, stamp Stamp,
+) (T, time.Duration, bool) {
+	if value, ok := c.Get(key, stamp); ok {
+		return value, c.age(key), true
+	}
+
+	var zero T
+
+	if d == nil || upstream == "" {
+		return zero, 0, false
+	}
+
+	now := c.clock()
+
+	e, ok := d.read(upstream, key, stamp, now, true)
+	if !ok {
+		return zero, 0, false
+	}
+
+	var value T
+	if err := json.Unmarshal(e.Value, &value); err != nil {
+		return zero, 0, false
+	}
+
+	if !now.After(e.ExpiresAt) {
+		c.restore(key, value, e.StoredAt, e.ExpiresAt, e.Seen, stamp)
+	}
+
+	return value, now.Sub(e.StoredAt), true
 }
 
 // Persist stores value in c and, when a store is installed, in upstream's cache
@@ -156,10 +208,11 @@ func persistTo[T any](d *DiskCache, c *TTLCache[T], upstream, key string, stamp 
 		seen[stamp.Scope] = stamp.Fingerprint
 	}
 
-	d.write(upstream, key, diskEntry{Value: encoded, ExpiresAt: c.deadline(), Seen: seen}, c.clock())
+	now := c.clock()
+	d.write(upstream, key, diskEntry{Value: encoded, StoredAt: now, ExpiresAt: c.deadline(), Seen: seen}, now)
 }
 
-func (d *DiskCache) read(upstream, key string, stamp Stamp, now time.Time) (diskEntry, bool) {
+func (d *DiskCache) read(upstream, key string, stamp Stamp, now time.Time, stale bool) (diskEntry, bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -169,7 +222,7 @@ func (d *DiskCache) read(upstream, key string, stamp Stamp, now time.Time) (disk
 	}
 
 	e, ok := file.Entries[key]
-	if !ok || now.After(e.ExpiresAt) {
+	if !ok || now.After(e.ExpiresAt.Add(retention(stale))) {
 		return diskEntry{}, false
 	}
 
@@ -182,6 +235,15 @@ func (d *DiskCache) read(upstream, key string, stamp Stamp, now time.Time) (disk
 	return e, true
 }
 
+// retention is how far past its expiry an entry may still be read.
+func retention(stale bool) time.Duration {
+	if stale {
+		return staleRetention
+	}
+
+	return 0
+}
+
 func (d *DiskCache) write(upstream, key string, e diskEntry, now time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -192,7 +254,7 @@ func (d *DiskCache) write(upstream, key string, e diskEntry, now time.Time) {
 	}
 
 	for existing, held := range file.Entries {
-		if now.After(held.ExpiresAt) {
+		if now.After(held.ExpiresAt.Add(staleRetention)) {
 			delete(file.Entries, existing)
 		}
 	}

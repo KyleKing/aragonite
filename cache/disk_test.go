@@ -394,7 +394,8 @@ func TestAMovedStampMissesOnDisk(t *testing.T) {
 	}
 }
 
-// An expired entry is not served, and writing next to it clears it out.
+// An expired entry is not served, and writing next to it clears it out once
+// it is past the stale-read retention.
 func TestExpiredEntriesAreNeitherServedNorKept(t *testing.T) {
 	t.Parallel()
 
@@ -412,6 +413,8 @@ func TestExpiredEntriesAreNeitherServedNorKept(t *testing.T) {
 		t.Error("an expired entry was served from disk")
 	}
 
+	clock.advance(8 * 24 * time.Hour)
+
 	cache.PersistUsing(store, cache.NewTTLCacheWithClock[[]prInfo](5*time.Minute, clock.now),
 		upstream, "other", cache.NoStamp, samplePRs())
 
@@ -423,6 +426,58 @@ func TestExpiredEntriesAreNeitherServedNorKept(t *testing.T) {
 	}
 	if _, held := file.Entries[listKey]; held {
 		t.Error("the expired entry outlived the write that replaced its neighbor")
+	}
+}
+
+// A stale read serves what an expired TTL would not, with its age, but never a
+// value written under a checkout that has since moved.
+func TestPersistedStale(t *testing.T) {
+	t.Parallel()
+
+	const ttl = 5 * time.Minute
+
+	written := cache.Stamp{Scope: "/repo", Fingerprint: "head-a"}
+	moved := cache.Stamp{Scope: "/repo", Fingerprint: "head-b"}
+
+	tests := []struct {
+		name    string
+		stamp   cache.Stamp
+		wait    time.Duration
+		wantAge time.Duration
+		wantOK  bool
+	}{
+		{"fresh", written, time.Minute, time.Minute, true},
+		{"stale", written, 10 * time.Hour, 10 * time.Hour, true},
+		{"past retention", written, 8 * 24 * time.Hour, 0, false},
+		{"stamp moved", moved, 10 * time.Hour, 0, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			store := cache.NewDiskCache(t.TempDir())
+			clock := newFakeClock()
+
+			cache.PersistUsing(store, cache.NewTTLCacheWithClock[[]prInfo](ttl, clock.now),
+				upstream, listKey, written, samplePRs())
+			clock.advance(tc.wait)
+
+			got, age, ok := cache.PersistedStaleUsing(store, cache.NewTTLCacheWithClock[[]prInfo](ttl, clock.now),
+				upstream, listKey, tc.stamp)
+			if ok != tc.wantOK || age != tc.wantAge {
+				t.Fatalf("ok=%v age=%v, want ok=%v age=%v", ok, age, tc.wantOK, tc.wantAge)
+			}
+
+			if ok && !reflect.DeepEqual(got, samplePRs()) {
+				t.Errorf("value = %+v", got)
+			}
+
+			if _, fresh := cache.PersistedUsing(store, cache.NewTTLCacheWithClock[[]prInfo](ttl, clock.now),
+				upstream, listKey, tc.stamp); fresh != (tc.wantOK && tc.wait < ttl) {
+				t.Errorf("Persisted served fresh=%v after %v", fresh, tc.wait)
+			}
+		})
 	}
 }
 

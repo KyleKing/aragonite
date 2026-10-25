@@ -119,6 +119,23 @@ func CachedDefaultBranchCI(ctx context.Context, repoPath, remoteID string) (*for
 		DefaultBranchCICacheKey(repoPath, remoteID, def.SHA), cache.NoStamp)
 }
 
+// CachedDefaultBranchCIStale is CachedDefaultBranchCI for a caller that would
+// rather draw the last known CI at once than wait for a fresh read. It returns
+// what was stored for the current default branch head however old it is, with
+// its age. A new head misses, since its key names the commit. Refresh behind it
+// with GetDefaultBranchCI.
+func CachedDefaultBranchCIStale(
+	ctx context.Context, repoPath, remoteID string,
+) (*forge.DefaultBranchCI, time.Duration, bool) {
+	def, err := vcs.DefaultBranchHead(ctx, repoPath)
+	if err != nil {
+		return nil, 0, false
+	}
+
+	return cache.PersistedStale(DefaultBranchCICache, remoteID,
+		DefaultBranchCICacheKey(repoPath, remoteID, def.SHA), cache.NoStamp)
+}
+
 // GetDefaultBranchCI returns the latest run of each workflow on the repo's
 // default branch head, with the failing job names filled in for red runs, using
 // the cache when fresh.

@@ -43,3 +43,12 @@ func PersistUsing[T any](d *DiskCache, c *TTLCache[T], upstream, key string, sta
 func PersistedUsing[T any](d *DiskCache, c *TTLCache[T], upstream, key string, stamp Stamp) (T, bool) {
 	return persistedFrom(d, c, upstream, key, stamp)
 }
+
+// PersistedStaleUsing drives PersistedStale against an explicit store.
+//
+//nolint:ireturn // T is the cache's own type parameter, not an abstraction leak
+func PersistedStaleUsing[T any](
+	d *DiskCache, c *TTLCache[T], upstream, key string, stamp Stamp,
+) (T, time.Duration, bool) {
+	return persistedStaleFrom(d, c, upstream, key, stamp)
+}

@@ -41,6 +41,7 @@ func useTempDiskCache(t *testing.T) {
 	t.Cleanup(func() {
 		cache.SetDiskCache(nil)
 		github.PRCache.Clear()
+		github.PRListCache.Clear()
 		github.DefaultBranchCICache.Clear()
 	})
 }
@@ -64,8 +65,22 @@ func TestGitHubValuesSurviveAColdMemoryCache(t *testing.T) {
 	ciKey := github.DefaultBranchCICacheKey(repo, testRemoteID, defaultBranchSHA(t, repo))
 	cache.Persist(github.DefaultBranchCICache, testRemoteID, ciKey, cache.NoStamp, ci)
 
+	prs := []forge.PullRequest{{Number: 3, Title: "Listed"}}
+	listKey := github.PRListCacheKey(repo, testRemoteID, "origin/main")
+	cache.Persist(github.PRListCache, testRemoteID, listKey, cache.NoStamp, prs)
+
 	github.PRCache.Clear()
+	github.PRListCache.Clear()
 	github.DefaultBranchCICache.Clear()
+
+	gotPRs, _, ok := github.CachedPRsStale(repo, testRemoteID, "origin/main")
+	if !ok || len(gotPRs) != 1 || gotPRs[0].Number != 3 {
+		t.Errorf("CachedPRsStale = %+v, %v; want the persisted list", gotPRs, ok)
+	}
+
+	if got, _, ok := github.CachedDefaultBranchCIStale(ctx, repo, testRemoteID); !ok || got.Branch != ci.Branch {
+		t.Errorf("CachedDefaultBranchCIStale = %+v, %v; want the persisted run", got, ok)
+	}
 
 	gotPR, ok := github.CachedPRForBranch(repo, testRemoteID, "feat", "origin/main")
 	if !ok || gotPR.Number != pr.Number {

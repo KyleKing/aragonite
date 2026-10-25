@@ -24,6 +24,7 @@ var NoStamp = Stamp{} //nolint:gochecknoglobals // an empty-value constant, neve
 
 type entry[T any] struct {
 	value     T
+	storedAt  time.Time
 	expiresAt time.Time
 	seen      map[string]string
 }
@@ -148,6 +149,7 @@ func (c *TTLCache[T]) Set(key string, stamp Stamp, value T) {
 
 	c.entries[key] = entry[T]{
 		value:     value,
+		storedAt:  c.now(),
 		expiresAt: c.now().Add(c.ttl),
 		seen:      seen,
 	}
@@ -156,7 +158,7 @@ func (c *TTLCache[T]) Set(key string, stamp Stamp, value T) {
 // restore seeds an entry read back from disk, keeping the expiry and the
 // fingerprints it was written under so a persisted value neither restarts its
 // TTL nor forgets which checkouts have already read it.
-func (c *TTLCache[T]) restore(key string, value T, expiresAt time.Time, seen map[string]string, stamp Stamp) {
+func (c *TTLCache[T]) restore(key string, value T, storedAt, expiresAt time.Time, seen map[string]string, stamp Stamp) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -169,7 +171,7 @@ func (c *TTLCache[T]) restore(key string, value T, expiresAt time.Time, seen map
 		merged[stamp.Scope] = stamp.Fingerprint
 	}
 
-	c.entries[key] = entry[T]{value: value, expiresAt: expiresAt, seen: merged}
+	c.entries[key] = entry[T]{value: value, storedAt: storedAt, expiresAt: expiresAt, seen: merged}
 }
 
 // deadline is when an entry written now would expire.
@@ -178,6 +180,14 @@ func (c *TTLCache[T]) deadline() time.Time {
 	defer c.mu.RUnlock()
 
 	return c.now().Add(c.ttl)
+}
+
+// age is how long ago key was stored, or zero for a key not held.
+func (c *TTLCache[T]) age(key string) time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.now().Sub(c.entries[key].storedAt)
 }
 
 func (c *TTLCache[T]) clock() time.Time {

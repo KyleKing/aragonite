@@ -37,6 +37,9 @@ type Hint struct {
 	// Styles.Off rather than dropped so the legend says what the screen
 	// offers as well as what it offers here.
 	Off bool
+	// Priority is how long Fit keeps the hint as a line runs out of room: the
+	// lowest goes first, and equal priorities shed the later hint first.
+	Priority int
 }
 
 // Styles are the faces a hint is drawn with, passed in so the package never

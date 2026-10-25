@@ -129,3 +129,38 @@ func TestHelpFitsItsWidth(t *testing.T) {
 		}
 	}
 }
+
+func TestFit(t *testing.T) {
+	t.Parallel()
+
+	hints := []keyhint.Hint{
+		{Key: "j", What: "move", Priority: 2},
+		{Key: "e", What: "edit", Priority: 1},
+		{Key: "d", What: "delete", Priority: 3, Off: true},
+		{Key: "q", What: "quit", Priority: 9},
+	}
+
+	tests := []struct {
+		name  string
+		want  string
+		width int
+	}{
+		{"all fit, Off stays drawn", "[j] move  [e]dit  [d] delete  [q]uit", 40},
+		{"Off goes before a lower priority", "[j] move  [e]dit  [q]uit", 30},
+		{"then the lowest priority", "[j] move  [q]uit", 20},
+		{"then the next", "[q]uit", 10},
+		{"the last one is clipped", "[q]u", 4},
+		{"no room draws nothing", "", 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := keyhint.Fit(plain, hints, tc.width)
+			if got != tc.want {
+				t.Errorf("Fit(%d) = %q, want %q", tc.width, got, tc.want)
+			}
+		})
+	}
+}

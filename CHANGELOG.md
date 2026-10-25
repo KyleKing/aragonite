@@ -1,3 +1,9 @@
+## v0.22.0 (2026-10-25)
+
+### Feat
+
+- **theme**: lighten Ink's base and the surfaces above it
+
 ## v0.21.0 (2026-10-23)
 
 ### Feat

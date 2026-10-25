@@ -164,3 +164,40 @@ func TestFit(t *testing.T) {
 		})
 	}
 }
+
+func TestBareDropsTheBracketsAndKeepsTheGap(t *testing.T) {
+	t.Parallel()
+
+	bare := keyhint.Styles{Key: lipgloss.NewStyle(), Text: lipgloss.NewStyle(), Bare: true, Gap: "   "}
+	hints := []keyhint.Hint{
+		{Key: "enter", What: "review", Priority: 9},
+		{Key: "C", What: "check out", Priority: 1},
+		{Key: "s", What: "sort", Off: true},
+		{Key: "?", What: "help", Priority: 9},
+	}
+
+	tests := []struct {
+		name  string
+		want  string
+		width int
+	}{
+		{"all fit", "enter review   C check out   s sort   ? help", 60},
+		{"the off key goes first", "enter review   C check out   ? help", 36},
+		{"then the lowest priority, whole", "enter review   ? help", 30},
+		{"never mid-word", "enter review   ? help", 21},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := keyhint.Fit(bare, hints, tc.width); got != tc.want {
+				t.Errorf("Fit(%d) = %q, want %q", tc.width, got, tc.want)
+			}
+		})
+	}
+
+	if got := keyhint.One(bare, keyhint.Hint{Key: "]", What: "next", Off: true}); got != "] next" {
+		t.Errorf("an off bare hint = %q, want it flat and unbracketed", got)
+	}
+}

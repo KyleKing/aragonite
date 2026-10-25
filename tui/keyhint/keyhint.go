@@ -53,6 +53,19 @@ type Styles struct {
 	Head lipgloss.Style
 	// Off draws a hint marked Off, key and text alike.
 	Off lipgloss.Style
+	// Gap separates two hints on a line, and is the package's Gap where empty.
+	Gap string
+	// Bare draws a hint as its key and then its word, with no brackets, so the
+	// two faces alone tell them apart.
+	Bare bool
+}
+
+func (s Styles) gap() string {
+	if s.Gap == "" {
+		return Gap
+	}
+
+	return s.Gap
 }
 
 // Gap separates two hints on one line. It is two spaces because one reads as a
@@ -66,7 +79,7 @@ func Line(s Styles, hints []Hint) string {
 		out = append(out, One(s, h))
 	}
 
-	return strings.Join(out, Gap)
+	return strings.Join(out, s.gap())
 }
 
 // One renders a single hint. A single-character key is bracketed where it
@@ -77,6 +90,10 @@ func Line(s Styles, hints []Hint) string {
 // A bracket is the mark a key wears, so a bracket key wears its face alone:
 // `] go to` reads where `[]] go to` does not.
 func One(s Styles, h Hint) string {
+	if s.Bare {
+		return bare(s, h)
+	}
+
 	mark := "[" + h.Key + "]"
 	if h.Key == "[" || h.Key == "]" {
 		mark = h.Key
@@ -98,6 +115,14 @@ func One(s Styles, h Hint) string {
 	return s.Text.Render(h.What[:at]) +
 		s.Key.Render(mark) +
 		s.Text.Render(h.What[at+size:])
+}
+
+func bare(s Styles, h Hint) string {
+	if h.Off {
+		return s.Off.Render(h.Key + " " + h.What)
+	}
+
+	return s.Key.Render(h.Key) + " " + s.Text.Render(h.What)
 }
 
 // index is where the key sits in the word, or -1 where it does not. A word

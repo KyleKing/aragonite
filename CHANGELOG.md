@@ -1,3 +1,13 @@
+## v0.23.0 (2026-10-25)
+
+### Feat
+
+- **cache**: read a persisted value past its TTL, with its age
+- **region**: size to content under a height ceiling
+- **table**: paint a row's gutters in its own style
+- **frame**: a header, body, and pinned footer shared by every screen
+- **keyhint**: fit hints to a width by priority, dimming those that do not apply
+
 ## v0.22.0 (2026-10-25)
 
 ### Feat

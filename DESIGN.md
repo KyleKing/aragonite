@@ -28,7 +28,7 @@ flowchart TD
     forge["forge"]
     github["forge/github"]
     display["display"]
-    tui["tui/table, tui/region, tui/markdown, tui/theme, tui/frame"]
+    tui["tui/table, tui/region, tui/markdown, tui/theme, tui/frame, tui/handoff"]
 
     vcs --> cache
     github --> forge & cache & vcs

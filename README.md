@@ -28,7 +28,7 @@ measurement underneath. [DESIGN.md](DESIGN.md) has the layering rule in full.
 | `tui/markdown` | Markdown and raw HTML flattened to terminal lines, folding `<details>` to its summary so a bot's changelog costs one line |
 | `tui/skin` | The faces every screen here draws with, built from a palette and the one accent that tells a tool from its siblings, so a title looks like a title in each of them |
 | `tui/region` | The block a list opens beneath itself: a rule, label/value facts, a body, and a captioned divider |
-| `tui/table` | Fits columns to an available width and pads cells to it, measuring in display cells so wide glyphs never shift a row |
+| `tui/table` | Fits columns to an available width and pads cells to it, measuring in display cells so wide glyphs never shift a row. `Row` paints the gutters in the row's own face, so a selected row has no gaps |
 | `tui/theme` | Catppuccin Latte and Macchiato palettes and the Ink palette, terminal-background detection with a `CATPPUCCIN_THEME` override, an eight-role semantic view over a palette, and `Tint` and `Mix` for blending two colors |
 | `vcs` | git and jj behind one interface, with the working-tree summary, branches, commits, stashes, worktrees, diff, checkout identity, and stamp |
 

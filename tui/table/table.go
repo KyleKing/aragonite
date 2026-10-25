@@ -374,3 +374,31 @@ func Header(l Layout) string {
 func Join(cells []string) string {
 	return strings.Join(cells, strings.Repeat(" ", Gutter))
 }
+
+// Row renders one row at the layout's widths with every cell, gutter, and
+// trailing marker slot drawn in face, so a selected row is one unbroken band as
+// wide as Header. Cells are in the order of Layout.Columns, and a missing one
+// is blank.
+func Row(l Layout, cells []string, face lipgloss.Style) string {
+	parts := make([]string, 0, 2*len(l.Columns)+1)
+	blank := face.Render(strings.Repeat(" ", Gutter))
+
+	for i, c := range l.Columns {
+		if i > 0 {
+			parts = append(parts, blank)
+		}
+
+		text := ""
+		if i < len(cells) {
+			text = cells[i]
+		}
+
+		parts = append(parts, face.Render(PadTrim(text, l.widths[c.Key], c.Align, c.Trim)))
+	}
+
+	if marker := l.Marker(); marker != "" {
+		parts = append(parts, face.Render(strings.Repeat(" ", Gutter+lipgloss.Width(marker))))
+	}
+
+	return strings.Join(parts, "")
+}

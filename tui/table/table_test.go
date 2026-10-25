@@ -228,3 +228,26 @@ func TestPadKeepsEmojiPresentationRowsAligned(t *testing.T) {
 		})
 	}
 }
+
+func TestRowPaintsEveryCell(t *testing.T) {
+	t.Parallel()
+
+	l := table.Fit(cols(), 70)
+	face := lipgloss.NewStyle().Background(lipgloss.Color("#336699"))
+	row := table.Row(l, []string{"alpha", "main"}, face)
+
+	if w := lipgloss.Width(row); w != l.Total() {
+		t.Errorf("row is %d cells, want the layout's %d", w, l.Total())
+	}
+
+	// Each cell, gutter, and the marker slot is its own painted span, so none
+	// of the blanks between cells is left in the terminal's background.
+	want := 2*len(l.Columns) - 1
+	if l.Marker() != "" {
+		want++
+	}
+
+	if got := strings.Count(row, "\x1b[48;"); got != want {
+		t.Errorf("painted %d spans, want %d: %q", got, want, row)
+	}
+}

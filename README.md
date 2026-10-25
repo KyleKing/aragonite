@@ -27,7 +27,7 @@ measurement underneath. [DESIGN.md](DESIGN.md) has the layering rule in full.
 | `tui/keyhint` | The keys a screen offers, bracketed inside the word they do (`[p]ost one`, `[tab] switch`) so a footer needs no legend. The same shape captions the second key of a chord while it waits, `Fit` sheds the lowest-priority hints until a footer fits and draws the ones that do not apply dimmed, and `Help` lays out the full legend with the keys right-aligned in one column |
 | `tui/markdown` | Markdown and raw HTML flattened to terminal lines, folding `<details>` to its summary so a bot's changelog costs one line |
 | `tui/skin` | The faces every screen here draws with, built from a palette and the one accent that tells a tool from its siblings, so a title looks like a title in each of them |
-| `tui/region` | The block a list opens beneath itself: a rule, label/value facts, a body, and a captioned divider |
+| `tui/region` | The block a list opens beneath itself: a rule, label/value facts, a body, and a captioned divider. `Render` fills a fixed height, and `Lines` takes the height as a ceiling and draws only what the region holds |
 | `tui/table` | Fits columns to an available width and pads cells to it, measuring in display cells so wide glyphs never shift a row. `Row` paints the gutters in the row's own face, so a selected row has no gaps |
 | `tui/theme` | Catppuccin Latte and Macchiato palettes and the Ink palette, terminal-background detection with a `CATPPUCCIN_THEME` override, an eight-role semantic view over a palette, and `Tint` and `Mix` for blending two colors |
 | `vcs` | git and jj behind one interface, with the working-tree summary, branches, commits, stashes, worktrees, diff, checkout identity, and stamp |

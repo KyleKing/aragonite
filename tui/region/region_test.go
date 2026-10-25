@@ -1,6 +1,7 @@
 package region_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -111,5 +112,28 @@ func TestHeadPacksToTheColumnsTheCallerAllows(t *testing.T) {
 				t.Errorf("expected %d head lines, got %d:\n%s", tt.want, head, strings.Join(lines, "\n"))
 			}
 		})
+	}
+}
+
+// TestLinesTreatsHeightAsACeiling covers the sized-to-content path: a region
+// that fits draws only what it holds, and one that does not is cut to the
+// ceiling the same way Render cuts it.
+func TestLinesTreatsHeightAsACeiling(t *testing.T) {
+	t.Parallel()
+
+	const natural = 8
+
+	for _, ceiling := range []int{30, natural, 6, 3} {
+		got := block().Lines(plainStyles(), width, ceiling)
+		if want := min(ceiling, natural); len(got) != want {
+			t.Errorf("ceiling %d: drew %d lines, want %d", ceiling, len(got), want)
+		}
+
+		if ceiling < natural {
+			fixed := block().Render(plainStyles(), width, ceiling)
+			if !slices.Equal(got, fixed) {
+				t.Errorf("ceiling %d: Lines and Render differ:\n%q\n%q", ceiling, got, fixed)
+			}
+		}
 	}
 }

@@ -4,9 +4,10 @@
 // what a list holds, so the same shape can close over a repository, a pull
 // request, or anything a later list wants to expand in place.
 //
-// Rendering is total: Render always returns exactly the number of lines asked
-// for, so a region whose content is still loading cannot move the table above
-// it as data lands.
+// Render is total: it always returns exactly the number of lines asked for, so
+// a region whose content is still loading cannot move the table above it as
+// data lands. Lines takes the height as a ceiling instead, for a caller that
+// sizes the region to what it holds.
 package region
 
 import (
@@ -72,7 +73,29 @@ func (r Region) Render(s Styles, width, height int) []string {
 		return nil
 	}
 
-	lines := make([]string, 0, height)
+	lines := r.opening(s, width)
+	room := height - len(lines) - 1
+	lines = append(lines, padBottom(r.bodyLines(s, room), room)...)
+
+	return fit(append(lines, closingRule(s, r.Caption, width)), height)
+}
+
+// Lines draws the region with maxHeight as a ceiling: a body that fits is not
+// padded, so the result is as many lines as the region holds and never more
+// than maxHeight. Past the ceiling it elides and trims exactly as Render does.
+func (r Region) Lines(s Styles, width, maxHeight int) []string {
+	if maxHeight <= 0 {
+		return nil
+	}
+
+	lines := r.opening(s, width)
+	lines = append(lines, r.bodyLines(s, maxHeight-len(lines)-1)...)
+
+	return fit(append(lines, closingRule(s, r.Caption, width)), maxHeight)
+}
+
+func (r Region) opening(s Styles, width int) []string {
+	var lines []string
 	if r.Title != "" {
 		lines = append(lines, openingRule(s, r.Title, width))
 	}
@@ -83,10 +106,15 @@ func (r Region) Render(s Styles, width, height int) []string {
 		lines = append(lines, openingRule(s, r.Section, width))
 	}
 
-	room := height - len(lines) - 1
-	lines = append(lines, padBottom(elideMiddle(s, r.Body, room), room)...)
+	return lines
+}
 
-	return fit(append(lines, closingRule(s, r.Caption, width)), height)
+func (r Region) bodyLines(s Styles, room int) []string {
+	if room <= 0 {
+		return nil
+	}
+
+	return elideMiddle(s, r.Body, room)
 }
 
 // headLines lays the facts out in as many columns as width allows, so a

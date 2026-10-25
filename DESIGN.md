@@ -28,7 +28,7 @@ flowchart TD
     forge["forge"]
     github["forge/github"]
     display["display"]
-    tui["tui/table, tui/region, tui/markdown, tui/theme"]
+    tui["tui/table, tui/region, tui/markdown, tui/theme, tui/frame"]
 
     vcs --> cache
     github --> forge & cache & vcs
@@ -58,6 +58,8 @@ and `NotesBadgeStyle` mean something to one dashboard and nothing here, so the s
 runs between them: `tui/theme` ships the Catppuccin and Ink flavors and the
 terminal-background detection, and each consumer keeps its own named styles built
 from a palette.
+
+`tui/frame` is the one that takes a whole `skin.Skin`, because a frame's job is to compose the faces (title, tab, key, status) a skin already names, and it was the second consumer's shell that earned it.
 
 Everything else under `tui/` follows from that. `tui/markdown` takes a `Styles`
 argument naming three roles rather than reaching for a palette, and `tui/table` and

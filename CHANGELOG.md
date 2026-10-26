@@ -1,3 +1,9 @@
+## v1.3.0 (2026-10-26)
+
+### Feat
+
+- **frame**: draw a strip's hints bare and its panel on a Mantle surface that keeps muted text readable
+
 ## v1.2.0 (2026-10-26)
 
 ### Feat

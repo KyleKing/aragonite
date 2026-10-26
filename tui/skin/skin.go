@@ -9,7 +9,7 @@
 // inventing three names for the same grey.
 //
 // The accent is what tells the tools apart. It colors the few things a screen
-// is steered by (the cursor, the rail a comment hangs off, the key in a hint)
+// is steered by (the selected row, the rail a comment hangs off, the key in a hint)
 // and nothing else, so two tools are legibly different without being two
 // themes. Every role that carries a color is paired with a glyph or a weight
 // in the screens that use it, so NO_COLOR loses emphasis rather than meaning.
@@ -17,6 +17,7 @@ package skin
 
 import (
 	"image/color"
+	"os"
 
 	"charm.land/lipgloss/v2"
 
@@ -40,11 +41,12 @@ type Skin struct {
 	// Accent is what the tool is steered by, and what tells it from its
 	// siblings.
 	Accent lipgloss.Style
-	// Cursor marks where the keyboard is pointing. It is a glyph in the margin
-	// rather than a reversed row: inverting a whole line means reading the
-	// content through it.
+	// Cursor is the accent weight for text that names where the keyboard is
+	// pointing. The row itself is marked by Selection.
 	Cursor lipgloss.Style
-	// Selection is the background of the row under the cursor, a tint quiet enough to read through.
+	// Selection is the full-row face of the row under the cursor: a tint quiet
+	// enough to read through, and reverse video under NO_COLOR, where a tint
+	// cannot show.
 	Selection lipgloss.Style
 	// Key is a keyboard hint's bracketed letter.
 	Key lipgloss.Style
@@ -61,7 +63,8 @@ type Skin struct {
 	// Hairline is a rule between groups, quieter than an Edge.
 	Hairline lipgloss.Style
 	// Band is the background behind the row under the cursor, for faces drawn
-	// on top of it. Subtext0 and brighter keep 4.5:1 contrast on it, Overlay2 does not.
+	// on top of it, and reverse video under NO_COLOR. Subtext0 and brighter keep
+	// 4.5:1 contrast on it, Overlay2 does not.
 	Band lipgloss.Style
 	// Card is the background of a block raised off the frame.
 	Card lipgloss.Style
@@ -79,12 +82,25 @@ const (
 	selectionLift = 0.06
 	selectionSat  = 0.35
 	bandShare     = 0.16
+	noColorEnv    = "NO_COLOR"
 )
 
-// New builds a skin from a palette and the accent that names this tool.
+// New builds a skin from a palette and the accent that names this tool. A
+// non-empty NO_COLOR draws Selection and Band in reverse video.
 func New(p theme.Palette, accent color.Color) Skin {
+	return build(p, accent, os.Getenv(noColorEnv) != "")
+}
+
+func build(p theme.Palette, accent color.Color, mono bool) Skin {
 	s := p.Semantic()
 	base := lipgloss.NewStyle()
+
+	selection := base.Background(theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat}))
+	band := base.Background(theme.Mix(p.Base, p.Lavender, bandShare))
+
+	if mono {
+		selection, band = base.Reverse(true), base.Reverse(true)
+	}
 
 	return Skin{
 		Title:     base.Foreground(s.Text).Bold(true),
@@ -94,7 +110,7 @@ func New(p theme.Palette, accent color.Color) Skin {
 		Muted:     base.Foreground(p.Overlay1),
 		Accent:    base.Foreground(accent),
 		Cursor:    base.Foreground(accent).Bold(true),
-		Selection: base.Background(theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat})),
+		Selection: selection,
 		Key:       base.Foreground(s.Primary),
 		Tab:       base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
 		TabActive: base.Foreground(p.Base).Background(accent).Bold(true).
@@ -102,7 +118,7 @@ func New(p theme.Palette, accent color.Color) Skin {
 		Badge:       base.Foreground(s.Text).Background(p.Surface1).Bold(true).Padding(0, 1),
 		BadgeActive: base.Foreground(p.Base).Background(accent).Bold(true).Padding(0, 1),
 		Hairline:    base.Foreground(p.Surface2),
-		Band:        base.Background(theme.Mix(p.Base, p.Lavender, bandShare)),
+		Band:        band,
 		Card:        base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
 		Edge:        base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
 		Success:     base.Foreground(s.Success),
@@ -118,7 +134,3 @@ func Detected(accent func(theme.Palette) color.Color) Skin {
 
 	return New(p, accent(p))
 }
-
-// CursorBar is the glyph a cursor is drawn with, shared so the column a row
-// spends on it is the same width everywhere.
-const CursorBar = "▌"

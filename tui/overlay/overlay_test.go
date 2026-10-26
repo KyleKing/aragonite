@@ -157,3 +157,18 @@ func assertOutsideUntouched(t *testing.T, base, got, box []string, width int) {
 		}
 	}
 }
+
+func TestAtCoversWhatBlitDraws(t *testing.T) {
+	t.Parallel()
+
+	r := overlay.At([]string{"abc", "abcde"}, 4, 2)
+
+	for _, c := range []struct {
+		x, y int
+		in   bool
+	}{{4, 2, true}, {8, 3, true}, {9, 3, false}, {3, 2, false}, {4, 4, false}} {
+		if got := r.Contains(c.x, c.y); got != c.in {
+			t.Errorf("Contains(%d, %d) = %v, want %v", c.x, c.y, got, c.in)
+		}
+	}
+}

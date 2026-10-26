@@ -123,6 +123,25 @@ func Blit(base, box []string, x, y int) []string {
 	return out
 }
 
+// Rect is the cells a drawn box covers.
+type Rect struct{ X, Y, W, H int }
+
+// Contains reports whether cell (x, y) is inside r, which is how a click
+// outside a floating window is told from one on it.
+func (r Rect) Contains(x, y int) bool {
+	return x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H
+}
+
+// At is the Rect box covers when Blit draws it at (x, y).
+func At(box []string, x, y int) Rect {
+	w := 0
+	for _, l := range box {
+		w = max(w, ansi.StringWidth(l))
+	}
+
+	return Rect{X: x, Y: y, W: w, H: len(box)}
+}
+
 // BottomRight draws box flush against the bottom-right corner of a base that is
 // width cells wide, through Blit, so no base line moves. A box wider or taller
 // than the base is cut to the base's size, keeping its bottom rows and left

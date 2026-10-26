@@ -1,3 +1,10 @@
+## v1.0.0 (2026-10-26)
+
+### Feat
+
+- **keyhint**: add a which-key Panel and overlay.BottomRight to float it
+- **skin**: remove CursorBar, draw Selection in reverse video under NO_COLOR
+
 ## v0.24.0 (2026-10-25)
 
 ### Feat

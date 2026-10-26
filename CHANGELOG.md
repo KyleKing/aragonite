@@ -1,3 +1,10 @@
+## v1.2.0 (2026-10-26)
+
+### Feat
+
+- **frame**: tab count chips, a strip header with an underlining rule, a raised panel, and click hit-testing
+- **overlay**: report the cells a blitted box covers so a click outside it can close it
+
 ## v1.1.0 (2026-10-26)
 
 ### Feat

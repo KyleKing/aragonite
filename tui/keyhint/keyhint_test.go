@@ -1,6 +1,7 @@
 package keyhint_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -199,5 +200,51 @@ func TestBareDropsTheBracketsAndKeepsTheGap(t *testing.T) {
 
 	if got := keyhint.One(bare, keyhint.Hint{Key: "]", What: "next", Off: true}); got != "] next" {
 		t.Errorf("an off bare hint = %q, want it flat and unbracketed", got)
+	}
+}
+
+func TestPanel_AlignsKeysAndCountsAndFitsTheWidth(t *testing.T) {
+	t.Parallel()
+
+	s := keyhint.PanelStyles{Frame: lipgloss.NewStyle().Border(lipgloss.NormalBorder())}
+	hints := []keyhint.Hint{
+		{Key: "a", What: "all", Count: "12", On: true},
+		{Key: "esc", What: "a description much too long", Count: "3", Kids: []keyhint.Hint{{Key: "x"}}},
+	}
+
+	tests := []struct {
+		name  string
+		want  []string
+		width int
+	}{
+		{name: "roomy", width: 60, want: []string{
+			"┌─────────────────────────────────────┐",
+			"│  a  all                           12│",
+			"│esc  a description much too long…   3│",
+			"└─────────────────────────────────────┘",
+		}},
+		{name: "tight", width: 20, want: nil},
+		{name: "no room inside the frame", width: 2, want: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := keyhint.Panel(s, hints, tc.width)
+			if tc.want == nil {
+				for _, l := range got {
+					if w := lipgloss.Width(l); w > tc.width {
+						t.Errorf("row %q is %d cells wide on a %d-cell width", l, w, tc.width)
+					}
+				}
+
+				return
+			}
+
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
+			}
+		})
 	}
 }

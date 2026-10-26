@@ -25,11 +25,17 @@ import (
 type Hint struct {
 	Key  string
 	What string
+	// Count is a figure drawn right-aligned beside the hint by Panel, such as
+	// how many items the key's filter matches. Empty draws none.
+	Count string
 	// Kids is the page of hints a prefix key opens, so a legend can be read a
 	// level at a time rather than listing every chord at once. Page draws the
 	// hint with an ellipsis to say there is more under it; the other
 	// renderers pay it no mind.
 	Kids []Hint
+	// Priority is how long Fit keeps the hint as a line runs out of room: the
+	// lowest goes first, and equal priorities shed the later hint first.
+	Priority int
 	// Head makes this a heading over the hints under it, drawn in Styles.Head
 	// where the descriptions are. A heading carries no key.
 	Head bool
@@ -37,9 +43,9 @@ type Hint struct {
 	// Styles.Off rather than dropped so the legend says what the screen
 	// offers as well as what it offers here.
 	Off bool
-	// Priority is how long Fit keeps the hint as a line runs out of room: the
-	// lowest goes first, and equal priorities shed the later hint first.
-	Priority int
+	// On marks a hint whose effect is applied, drawn in PanelStyles.On by
+	// Panel.
+	On bool
 }
 
 // Styles are the faces a hint is drawn with, passed in so the package never

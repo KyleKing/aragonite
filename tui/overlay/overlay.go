@@ -1,5 +1,6 @@
 // Package overlay centers a block of content over a full-screen frame: a
 // modal, or a pane too small for what it holds and promoted out of the layout.
+// BottomRight anchors a block to the corner instead.
 //
 // lipgloss.Place centers each line of a multi-line string against that line's
 // own width, so a block whose lines differ in length staggers instead of
@@ -120,6 +121,30 @@ func Blit(base, box []string, x, y int) []string {
 	}
 
 	return out
+}
+
+// BottomRight draws box flush against the bottom-right corner of a base that is
+// width cells wide, through Blit, so no base line moves. A box wider or taller
+// than the base is cut to the base's size, keeping its bottom rows and left
+// cells.
+func BottomRight(base, box []string, width int) []string {
+	if width < 1 || len(base) == 0 || len(box) == 0 {
+		return Blit(base, nil, 0, 0)
+	}
+
+	if len(box) > len(base) {
+		box = box[len(box)-len(base):]
+	}
+
+	cut := make([]string, len(box))
+	boxWidth := 0
+
+	for i, l := range box {
+		cut[i] = ansi.Truncate(l, width, "")
+		boxWidth = max(boxWidth, ansi.StringWidth(cut[i]))
+	}
+
+	return Blit(base, cut, width-boxWidth, len(base)-len(cut))
 }
 
 // clip bounds content to the room inside the frame and pads every line to the

@@ -68,8 +68,9 @@ type Frame struct {
 	// footer shares, so the body is the same height whatever the panel says.
 	Panel []string
 	// Strip puts the tabs after the title, the facts at the right, and a
-	// hairline row under the header that underlines the active tab. It retires
-	// the tabs-at-the-right header once gh-repo-dashboard sets it.
+	// hairline row under the header that underlines the active tab, and draws
+	// the hints bare. It retires the tabs-at-the-right header and bracketed
+	// hints once gh-repo-dashboard sets it.
 	Strip bool
 }
 
@@ -78,6 +79,7 @@ const (
 	stripTop = 2
 	gap      = "  "
 	tabGap   = "   "
+	bareGap  = "   "
 	// A status takes at most one share of this many of the footer's width.
 	statusShare = 2
 )
@@ -156,10 +158,10 @@ func Render(s skin.Skin, f Frame, width, height int) string {
 	foot := footer(s, f, width)
 	if len(f.Panel) > 0 {
 		for _, p := range f.Panel {
-			lines = append(lines, Lit(ansi.Truncate(p, width, "…"), width, s.Card))
+			lines = append(lines, Lit(ansi.Truncate(p, width, "…"), width, s.Panel))
 		}
 
-		foot = Lit(foot, width, s.Card)
+		foot = Lit(foot, width, s.Panel)
 	}
 
 	return strings.Join(append(lines[:min(len(lines), height-1)], foot), "\n")
@@ -332,6 +334,9 @@ func footer(s skin.Skin, f Frame, width int) string {
 	}
 
 	faces := keyhint.Styles{Key: s.Key, Text: s.Subtitle, Off: s.Muted}
+	if f.Strip {
+		faces = keyhint.Styles{Key: s.Accent, Text: s.Muted, Off: s.Muted.Faint(true), Bare: true, Gap: bareGap}
+	}
 
 	return join(keyhint.Fit(faces, f.Hints, room), status, width)
 }

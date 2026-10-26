@@ -131,6 +131,10 @@ func TestStripDrawsTabsLeftRuleAndPanel(t *testing.T) {
 		t.Errorf("rule should underline the active tab and end on the note: %q", lines[1])
 	}
 
+	if foot := lines[height-1]; !strings.HasPrefix(foot, "enter open   / search") {
+		t.Errorf("a strip's hints should be bare: %q", foot)
+	}
+
 	if lines[height-3] != "subject line"+strings.Repeat(" ", width-12) || lines[height-2][:10] != "facts line" {
 		t.Errorf("panel should sit above the footer: %q", lines[height-3:])
 	}

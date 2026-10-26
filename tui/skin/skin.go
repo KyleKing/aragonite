@@ -68,6 +68,9 @@ type Skin struct {
 	Band lipgloss.Style
 	// Card is the background of a block raised off the frame.
 	Card lipgloss.Style
+	// Panel is the background of the band pinned above a footer, which Muted
+	// text keeps 4.5:1 contrast on.
+	Panel lipgloss.Style
 	// Edge is the border of a raised block.
 	Edge lipgloss.Style
 
@@ -120,6 +123,7 @@ func build(p theme.Palette, accent color.Color, mono bool) Skin {
 		Hairline:    base.Foreground(p.Surface2),
 		Band:        band,
 		Card:        base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
+		Panel:       base.Background(p.Mantle),
 		Edge:        base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
 		Success:     base.Foreground(s.Success),
 		Warning:     base.Foreground(s.Warning),

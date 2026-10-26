@@ -16,7 +16,8 @@ func TestInkTextHoldsReadableContrast(t *testing.T) {
 	const floor = 4.5
 
 	ink := theme.Ink()
-	band := skin.New(ink, ink.Lavender).Band.GetBackground()
+	s := skin.New(ink, ink.Lavender)
+	band, panel := s.Band.GetBackground(), s.Panel.GetBackground()
 
 	tests := []struct {
 		fg   color.Color
@@ -27,6 +28,7 @@ func TestInkTextHoldsReadableContrast(t *testing.T) {
 		{name: "subtext0 on base", fg: ink.Subtext0, bg: ink.Base},
 		{name: "subtext0 on band", fg: ink.Subtext0, bg: band},
 		{name: "text on band", fg: ink.Text, bg: band},
+		{name: "muted on panel", fg: s.Muted.GetForeground(), bg: panel},
 	}
 
 	for _, tc := range tests {

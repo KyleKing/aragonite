@@ -1,3 +1,9 @@
+## v1.1.0 (2026-10-26)
+
+### Feat
+
+- **split**: place a detail region beside, below, or not at all and join it with main
+
 ## v1.0.0 (2026-10-26)
 
 ### Feat

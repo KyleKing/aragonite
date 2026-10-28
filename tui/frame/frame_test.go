@@ -123,7 +123,7 @@ func TestStripDrawsTabsLeftRuleAndPanel(t *testing.T) {
 	}
 
 	head := lines[0]
-	if !strings.HasPrefix(head, "gh-repo-dashboard   inbox 12    staged 1 ") || !strings.Contains(head, "3 behind") {
+	if !strings.HasPrefix(head, "gh-repo-dashboard   inbox  12    staged  1 ") || !strings.Contains(head, "3 behind") {
 		t.Errorf("header should run title, tabs, then facts at the right: %q", head)
 	}
 
@@ -160,7 +160,7 @@ func TestClicksLandOnWhatRenderDrew(t *testing.T) {
 	for _, c := range []struct {
 		x, tab int
 		ok     bool
-	}{{20, 0, true}, {29, 0, false}, {32, 1, true}, {5, 0, false}} {
+	}{{20, 0, true}, {29, 0, true}, {34, 1, true}, {32, 0, false}, {5, 0, false}} {
 		if tab, ok := frame.TabAt(s, f, width, c.x, 0); ok != c.ok || (ok && tab != c.tab) {
 			t.Errorf("TabAt(x=%d) = %d, %v, want %d, %v", c.x, tab, ok, c.tab, c.ok)
 		}

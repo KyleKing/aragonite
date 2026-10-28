@@ -290,7 +290,7 @@ func chip(s skin.Skin, t Tab) string {
 		face = face.Foreground(s.Error.GetForeground())
 	}
 
-	return face.Render(t.Count)
+	return " " + face.Render(t.Count)
 }
 
 func facts(s skin.Skin, f Frame) string {

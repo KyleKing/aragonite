@@ -1,3 +1,9 @@
+## v1.4.0 (2026-10-28)
+
+### Feat
+
+- **frame**: space a tab count off its label
+
 ## v1.3.0 (2026-10-26)
 
 ### Feat

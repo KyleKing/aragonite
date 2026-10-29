@@ -68,6 +68,24 @@ func isAllDigits(value string) bool {
 	return strings.IndexFunc(value, func(r rune) bool { return r < '0' || r > '9' }) < 0
 }
 
+// RemoteIdentityAt answers RemoteIdentityFor's question without a subprocess,
+// reading the origin URL out of the repository's own config. It is what a
+// caller pays to find the upstream's cache file before any git or jj read
+// could return. A checkout it cannot read yields "", the same as a URL naming
+// no repository; callers fall back to RemoteIdentityFor when "" costs them
+// the read they were trying to skip.
+func RemoteIdentityAt(repoPath string) string {
+	if dir, ok := gitConfigDir(repoPath); ok {
+		return RemoteIdentity(remoteURLOrigin(dir))
+	}
+
+	if dir, ok := jjGitDir(repoPath); ok {
+		return RemoteIdentity(remoteURLOrigin(dir))
+	}
+
+	return ""
+}
+
 // RemoteIdentityFor resolves the RemoteIdentity of the checkout at repoPath,
 // costing one git/jj call. Callers holding a RepoSummary should read
 // its RemoteID instead of paying for this again.

@@ -145,22 +145,54 @@ func upstreamRef(commonDir, branch string) tracking {
 // would also consult: an upstream set anywhere but here is vanishingly rare,
 // and a wrong answer costs a cache miss rather than a wrong value.
 func branchConfig(commonDir, branch string) tracking {
-	file, err := os.Open(filepath.Join(commonDir, "config")) // #nosec G304 -- path is the repo's own config
+	var configured tracking
+
+	configSection(filepath.Join(commonDir, "config"), `branch "`+branch+`"`,
+		func(key, value string) {
+			switch key {
+			case "remote":
+				configured.remote = value
+			case "merge":
+				configured.ref = value
+			}
+		})
+
+	return configured
+}
+
+// remoteURLOrigin is the url `git remote get-url origin` would answer, read
+// straight from the config the subprocess would parse, under the same "the
+// repo's own config only" rule as branchConfig.
+func remoteURLOrigin(configDir string) string {
+	var url string
+
+	configSection(filepath.Join(configDir, "config"), `remote "origin"`,
+		func(key, value string) {
+			if key == "url" && url == "" {
+				url = value
+			}
+		})
+
+	return url
+}
+
+// configSection calls keep for each key=value line inside the named section
+// of the config at path. Sections match the "[name "sub"]" form git writes.
+func configSection(path, section string, keep func(key, value string)) {
+	file, err := os.Open(path) // #nosec G304 -- path is the repo's own config
 	if err != nil {
-		return tracking{}
+		return
 	}
 	defer file.Close() //nolint:errcheck // read-only handle
 
-	var configured tracking
-
-	section := "[branch \"" + branch + "\"]"
+	want := "[" + section + "]"
 	inSection := false
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "[") {
-			inSection = line == section
+			inSection = line == want
 
 			continue
 		}
@@ -174,15 +206,43 @@ func branchConfig(commonDir, branch string) tracking {
 			continue
 		}
 
-		switch strings.TrimSpace(key) {
-		case "remote":
-			configured.remote = strings.TrimSpace(value)
-		case "merge":
-			configured.ref = strings.TrimSpace(value)
-		}
+		keep(strings.TrimSpace(key), strings.TrimSpace(value))
+	}
+}
+
+// gitConfigDir returns the directory holding the config a checkout's refs
+// follow: its own .git, or the common directory a linked worktree points
+// back to.
+func gitConfigDir(repoPath string) (string, bool) {
+	gitDir, ok := resolveGitDir(repoPath)
+	if !ok {
+		return "", false
 	}
 
-	return configured
+	return commonGitDir(gitDir), true
+}
+
+// jjGitDir returns the git store a jj repo keeps its refs and remotes in:
+// <root>/.jj/repo/store/git for the primary checkout, the same store behind
+// the repo pointer file a secondary workspace keeps instead.
+func jjGitDir(repoPath string) (string, bool) {
+	repo := filepath.Join(repoPath, ".jj", "repo")
+
+	info, err := os.Stat(repo)
+	if err != nil {
+		return "", false
+	}
+
+	if info.IsDir() {
+		return filepath.Join(repo, "store", "git"), true
+	}
+
+	contents, err := os.ReadFile(repo) // #nosec G304 -- a repo's own .jj pointer
+	if err != nil {
+		return "", false
+	}
+
+	return filepath.Join(strings.TrimSpace(string(contents)), "store", "git"), true
 }
 
 // refResolver reads ref OIDs out of a repository's common directory, loading

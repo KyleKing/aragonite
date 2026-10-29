@@ -80,6 +80,60 @@ func TestRemoteIdentity(t *testing.T) {
 	}
 }
 
+func TestRemoteIdentityAt(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	config := "[remote \"origin\"]\n\turl = git@github.com:KyleKing/Foo.git\n"
+
+	gitRepo := filepath.Join(root, "app")
+	mkdir(t, filepath.Join(gitRepo, ".git"))
+	writeFile(t, filepath.Join(gitRepo, ".git", "config"), config)
+
+	// A linked worktree's config lives in the parent's common directory.
+	parent := filepath.Join(root, "parent")
+	mkdir(t, filepath.Join(parent, ".git", "worktrees", "parent-wt"))
+	writeFile(t, filepath.Join(parent, ".git", "config"), config)
+	worktree := filepath.Join(root, "parent-wt")
+	mkdir(t, worktree)
+	writeFile(t, filepath.Join(worktree, ".git"),
+		"gitdir: "+filepath.Join(parent, ".git", "worktrees", "parent-wt")+"\n")
+
+	jjRepo := filepath.Join(root, "jj-app")
+	mkdir(t, filepath.Join(jjRepo, ".jj", "repo", "store", "git"))
+	writeFile(t, filepath.Join(jjRepo, ".jj", "repo", "store", "git", "config"), config)
+
+	jjWorkspace := filepath.Join(root, "jj-app-ws")
+	mkdir(t, filepath.Join(jjWorkspace, ".jj"))
+	writeFile(t, filepath.Join(jjWorkspace, ".jj", "repo"), filepath.Join(jjRepo, ".jj", "repo"))
+
+	noRemote := filepath.Join(root, "local-only")
+	mkdir(t, filepath.Join(noRemote, ".git"))
+	writeFile(t, filepath.Join(noRemote, ".git", "config"), "[core]\n\tbare = false\n")
+
+	tests := []struct {
+		name     string
+		path     string
+		expected string
+	}{
+		{"git repo", gitRepo, "github.com/kyleking/foo"},
+		{"git worktree reads the common config", worktree, "github.com/kyleking/foo"},
+		{"jj primary checkout", jjRepo, "github.com/kyleking/foo"},
+		{"jj secondary workspace", jjWorkspace, "github.com/kyleking/foo"},
+		{"repo with no origin", noRemote, ""},
+		{"missing path", filepath.Join(root, "gone"), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := vcs.RemoteIdentityAt(tt.path); got != tt.expected {
+				t.Errorf("RemoteIdentityAt(%q) = %q, want %q", tt.path, got, tt.expected)
+			}
+		})
+	}
+}
+
 func mkdir(tb testing.TB, path string) {
 	tb.Helper()
 	if err := os.MkdirAll(path, 0o750); err != nil {

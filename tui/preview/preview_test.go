@@ -1,6 +1,7 @@
 package preview_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ func section(heading string, rows int) preview.Section {
 		list[i] = "row " + heading + " " + string(rune('a'+i))
 	}
 
-	return preview.Section{Heading: heading, Count: rows, Rows: list, Selectable: true}
+	return preview.Section{Heading: heading, Count: strconv.Itoa(rows), Rows: list, Selectable: true}
 }
 
 func TestHeightsKeepEverySectionVisible(t *testing.T) {
@@ -73,7 +74,7 @@ func TestHeightsServesTheFocusedSection(t *testing.T) {
 func TestSectionRuleDrawsHeadingCountAndKey(t *testing.T) {
 	t.Parallel()
 
-	s := preview.Section{Heading: "PULL REQUESTS", Key: "p", Count: 3, Selectable: true}
+	s := preview.Section{Heading: "PULL REQUESTS", Key: "p", Count: "3", Selectable: true}
 	rule := plain(s.Rule(styles, false, 40))
 
 	if !strings.Contains(rule, "PULL REQUESTS · 3") {

@@ -82,16 +82,17 @@ func (d Detail) Head(st Styles, width, height int) string {
 	return face.Render(title)
 }
 
-// Rule is the pane's heading for the stacked layout: its title ruled into the
-// separator the two halves share, so the pane carries its name the way a
-// section does.
-func (d Detail) Rule(st Styles, width int) string {
+// Rule is the pane's heading for the stacked layout: its title and scroll
+// marker ruled into the separator the two halves share, so the pane carries
+// its name the way a section does. height is the pane's interior, the
+// marker's denominator.
+func (d Detail) Rule(st Styles, width, height int) string {
 	face, line := st.Heading, st.Rule
 	if d.Focused {
 		face, line = st.Accent.Bold(true), st.Accent
 	}
 
-	title := ansi.Truncate(d.Title, max(width-ruleLead-ruleSpaces, 1), "…")
+	title := ansi.Truncate(d.Title+Marker(d.Scroll, height, len(d.Lines)), max(width-ruleLead-ruleSpaces, 1), "…")
 
 	return line.Render(strings.Repeat("─", ruleLead)+" ") + face.Render(title) +
 		line.Render(" "+strings.Repeat("─", max(width-lipgloss.Width(title)-ruleLead-ruleSpaces, 0)))

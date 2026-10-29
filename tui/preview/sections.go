@@ -28,8 +28,8 @@ func LabelRule(st Styles, label string, width int) string {
 // runs the whole rule while the section holds the keyboard.
 func (s *Section) Rule(st Styles, focused bool, width int) string {
 	label := s.Heading
-	if s.Selectable {
-		label += " · " + strconv.Itoa(s.Count)
+	if s.Selectable && s.Count != "" {
+		label += " · " + s.Count
 	}
 
 	face, line := st.Heading, st.Rule

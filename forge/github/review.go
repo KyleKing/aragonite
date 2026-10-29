@@ -20,12 +20,19 @@ import (
 )
 
 const (
-	devNull            = "/dev/null"
-	diffTooLargeMarker = "exceeded the maximum number of files"
-	statusAdded        = "added"
-	statusRemoved      = "removed"
-	tempFileMode       = 0o600
+	devNull       = "/dev/null"
+	statusAdded   = "added"
+	statusRemoved = "removed"
+	tempFileMode  = 0o600
 )
+
+// diffTooLargeMarkers are what the diff endpoint says when the change is over
+// its caps: file count first, total lines past that.
+var diffTooLargeMarkers = []string{
+	"exceeded the maximum number of files",
+	"exceeded the maximum number of lines",
+	"too_large",
+}
 
 var (
 	errBlobEncoding     = errors.New("github returned a blob that is not base64")
@@ -94,7 +101,7 @@ func GetPR(ctx context.Context, repoPath, remoteRepo string, number int) (*forge
 func PRDiff(ctx context.Context, repoPath, remoteRepo string, number int) ([]byte, error) {
 	out, err := runGH(ctx, repoPath, vcs.GetGitHubEnv(repoPath),
 		against(remoteRepo, "pr", "diff", strconv.Itoa(number))...)
-	if err != nil && strings.Contains(err.Error(), diffTooLargeMarker) {
+	if err != nil && diffTooLarge(err) {
 		out, err = diffFromFilesAPI(ctx, repoPath, remoteRepo, number)
 	}
 
@@ -103,6 +110,16 @@ func PRDiff(ctx context.Context, repoPath, remoteRepo string, number int) ([]byt
 	}
 
 	return out, nil
+}
+
+func diffTooLarge(err error) bool {
+	for _, marker := range diffTooLargeMarkers {
+		if strings.Contains(err.Error(), marker) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func diffFromFilesAPI(ctx context.Context, repoPath, remoteRepo string, number int) ([]byte, error) {

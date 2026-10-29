@@ -53,8 +53,9 @@ type Section struct {
 	// is. Empty draws none.
 	Key  string
 	Rows []string
-	// Count is drawn beside the heading when Selectable is set.
-	Count     int
+	// Count is drawn beside the heading when Selectable is set. Empty draws
+	// none.
+	Count     string
 	Relevance int
 	// Selectable is false for a section that reports state rather than listing
 	// items the cursor can land on; its count and key stay off the rule.

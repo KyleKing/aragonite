@@ -110,7 +110,7 @@ func (g Grid) stack(st Styles, width, height int, c Content) []string {
 	lines := Column(st, c.Sections, c.Focused, c.Cursor, bound, width, g.SectionGap)
 
 	pane := max(height-len(lines)-ruleHeight, 0)
-	lines = append(lines, c.Detail.Rule(st, width))
+	lines = append(lines, c.Detail.Rule(st, width, pane))
 	lines = append(lines, c.Detail.Window(pane)...)
 
 	return Pad(lines, height, width)

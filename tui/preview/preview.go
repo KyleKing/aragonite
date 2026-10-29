@@ -51,18 +51,18 @@ type Section struct {
 	Heading string
 	// Key is a jump key drawn at the rule's right edge, where the eye already
 	// is. Empty draws none.
-	Key  string
-	Rows []string
+	Key string
 	// Count is drawn beside the heading when Selectable is set. Empty draws
 	// none.
-	Count     string
-	Relevance int
+	Count string
+	Rows  []string
 	// Selectable is false for a section that reports state rather than listing
 	// items the cursor can land on; its count and key stay off the rule.
 	Selectable bool
 	// Elide cuts the middle of Rows too long for the height rather than their
 	// end, for text whose newest lines are the last.
-	Elide bool
+	Elide     bool
+	Relevance int
 }
 
 // Relevance bounds. The scale is arbitrary; only the ratios matter, since

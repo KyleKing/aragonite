@@ -84,7 +84,7 @@ func (d Detail) Head(st Styles, width, height int) string {
 
 // Rule is the pane's heading for the stacked layout: its title and scroll
 // marker ruled into the separator the two halves share, so the pane carries
-// its name the way a section does. height is the pane's interior, the
+// its name the way a section does. Height is the pane's interior, the
 // marker's denominator.
 func (d Detail) Rule(st Styles, width, height int) string {
 	face, line := st.Heading, st.Rule

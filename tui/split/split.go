@@ -39,6 +39,9 @@ type Spec struct {
 	MinHeight int
 	// BelowPercent is the share of the height the detail takes when below.
 	BelowPercent int
+	// Pad is the cells of space drawn each side of the vertical rule, the
+	// separation the two halves would otherwise draw without.
+	Pad int
 }
 
 // Renderer draws a block into at most width cells by height lines.
@@ -54,6 +57,8 @@ const (
 	ruleGlyph = "│"
 	ruleWidth = 1
 	percent   = 100
+	// Both sides of the vertical rule take the padding.
+	ruleSides = 2
 )
 
 // Place picks the placement for a width by height area. Side holds at or above
@@ -79,10 +84,10 @@ func (s Spec) MainWidth(p Placement, width int) int {
 	}
 
 	if s.MainMax > 0 {
-		return min(s.MainMax, width-ruleWidth)
+		return min(s.MainMax, width-ruleWidth-ruleSides*s.Pad)
 	}
 
-	return (width - ruleWidth) / 2 //nolint:mnd // an even split
+	return (width - ruleWidth - 2*s.Pad) / 2 //nolint:mnd // an even split
 }
 
 // DetailHeight is how many lines the detail takes under p.
@@ -126,11 +131,11 @@ func (s Spec) Render(p Placement, st Styles, width, height int, main, detail Ren
 
 func (s Spec) beside(st Styles, width, height int, main, detail Renderer) []string {
 	mainWidth := s.MainWidth(Side, width)
-	detailWidth := width - mainWidth - ruleWidth
+	detailWidth := width - mainWidth - ruleWidth - ruleSides*s.Pad
 
 	left := fit(main(mainWidth, height), mainWidth, height)
 	right := fit(detail(detailWidth, height), detailWidth, height)
-	rule := st.Rule.Render(ruleGlyph)
+	rule := strings.Repeat(" ", s.Pad) + st.Rule.Render(ruleGlyph) + strings.Repeat(" ", s.Pad)
 
 	out := make([]string, height)
 	for i := range out {

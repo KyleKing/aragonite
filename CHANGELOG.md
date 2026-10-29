@@ -1,3 +1,9 @@
+## v1.7.0 (2026-10-29)
+
+### Feat
+
+- **preview**: render a standalone detail pane in one call
+
 ## v1.6.0 (2026-10-29)
 
 ### Feat

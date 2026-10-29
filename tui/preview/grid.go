@@ -40,11 +40,11 @@ type Content struct {
 // because the caller's compact breakpoint says so or because the detail pane
 // would be too narrow to read beside the column.
 func (g Grid) Stacked(compact bool, width int) bool {
-	return compact || width-g.sideWidth(width)-ruleWidth-ruleSides*g.RulePad < g.DetailMin
+	return compact || width-g.SideWidth(width)-ruleWidth-ruleSides*g.RulePad < g.DetailMin
 }
 
-// sideWidth is the column's share of a split grid.
-func (g Grid) sideWidth(width int) int {
+// SideWidth is the column's share of a split grid.
+func (g Grid) SideWidth(width int) int {
 	return max(width*g.SidePercent/percent, g.SideMin)
 }
 
@@ -55,7 +55,7 @@ func (g Grid) DetailSize(compact bool, width, height int, c Content) (int, int) 
 		return width, max(height-g.stackedBound(c.Sections, height)-ruleHeight, 1)
 	}
 
-	return width - g.sideWidth(width) - ruleWidth - ruleSides*g.RulePad, max(height-1, 1)
+	return width - g.SideWidth(width) - ruleWidth - ruleSides*g.RulePad, max(height-1, 1)
 }
 
 // stackedBound is how many rows the column takes when the pane stacks under
@@ -85,7 +85,7 @@ func (g Grid) Render(st Styles, compact bool, width, height int, c Content) []st
 }
 
 func (g Grid) split(st Styles, width, height int, c Content) []string {
-	side := g.sideWidth(width)
+	side := g.SideWidth(width)
 	dw := width - side - ruleWidth - ruleSides*g.RulePad
 
 	left := Pad(Column(st, c.Sections, c.Focused, c.Cursor, height, side, g.SectionGap), height, side)

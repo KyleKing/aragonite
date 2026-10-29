@@ -1,3 +1,28 @@
+## v1.6.0 (2026-10-29)
+
+### Feat
+
+- **vcs**: resolve a checkout's remote identity without a subprocess
+- **cache**: add a Snapshot slot for last-known state, and take the app name for the user store
+
+## v1.5.2 (2026-10-29)
+
+### Feat
+
+- **tui**: export the grid's side width for callers clamping scroll
+
+## v1.5.1 (2026-10-29)
+
+### Feat
+
+- **forge**: rebuild diffs the line-limit error too
+
+## v1.5.0 (2026-10-29)
+
+### Feat
+
+- **tui**: add a preview package for the sections-and-detail pane
+
 ## v1.4.0 (2026-10-28)
 
 ### Feat

@@ -46,15 +46,16 @@ func NewDiskCache(dir string) *DiskCache {
 	return &DiskCache{dir: dir, maxBytes: diskMaxBytes}
 }
 
-// UserDiskCache returns the store under os.UserCacheDir(), which is where a
-// cache belongs on every platform the app builds for.
-func UserDiskCache() (*DiskCache, error) {
+// UserDiskCache returns the store for app under os.UserCacheDir(), which is
+// where a cache belongs on every platform the app builds for. Each program
+// passes its own name so two tools sharing the library do not share files.
+func UserDiskCache(app string) (*DiskCache, error) {
 	base, err := os.UserCacheDir()
 	if err != nil {
 		return nil, fmt.Errorf("resolving the user cache directory: %w", err)
 	}
 
-	return NewDiskCache(filepath.Join(base, "gh-repo-dashboard")), nil
+	return NewDiskCache(filepath.Join(base, app)), nil
 }
 
 //nolint:gochecknoglobals // the installed store, like the caches it backs
@@ -266,6 +267,26 @@ func (d *DiskCache) write(upstream, key string, e diskEntry, now time.Time) {
 	}
 
 	d.evict()
+}
+
+// delete removes one key from upstream's file. A failed write leaves the
+// entry behind, which costs a stale read the TTL and stamp still guard.
+func (d *DiskCache) delete(upstream, key string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	file, ok := d.load(upstream)
+	if !ok {
+		return
+	}
+
+	if _, held := file.Entries[key]; !held {
+		return
+	}
+
+	delete(file.Entries, key)
+
+	_ = d.save(upstream, file) //nolint:errcheck // nothing a caller can act on
 }
 
 // Clear removes every cache file, leaving the directory in place. Refresh drops

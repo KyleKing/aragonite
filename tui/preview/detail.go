@@ -82,6 +82,13 @@ func (d Detail) Head(st Styles, width, height int) string {
 	return face.Render(title)
 }
 
+// Render is the whole pane for a detail drawn without sections beside it:
+// the head line, then the windowed lines padded to fill, so a shorter pane
+// still clears whatever the last frame drew there.
+func (d Detail) Render(st Styles, width, height int) []string {
+	return Pad(append([]string{d.Head(st, width, height)}, d.Window(height)...), height+1, width)
+}
+
 // Rule is the pane's heading for the stacked layout: its title and scroll
 // marker ruled into the separator the two halves share, so the pane carries
 // its name the way a section does. Height is the pane's interior, the

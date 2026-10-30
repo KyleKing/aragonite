@@ -1,3 +1,10 @@
+## v1.8.0 (2026-10-30)
+
+### Feat
+
+- **forge/github**: read run and job timings and merge queue events
+- **stats**: add Percentile and Mean for timing summaries
+
 ## v1.7.0 (2026-10-29)
 
 ### Feat

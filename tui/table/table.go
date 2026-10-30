@@ -530,3 +530,19 @@ func Rule(s RuleStyles, label, count string, width int) string {
 
 	return b.String()
 }
+
+// ScrollWindow returns the half-open range [first, last) of rows to draw so that selected
+// stays visible in a viewport rows tall. It scrolls only as far as the selection needs, so
+// the offset never goes below zero nor past total-rows. A negative selected holds the window
+// at the top, and rows under one is treated as one.
+func ScrollWindow(selected, total, rows int) (int, int) {
+	rows = max(rows, 1)
+
+	if total <= rows {
+		return 0, total
+	}
+
+	first := min(max(selected-rows+1, 0), total-rows)
+
+	return first, first + rows
+}

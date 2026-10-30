@@ -1,3 +1,11 @@
+## v1.9.0 (2026-10-30)
+
+### Feat
+
+- **tui/table**: add ScrollWindow to keep a selection visible
+- **tui/box**: draw content in a bordered rectangle of an exact size
+- **tui/commandbar**: add a generic command registry with tab completion
+
 ## v1.8.0 (2026-10-30)
 
 ### Feat

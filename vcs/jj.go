@@ -582,10 +582,11 @@ func (j *JJOperations) isMergedIntoDefault(ctx context.Context, repoPath, bookma
 }
 
 // jjBlameFormat emits one tab-separated record per annotated line: the
-// commit's git hash, author name, author email, author timestamp (RFC3339,
-// via jj's "%+" strftime-like verb), and the line's number in the file.
+// commit's git hash, author name, author email, author timestamp (RFC3339;
+// jj 0.47 dropped the "%+" verb, so the format spells it out), and the
+// line's number in the file.
 const jjBlameFormat = `commit.commit_id() ++ "\t" ++ commit.author().name() ++ "\t" ++ ` +
-	`commit.author().email() ++ "\t" ++ commit.author().timestamp().format("%+") ++ ` +
+	`commit.author().email() ++ "\t" ++ commit.author().timestamp().format("%Y-%m-%dT%H:%M:%S%.3f%:z") ++ ` +
 	`"\t" ++ line_number ++ "\n"`
 
 // jjBlameFieldCount is the number of tab-separated fields in jjBlameFormat

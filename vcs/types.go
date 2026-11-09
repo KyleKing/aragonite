@@ -28,7 +28,7 @@ func (v Type) String() string {
 	case TypeJJ:
 		return "jj"
 	default:
-		return "unknown"
+		return unknownLabel
 	}
 }
 
@@ -58,9 +58,12 @@ func (r RepoStatus) String() string {
 	case RepoStatusDiverged:
 		return "diverged"
 	default:
-		return "unknown"
+		return unknownLabel
 	}
 }
+
+// unknownLabel is every String method's answer for a value outside its set.
+const unknownLabel = "unknown"
 
 // DefaultBranchNames are the conventional primary branch names, assumed
 // wherever a repo's real default branch has not been resolved from its remote.

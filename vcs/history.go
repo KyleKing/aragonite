@@ -209,7 +209,7 @@ func (*GitOperations) BlobContents(ctx context.Context, repoPath string, shas []
 	}()
 
 	r := bufio.NewReaderSize(stdout, readBufSize)
-	readErr := readBatch(r, out)
+	readErr := readBatch(r, want, out)
 	waitErr := cmd.Wait()
 	if readErr != nil {
 		return nil, readErr
@@ -222,12 +222,15 @@ func (*GitOperations) BlobContents(ctx context.Context, repoPath string, shas []
 }
 
 // readBatch parses cat-file --batch output: a "<sha> <type> <size>" header,
-// the payload, and one trailing newline per object.
-func readBatch(r *bufio.Reader, out map[string][]byte) error {
-	for {
+// the payload, and one trailing newline per object. Answers arrive in request
+// order, so each response zips with want[i]; the header sha is the resolved
+// full sha, which is not what the caller asked for when it passed an
+// abbreviated one, so the map is keyed by the request.
+func readBatch(r *bufio.Reader, want []string, out map[string][]byte) error {
+	for _, sha := range want {
 		header, err := r.ReadString('\n')
 		if err != nil {
-			return nil //nolint:nilerr // EOF after the last answer ends the stream
+			return fmt.Errorf("git cat-file --batch: short response: %w", err)
 		}
 		fields := strings.Fields(strings.TrimRight(header, "\n"))
 		if len(fields) < 2 { //nolint:mnd // header is at least "<sha> <type>"
@@ -247,8 +250,10 @@ func readBatch(r *bufio.Reader, out map[string][]byte) error {
 		if _, err := io.ReadFull(r, payload); err != nil {
 			return fmt.Errorf("git cat-file --batch: %w", err)
 		}
-		out[fields[0]] = payload[:size]
+		out[sha] = payload[:size]
 	}
+
+	return nil
 }
 
 // TreeEntries lists every blob in rev's tree, recursively, with sizes.

@@ -264,6 +264,17 @@ func TestTreeAndBlobsAgainstRealGit(t *testing.T) {
 	if len(blobs) != 2 || string(blobs[shaByPath["new.txt"]]) != "new\n" {
 		t.Fatalf("BlobContents = %v", blobs)
 	}
+
+	// Diff index lines carry abbreviated shas; the result is keyed by the
+	// request, not the resolved full sha the batch header echoes back.
+	short := shaByPath["f.txt"][:8]
+	blobs, err = ops.BlobContents(ctx, dir, []string{short})
+	if err != nil {
+		t.Fatalf("BlobContents abbreviated: %v", err)
+	}
+	if string(blobs[short]) != "one\nTWO\nthree\n" {
+		t.Fatalf("BlobContents[%q] = %v", short, blobs)
+	}
 }
 
 func TestDiffRefsAgainstRealGit(t *testing.T) {

@@ -1,3 +1,13 @@
+## v1.10.0 (2026-11-09)
+
+### Feat
+
+- **vcs**: stream per-commit history, diffs, trees, and blobs for analysis tools
+
+### Fix
+
+- **vcs**: spell out jj blame timestamp format for jj 0.47
+
 ## v1.9.0 (2026-10-30)
 
 ### Feat

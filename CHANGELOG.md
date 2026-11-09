@@ -1,3 +1,9 @@
+## v1.10.1 (2026-11-09)
+
+### Fix
+
+- **vcs**: key BlobContents by the requested sha, not the resolved one
+
 ## v1.10.0 (2026-11-09)
 
 ### Feat

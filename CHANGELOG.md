@@ -1,3 +1,11 @@
+## v1.12.1 (2026-11-10)
+
+### Fix
+
+- **vcs**: read ---/+++ lines as headers only before a file's first hunk
+- **vcs**: skip submodule entries in TreeEntries
+- **vcs**: place pure-insertion hunks after their anchor line
+
 ## v1.12.0 (2026-11-10)
 
 ### Feat

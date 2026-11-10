@@ -1,3 +1,9 @@
+## v1.12.0 (2026-11-10)
+
+### Feat
+
+- **vcs**: capture added and removed line text on CommitFile
+
 ## v1.11.0 (2026-11-10)
 
 ### Feat

@@ -1,3 +1,9 @@
+## v1.13.0 (2026-11-10)
+
+### Feat
+
+- **diff**: match moved lines across removed and added sequences
+
 ## v1.12.1 (2026-11-10)
 
 ### Fix

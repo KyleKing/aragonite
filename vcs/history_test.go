@@ -539,6 +539,20 @@ func TestTreeEntriesSkipsSubmodules(t *testing.T) {
 	}
 }
 
+func TestParsePatchMarksGitBinaryPatchAsBinary(t *testing.T) {
+	t.Parallel()
+
+	files := vcs.ParsePatch("diff --git a/img.png b/img.png\n" +
+		"new file mode 100644\n" +
+		"index 0000000..1111111\n" +
+		"GIT binary patch\n" +
+		"literal 3\n" +
+		"KcmZQzU|?\n\n")
+	if len(files) != 1 || !files[0].Binary || files[0].Path != "img.png" || files[0].Status != vcs.StatusAdded {
+		t.Fatalf("ParsePatch = %+v, want one binary img.png added", files)
+	}
+}
+
 func TestParsePatchReadsHunkBodyAsContent(t *testing.T) {
 	t.Parallel()
 

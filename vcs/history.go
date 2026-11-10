@@ -489,10 +489,11 @@ var patchLines = map[string]func(*patchParser, string){ //nolint:gochecknoglobal
 		p.cur.Status = StatusRenamed
 		p.cur.Path = strings.TrimPrefix(l, "rename to ")
 	},
-	"index ":        func(p *patchParser, l string) { p.cur.OldSHA, p.cur.NewSHA = parseIndexLine(l) },
-	"Binary files ": func(p *patchParser, _ string) { p.cur.Binary = true },
-	"--- ":          func(p *patchParser, l string) { p.aPath = patchPath(l[4:]) },
-	"+++ ":          func(p *patchParser, l string) { p.bPath = patchPath(l[4:]) },
+	"index ":           func(p *patchParser, l string) { p.cur.OldSHA, p.cur.NewSHA = parseIndexLine(l) },
+	"Binary files ":    func(p *patchParser, _ string) { p.cur.Binary = true },
+	"GIT binary patch": func(p *patchParser, _ string) { p.cur.Binary = true },
+	"--- ":             func(p *patchParser, l string) { p.aPath = patchPath(l[4:]) },
+	"+++ ":             func(p *patchParser, l string) { p.bPath = patchPath(l[4:]) },
 }
 
 // ParsePatch parses unified-diff text of the kind `git diff` and `git log -p`

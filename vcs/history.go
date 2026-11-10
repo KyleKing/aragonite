@@ -56,6 +56,11 @@ type CommitFile struct {
 	OldPath string // set on renames only
 	OldSHA  string // zero-padded when the side does not exist
 	NewSHA  string
+	// Added and Removed hold the + and - line texts of the patch, per file
+	// rather than per hunk so a caller matching moved code across hunks has
+	// one list. Context lines are not kept; -U0 callers emit none.
+	Added   []string
+	Removed []string
 	Hunks   []DiffHunk
 	Status  ChangeStatus
 	Binary  bool
@@ -485,6 +490,12 @@ func (p *patchParser) line(line string) {
 
 			return
 		}
+	}
+	if strings.HasPrefix(line, "+") {
+		p.cur.Added = append(p.cur.Added, line[1:])
+	}
+	if strings.HasPrefix(line, "-") {
+		p.cur.Removed = append(p.cur.Removed, line[1:])
 	}
 }
 

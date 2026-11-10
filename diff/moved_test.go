@@ -1,6 +1,7 @@
 package diff_test
 
 import (
+	"maps"
 	"strings"
 	"testing"
 
@@ -93,5 +94,88 @@ func TestMovedLeavesAnEditInPlaceAlone(t *testing.T) {
 
 	if got := diff.Parse([]byte(patch)).Moved(); len(got) != 0 {
 		t.Errorf("an edit in place was read as moved: %v", got)
+	}
+}
+
+// Each case names the lines a removed and an added sequence carry, and the pairs
+// MatchMoves should return: the floors, the run length, and the tie-breaks.
+func TestMatchMoves(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		opt     diff.MoveOptions
+		want    map[diff.SeqLine]diff.SeqLine
+		name    string
+		removed [][]string
+		added   [][]string
+	}{
+		{
+			name:    "single lines move across files at the single-line floor",
+			removed: [][]string{{"log.Printf(\"starting\")", "x := 1"}, {"cleanupResources()"}},
+			added:   [][]string{{"done()", "x := 1"}, {"cleanupResources()", "log.Printf(\"starting\")"}},
+			opt:     diff.MoveOptions{MinRun: 1, TextFloor: 8},
+			want: map[diff.SeqLine]diff.SeqLine{
+				{Seq: 0, Line: 0}: {Seq: 1, Line: 1},
+				{Seq: 1, Line: 0}: {Seq: 1, Line: 0},
+			},
+		},
+		{
+			name:    "a line under the text floor is not matched even as a run of one",
+			removed: [][]string{{"x := 1"}},
+			added:   [][]string{{"x := 1"}},
+			opt:     diff.MoveOptions{MinRun: 1, TextFloor: 8},
+			want:    map[diff.SeqLine]diff.SeqLine{},
+		},
+		{
+			name:    "a run short of MinRun is not matched",
+			removed: [][]string{{"alpha_one_line", "beta_two_line"}},
+			added:   [][]string{{"alpha_one_line", "beta_two_line"}},
+			opt:     diff.MoveOptions{MinRun: 3},
+			want:    map[diff.SeqLine]diff.SeqLine{},
+		},
+		{
+			name:    "a run at MinRun is matched whole",
+			removed: [][]string{{"alpha_one_line", "beta_two_line", "gamma_three_line"}},
+			added:   [][]string{{"alpha_one_line", "beta_two_line", "gamma_three_line"}},
+			opt:     diff.MoveOptions{MinRun: 3},
+			want: map[diff.SeqLine]diff.SeqLine{
+				{Seq: 0, Line: 0}: {Seq: 0, Line: 0},
+				{Seq: 0, Line: 1}: {Seq: 0, Line: 1},
+				{Seq: 0, Line: 2}: {Seq: 0, Line: 2},
+			},
+		},
+		{
+			name:    "a repeated removed line goes to the earliest sequence and line",
+			removed: [][]string{{"return compute(value)"}, {"return compute(value)"}},
+			added:   [][]string{{"return compute(value)"}},
+			opt:     diff.MoveOptions{MinRun: 1, TextFloor: 8},
+			want:    map[diff.SeqLine]diff.SeqLine{{Seq: 0, Line: 0}: {Seq: 0, Line: 0}},
+		},
+		{
+			name:    "a repeated added line is matched once, at the earliest position",
+			removed: [][]string{{"return compute(value)"}},
+			added:   [][]string{{"return compute(value)"}, {"return compute(value)"}},
+			opt:     diff.MoveOptions{MinRun: 1, TextFloor: 8},
+			want:    map[diff.SeqLine]diff.SeqLine{{Seq: 0, Line: 0}: {Seq: 0, Line: 0}},
+		},
+		{
+			name:    "a barred pair is not matched",
+			removed: [][]string{{"return compute(value)"}},
+			added:   [][]string{{"return compute(value)"}},
+			opt: diff.MoveOptions{MinRun: 1, TextFloor: 8, Barred: func(_, _ diff.SeqLine) bool {
+				return true
+			}},
+			want: map[diff.SeqLine]diff.SeqLine{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := diff.MatchMoves(tc.removed, tc.added, tc.opt); !maps.Equal(got, tc.want) {
+				t.Errorf("MatchMoves() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

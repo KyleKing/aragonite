@@ -427,3 +427,48 @@ func TestTreeEntriesSkipsSubmodules(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePatchReadsHunkBodyAsContent(t *testing.T) {
+	t.Parallel()
+
+	const header = "diff --git a/lua/init.lua b/lua/init.lua\n" +
+		"index 1111111..2222222 100644\n" +
+		"--- a/lua/init.lua\n" +
+		"+++ b/lua/init.lua\n"
+
+	tests := []struct {
+		name        string
+		body        string
+		wantAdded   []string
+		wantRemoved []string
+	}{
+		{
+			name:        "removed Lua comment reads as a header",
+			body:        "@@ -3,1 +3,1 @@\n--- note\n+kept\n",
+			wantAdded:   []string{"kept"},
+			wantRemoved: []string{"-- note"},
+		},
+		{
+			name:        "added line starting with ++ reads as a header",
+			body:        "@@ -3,1 +3,1 @@\n-old\n+++ x\n",
+			wantAdded:   []string{"++ x"},
+			wantRemoved: []string{"old"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			files := vcs.ParsePatch(header + tt.body)
+			if len(files) != 1 {
+				t.Fatalf("ParsePatch returned %d files, want 1", len(files))
+			}
+			got := files[0]
+			if got.Path != "lua/init.lua" || !slices.Equal(got.Added, tt.wantAdded) ||
+				!slices.Equal(got.Removed, tt.wantRemoved) {
+				t.Fatalf("file = %+v, want added %v removed %v", got, tt.wantAdded, tt.wantRemoved)
+			}
+		})
+	}
+}

@@ -441,6 +441,8 @@ type patchParser struct {
 	cur          *CommitFile
 	aPath, bPath string
 	files        []CommitFile
+	// inHunks is set at the first @@ of a file; after it, ---/+++ lines are removed or added text.
+	inHunks bool
 }
 
 // patchLines maps each diff-header prefix to its effect on the file in
@@ -460,11 +462,6 @@ var patchLines = map[string]func(*patchParser, string){ //nolint:gochecknoglobal
 	"Binary files ": func(p *patchParser, _ string) { p.cur.Binary = true },
 	"--- ":          func(p *patchParser, l string) { p.aPath = patchPath(l[4:]) },
 	"+++ ":          func(p *patchParser, l string) { p.bPath = patchPath(l[4:]) },
-	"@@ ": func(p *patchParser, l string) {
-		if h, ok := parseHunk(l); ok {
-			p.cur.Hunks = append(p.cur.Hunks, h)
-		}
-	},
 }
 
 // ParsePatch parses unified-diff text of the kind `git diff` and `git log -p`
@@ -489,11 +486,21 @@ func (p *patchParser) line(line string) {
 	if p.cur == nil {
 		return // text before the first diff --git, such as a commit header
 	}
-	for prefix, apply := range patchLines {
-		if strings.HasPrefix(line, prefix) {
-			apply(p, line)
+	if strings.HasPrefix(line, "@@ ") {
+		p.inHunks = true
+		if h, ok := parseHunk(line); ok {
+			p.cur.Hunks = append(p.cur.Hunks, h)
+		}
 
-			return
+		return
+	}
+	if !p.inHunks {
+		for prefix, apply := range patchLines {
+			if strings.HasPrefix(line, prefix) {
+				apply(p, line)
+
+				return
+			}
 		}
 	}
 	if strings.HasPrefix(line, "+") {
@@ -520,6 +527,7 @@ func (p *patchParser) finish() {
 	p.files = append(p.files, *p.cur)
 	p.cur = nil
 	p.aPath, p.bPath = "", ""
+	p.inHunks = false
 }
 
 // patchPath extracts a filename from a ---/+++ line, honoring git's convention

@@ -263,7 +263,7 @@ func readBatch(r *bufio.Reader, want []string, out map[string][]byte) error {
 	return nil
 }
 
-// TreeEntries lists every blob in rev's tree, recursively, with sizes.
+// TreeEntries lists every blob in rev's tree, recursively, with sizes. Submodule entries are skipped.
 func (g *GitOperations) TreeEntries(ctx context.Context, repoPath, rev string) ([]TreeEntry, error) {
 	out, err := g.runGitRaw(ctx, repoPath, "ls-tree", "-r", "-l", "-z", rev)
 	if err != nil {
@@ -282,6 +282,9 @@ func (g *GitOperations) TreeEntries(ctx context.Context, repoPath, rev string) (
 		fields := strings.Fields(meta)
 		if len(fields) != 4 { //nolint:mnd // mode, type, sha, size
 			return nil, fmt.Errorf("git ls-tree: %q: %w", record, ErrUnexpectedOutput)
+		}
+		if fields[1] == "commit" {
+			continue
 		}
 		size, err := strconv.ParseInt(fields[3], 10, 64)
 		if err != nil {

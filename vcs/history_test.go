@@ -1,6 +1,7 @@
 package vcs_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -374,6 +375,54 @@ func TestParsePatchHunkStarts(t *testing.T) {
 			}
 			if got := files[0].Hunks[0]; got != tt.want {
 				t.Fatalf("hunk = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTreeEntriesSkipsSubmodules(t *testing.T) {
+	t.Parallel()
+
+	const (
+		blob      = "100644 blob 1111111111111111111111111111111111111111      12\tREADME.md\x00"
+		submodule = "160000 commit 2222222222222222222222222222222222222222       -\tvendor/lib\x00"
+	)
+
+	tests := []struct {
+		name   string
+		output string
+		want   []vcs.TreeEntry
+	}{
+		{
+			name:   "submodule between blobs is skipped",
+			output: blob + submodule + blob,
+			want: []vcs.TreeEntry{
+				{Path: "README.md", SHA: "1111111111111111111111111111111111111111", Mode: "100644", Size: 12},
+				{Path: "README.md", SHA: "1111111111111111111111111111111111111111", Mode: "100644", Size: 12},
+			},
+		},
+		{
+			name:   "submodule-only tree is empty",
+			output: submodule,
+			want:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := vcs.WithCommandRunner(t.Context(),
+				func(_ context.Context, _, _ string, _ ...string) (string, error) {
+					return tt.output, nil
+				})
+
+			got, err := vcs.NewGitOperations().TreeEntries(ctx, "/repo", "HEAD")
+			if err != nil {
+				t.Fatalf("TreeEntries: %v", err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("TreeEntries = %+v, want %+v", got, tt.want)
 			}
 		})
 	}

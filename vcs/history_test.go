@@ -11,13 +11,9 @@ import (
 	"github.com/kyleking/aragonite/vcs"
 )
 
-// historyRepo builds a small repo covering every path the walker has: a plain
-// modify, a new file, a rename, a spaced filename, a binary file, and a merge
-// whose first-parent diff is the one -m reports.
-//
-//	main:  c1 -- c2 -- c5 -- merge(parents c5+c4)
-//	side:        c3 -- c4
-func historyRepo(t *testing.T) string {
+// newGitRepo returns an empty repository, a helper that runs git in it, and a
+// helper that writes a file under it.
+func newGitRepo(t *testing.T) (string, func(...string), func(string, string)) {
 	t.Helper()
 
 	if _, err := exec.LookPath("git"); err != nil {
@@ -51,6 +47,20 @@ func historyRepo(t *testing.T) string {
 			t.Fatalf("writing %s: %v", name, err)
 		}
 	}
+
+	return dir, run, write
+}
+
+// historyRepo builds a small repo covering every path the walker has: a plain
+// modify, a new file, a rename, a spaced filename, a binary file, and a merge
+// whose first-parent diff is the one -m reports.
+//
+//	main:  c1 -- c2 -- c5 -- merge(parents c5+c4)
+//	side:        c3 -- c4
+func historyRepo(t *testing.T) string {
+	t.Helper()
+
+	dir, run, write := newGitRepo(t)
 
 	run("init", "--initial-branch=main")
 	write("f.txt", "one\ntwo\nthree\n")
@@ -220,6 +230,40 @@ func TestLogHistoryOrderAndRange(t *testing.T) {
 		vcs.LogOptions{Range: "main~2..main", FirstParent: true}))
 	if len(ranged) != 2 {
 		t.Fatalf("range walk = %d records, want 2 (c5, merge)", len(ranged))
+	}
+}
+
+func TestLogHistoryPatchBytesCannotSplitRecords(t *testing.T) {
+	t.Parallel()
+
+	dir, run, write := newGitRepo(t)
+	run("init", "--initial-branch=main")
+	write("min.js", "a=1\n")
+	run("add", "-A")
+	run("commit", "-m", "c1")
+	write("min.js", "a=1;b=\x1e2\n")
+	write("after.txt", "after\n")
+	run("add", "-A")
+	run("commit", "-m", "c2")
+	write("last.txt", "last\n")
+	run("add", "-A")
+	run("commit", "-m", "c3")
+
+	records := collect(t, vcs.NewGitOperations().LogHistory(t.Context(), dir, vcs.LogOptions{}))
+	if len(records) != 3 || records[1].Subject != "c2" {
+		t.Fatalf("got %d records, want 3 with c2 second", len(records))
+	}
+
+	c2 := records[1]
+	if len(c2.Files) != 2 || c2.Files[0].Path != "after.txt" || c2.Files[1].Path != "min.js" {
+		t.Fatalf("c2 files = %+v, want after.txt and min.js", c2.Files)
+	}
+	minJS := c2.Files[1]
+	if !slices.Equal(minJS.Added, []string{"a=1;b=\x1e2"}) || !slices.Equal(minJS.Removed, []string{"a=1"}) {
+		t.Fatalf("min.js lines = added %q removed %q", minJS.Added, minJS.Removed)
+	}
+	if c3 := records[0]; len(c3.Files) != 1 || c3.Files[0].Path != "last.txt" {
+		t.Fatalf("c3 files = %+v, want last.txt", c3.Files)
 	}
 }
 

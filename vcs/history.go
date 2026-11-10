@@ -125,9 +125,8 @@ type LogOptions struct {
 // readBufSize is the stdin/stdout pipe buffer for streaming git output.
 const readBufSize = 1 << 20
 
-// recordSep marks the start of one commit's output inside git log's stream. A
-// commit message could in theory carry \x1e; none has been seen in the wild
-// and git strips control bytes in many tools' outputs anyway.
+// recordSep opens each commit's header line. Patch lines start with a diff
+// prefix, so only a header line can begin a record.
 const recordSep = "\x1e"
 
 // logFormat carries every field LogHistory needs, NUL-separated, with the
@@ -363,15 +362,8 @@ func (*GitOperations) LogHistory(ctx context.Context, repoPath string, opts LogO
 		}
 
 		r := bufio.NewReaderSize(stdout, readBufSize)
-		done := false
-		for !done {
-			record, err := r.ReadString(recordSep[0])
-			// The stream opens with the separator, so the first read is the
-			// marker alone; a real record always carries a hash.
-			if strings.TrimSuffix(record, recordSep) != "" {
-				done = !yield(parseLogRecord(record), nil)
-			}
-			if err != nil {
+		for raw := range splitRecords(r) {
+			if !yield(parseLogRecord(raw), nil) {
 				break
 			}
 		}
@@ -410,9 +402,44 @@ func logArgs(opts LogOptions) []string {
 	return args
 }
 
-// parseLogRecord splits one \x1e-terminated record into its metadata and patch.
+// splitRecords yields each commit's raw text, header through patch, from a git log stream.
+func splitRecords(r *bufio.Reader) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		var record strings.Builder
+		for {
+			line, err := r.ReadString('\n')
+			if isRecordStart(line) {
+				if record.Len() > 0 && !yield(record.String()) {
+					return
+				}
+				record.Reset()
+				line = strings.TrimPrefix(line, recordSep)
+			}
+			record.WriteString(line)
+			if err != nil {
+				break
+			}
+		}
+		if record.Len() > 0 {
+			yield(record.String())
+		}
+	}
+}
+
+// isRecordStart reports whether line opens a commit header: recordSep, then a
+// hash ending in NUL.
+func isRecordStart(line string) bool {
+	rest, ok := strings.CutPrefix(line, recordSep)
+	if !ok {
+		return false
+	}
+	hash, _, found := strings.Cut(rest, "\x00")
+
+	return found && hash != "" && strings.Trim(hash, "0123456789abcdef") == ""
+}
+
+// parseLogRecord splits one record into its metadata fields and its patch.
 func parseLogRecord(record string) CommitRecord {
-	record = strings.TrimSuffix(record, recordSep)
 	fields := strings.SplitN(record, "\x00", 11) //nolint:mnd // 10 fields plus the patch
 	rec := CommitRecord{}
 	if len(fields) < 11 { //nolint:mnd // see above

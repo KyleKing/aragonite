@@ -467,6 +467,7 @@ func parseLogRecord(record string) CommitRecord {
 type patchParser struct {
 	cur          *CommitFile
 	aPath, bPath string
+	header       string
 	files        []CommitFile
 	// inHunks is set at the first @@ of a file; after it, ---/+++ lines are removed or added text.
 	inHunks bool
@@ -507,6 +508,7 @@ func (p *patchParser) line(line string) {
 	if strings.HasPrefix(line, "diff --git ") {
 		p.finish()
 		p.cur = &CommitFile{}
+		p.header = line
 
 		return
 	}
@@ -548,13 +550,52 @@ func (p *patchParser) finish() {
 	if p.cur.Path == "" {
 		p.cur.Path = p.aPath
 	}
+	if p.cur.Path == "" {
+		p.cur.Path = diffHeaderPath(p.header)
+	}
 	if p.cur.OldPath == "" && p.cur.Status == StatusRenamed {
 		p.cur.OldPath = p.aPath
 	}
 	p.files = append(p.files, *p.cur)
 	p.cur = nil
-	p.aPath, p.bPath = "", ""
+	p.aPath, p.bPath, p.header = "", "", ""
 	p.inHunks = false
+}
+
+// diffHeaderPath reads the path from a "diff --git a/<p> b/<p>" line. Binary
+// files have no ---/+++ lines, so this line is the only place their name appears.
+func diffHeaderPath(line string) string {
+	rest, ok := strings.CutPrefix(line, "diff --git ")
+	if !ok {
+		return ""
+	}
+	if strings.HasPrefix(rest, `"`) {
+		quoted, err := strconv.QuotedPrefix(rest)
+		if err != nil {
+			return ""
+		}
+		name, err := strconv.Unquote(quoted)
+		if err != nil {
+			return ""
+		}
+
+		return strings.TrimPrefix(name, "a/")
+	}
+
+	body, ok := strings.CutPrefix(rest, "a/")
+	if !ok {
+		return ""
+	}
+	n := len(body) - len(" b/")
+	if n < 0 || n%2 != 0 {
+		return ""
+	}
+	name := body[:n/2]
+	if body[n/2:] != " b/"+name {
+		return ""
+	}
+
+	return name
 }
 
 // patchPath extracts a filename from a ---/+++ line, honoring git's convention

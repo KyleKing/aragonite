@@ -267,6 +267,39 @@ func TestLogHistoryPatchBytesCannotSplitRecords(t *testing.T) {
 	}
 }
 
+func TestLogHistoryNamesBinaryFilesFromTheirHeaders(t *testing.T) {
+	t.Parallel()
+
+	// A tab in the name makes git quote the header path, and the spaced name
+	// is the one an unquoted header has to split on.
+	paths := []string{"bin.dat", "dir with space/bin file.dat", "tab\tname.dat"}
+	dir, run, write := newGitRepo(t)
+	run("init", "--initial-branch=main")
+	for _, p := range paths {
+		write(p, "\x00\x01")
+		run("add", "-A")
+		run("commit", "-m", "add "+p)
+		write(p, "\x00\x02")
+		run("add", "-A")
+		run("commit", "-m", "modify "+p)
+		run("rm", "-q", p)
+		run("commit", "-m", "delete "+p)
+	}
+
+	records := collect(t, vcs.NewGitOperations().LogHistory(t.Context(), dir, vcs.LogOptions{Reverse: true}))
+	statuses := []vcs.ChangeStatus{vcs.StatusAdded, vcs.StatusModified, vcs.StatusDeleted}
+	if len(records) != len(paths)*len(statuses) {
+		t.Fatalf("got %d records, want %d", len(records), len(paths)*len(statuses))
+	}
+	for i, rec := range records {
+		want := paths[i/len(statuses)]
+		status := statuses[i%len(statuses)]
+		if len(rec.Files) != 1 || rec.Files[0].Path != want || rec.Files[0].Status != status || !rec.Files[0].Binary {
+			t.Fatalf("record %d files = %+v, want binary %s %v", i, rec.Files, want, status)
+		}
+	}
+}
+
 func TestTreeAndBlobsAgainstRealGit(t *testing.T) {
 	t.Parallel()
 

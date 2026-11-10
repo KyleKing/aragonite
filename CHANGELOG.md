@@ -1,3 +1,12 @@
+## v1.13.1 (2026-11-10)
+
+### Fix
+
+- **vcs**: mark GIT binary patch sections as binary
+- **vcs**: stop LogHistory from blocking on an early break
+- **vcs**: read binary file paths from diff headers
+- **vcs**: stop patch bytes from splitting git log records
+
 ## v1.13.0 (2026-11-10)
 
 ### Feat

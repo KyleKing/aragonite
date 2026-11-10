@@ -333,3 +333,48 @@ func TestDiffWorktreeAgainstRealGit(t *testing.T) {
 		t.Fatalf("untracked = %v", untracked)
 	}
 }
+
+func TestParsePatchHunkStarts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		hunk string
+		want vcs.DiffHunk
+	}{
+		{
+			name: "pure insertion after old line 5",
+			hunk: "@@ -5,0 +6,2 @@",
+			want: vcs.DiffHunk{OldStart: 6, OldLines: 0, NewStart: 6, NewLines: 2},
+		},
+		{
+			name: "pure deletion after new line 2",
+			hunk: "@@ -3,2 +2,0 @@",
+			want: vcs.DiffHunk{OldStart: 3, OldLines: 2, NewStart: 3, NewLines: 0},
+		},
+		{
+			name: "new file inserts before line 1",
+			hunk: "@@ -0,0 +1,3 @@",
+			want: vcs.DiffHunk{OldStart: 1, OldLines: 0, NewStart: 1, NewLines: 3},
+		},
+		{
+			name: "single-line change omits counts",
+			hunk: "@@ -4 +4 @@",
+			want: vcs.DiffHunk{OldStart: 4, OldLines: 1, NewStart: 4, NewLines: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			files := vcs.ParsePatch("diff --git a/f.txt b/f.txt\n" + tt.hunk + "\n")
+			if len(files) != 1 || len(files[0].Hunks) != 1 {
+				t.Fatalf("ParsePatch = %+v, want one file with one hunk", files)
+			}
+			if got := files[0].Hunks[0]; got != tt.want {
+				t.Fatalf("hunk = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}

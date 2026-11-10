@@ -44,8 +44,10 @@ func (c ChangeStatus) String() string {
 // DiffHunk is one changed span, expressed against both sides of a diff. A side
 // with zero lines is purely added or purely removed there.
 type DiffHunk struct {
+	// OldStart with OldLines 0 is the line after the anchor, so OldStart-1 is the insert index.
 	OldStart int
 	OldLines int
+	// NewStart with NewLines 0 is the line after the anchor, so NewStart-1 is the insert index.
 	NewStart int
 	NewLines int
 }
@@ -556,12 +558,20 @@ func parseHunk(line string) (DiffHunk, bool) {
 		return n
 	}
 
-	return DiffHunk{
+	h := DiffHunk{
 		OldStart: atoi(m[1], 0),
 		OldLines: atoi(m[2], 1),
 		NewStart: atoi(m[3], 0),
 		NewLines: atoi(m[4], 1),
-	}, true
+	}
+	if h.OldLines == 0 {
+		h.OldStart++
+	}
+	if h.NewLines == 0 {
+		h.NewStart++
+	}
+
+	return h, true
 }
 
 // isZeroSHA reports whether sha is all zeros, the marker git uses for a side

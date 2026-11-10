@@ -1,3 +1,9 @@
+## v1.11.0 (2026-11-10)
+
+### Feat
+
+- add diff package for unified-diff parsing and anchoring
+
 ## v1.10.1 (2026-11-09)
 
 ### Fix

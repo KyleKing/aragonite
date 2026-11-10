@@ -2,11 +2,14 @@ package vcs_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/kyleking/aragonite/vcs"
 )
@@ -297,6 +300,37 @@ func TestLogHistoryNamesBinaryFilesFromTheirHeaders(t *testing.T) {
 		if len(rec.Files) != 1 || rec.Files[0].Path != want || rec.Files[0].Status != status || !rec.Files[0].Binary {
 			t.Fatalf("record %d files = %+v, want binary %s %v", i, rec.Files, want, status)
 		}
+	}
+}
+
+func TestLogHistoryEarlyBreakReturnsWhenOutputExceedsThePipe(t *testing.T) {
+	t.Parallel()
+
+	dir, run, write := newGitRepo(t)
+	run("init", "--initial-branch=main")
+	body := strings.Repeat("a line of patch content that is long enough to fill a pipe\n", 100)
+	for i := range 100 {
+		write("big.txt", fmt.Sprintf("%d\n%s", i, body))
+		run("add", "-A")
+		run("commit", "-m", fmt.Sprintf("c%d", i))
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for _, err := range vcs.NewGitOperations().LogHistory(t.Context(), dir, vcs.LogOptions{}) {
+			if err != nil {
+				t.Errorf("LogHistory: %v", err)
+			}
+
+			break
+		}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("LogHistory did not return after the consumer broke out of the walk")
 	}
 }
 

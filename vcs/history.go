@@ -364,7 +364,10 @@ func (*GitOperations) LogHistory(ctx context.Context, repoPath string, opts LogO
 		r := bufio.NewReaderSize(stdout, readBufSize)
 		for raw := range splitRecords(r) {
 			if !yield(parseLogRecord(raw), nil) {
-				break
+				cancel()
+				_ = cmd.Wait() //nolint:errcheck // the consumer stopped, so no one reads the exit status
+
+				return
 			}
 		}
 

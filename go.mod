@@ -1,10 +1,10 @@
 module github.com/kyleking/aragonite
 
-go 1.26.0
+go 1.26.7
 
 require (
-	charm.land/bubbletea/v2 v2.1.0
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/bubbletea/v2 v2.1.1
+	charm.land/lipgloss/v2 v2.1.0
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/charmbracelet/x/vt v0.1.0
@@ -12,7 +12,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/rivo/uniseg v0.4.7
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.25.0
 )
 
 require (

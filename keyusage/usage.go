@@ -96,6 +96,12 @@ func (u *Usage) readFile(path string, km Keymap) error {
 			continue
 		}
 
+		if e.E == CLI {
+			u.tallyCLI(e, km)
+
+			continue
+		}
+
 		if e.E != "key" {
 			continue
 		}

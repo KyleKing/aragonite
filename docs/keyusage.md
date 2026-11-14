@@ -8,6 +8,10 @@
 
 Line movement (`up`, `down`, `j`, `k`) is never recorded or reported. The consumer calls `Key(ctx, msg.String())` in its own dispatch, after prompts and child panes have taken their keys. Typed text never reaches the log, and aragonite needs no key registry.
 
+## CLI invocations
+
+`Recorder.Invoke(root, os.Args[1:])` logs one line per run under the `cli` context: the subcommand path the tool's `Command` tree recognizes, then each flag's name (`tool pr view --web`). Positional arguments and flag values are never written, because they carry paths, repository names, and tokens. Subcommands are read until the first bare word that is not one. `Commands(root)` turns the same tree into bindings for `Keymap[keyusage.CLI]`, so `<tool> keys` reports unused subcommands and flags beside unused keys, and an undeclared flag shows up as a miss.
+
 ## Context
 
 The same key does different things on different screens, overlays, and cursor targets. In second-look, `r` replies on the queue and gives a ready verdict on a thread, and `u` is a chord on review but jumps to the next unread on the queue. So every line carries `ctx`, and the consumer names where the key landed (`review`, `review/thread`, `review/help`, `queue/inbox`) before dispatching it. Both reading and counting are per context:

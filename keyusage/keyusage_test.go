@@ -175,3 +175,57 @@ func TestOpenOff(t *testing.T) {
 		t.Fatalf("override dir should hold one log, got %d (%v)", len(entries), err)
 	}
 }
+
+func TestInvocations(t *testing.T) {
+	t.Parallel()
+
+	root := keyusage.Command{Name: "tool", Flags: []string{"--version"}, Subs: []keyusage.Command{
+		{Name: "pr", Subs: []keyusage.Command{{Name: "view", Flags: []string{"--web", "--repo"}}}},
+		{Name: "keys"},
+	}}
+
+	dir := t.TempDir()
+	r := keyusage.Open("tool", keyusage.WithDir(dir), keyusage.WithHost("h"))
+
+	for _, args := range [][]string{
+		{"pr", "view", "123", "--repo=secret/name", "--web"},
+		{"pr", "view", "--repo", "secret/name", "keys"},
+		{"--nope", "secret-path"},
+	} {
+		r.Invoke(root, args)
+	}
+
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	log := filepath.Join(dir, "h-"+time.Now().Format("2006-01")+".jsonl")
+
+	raw, err := os.ReadFile(log) //nolint:gosec // the test's temp dir
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(string(raw), "secret") || strings.Contains(string(raw), "123") {
+		t.Fatalf("a positional argument or flag value was recorded:\n%s", raw)
+	}
+
+	km := keyusage.Keymap{keyusage.CLI: keyusage.Commands(root)}
+
+	u, err := keyusage.Load(dir, km)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for path, want := range map[string]int{
+		"tool pr view": 2, "tool pr view --repo": 2, "tool pr view --web": 1, "tool": 1, "tool keys": 0,
+	} {
+		if got := u.Stat(keyusage.CLI, path).Count; got != want {
+			t.Errorf("%q: got %d, want %d", path, got, want)
+		}
+	}
+
+	if m := u.Misses(); len(m) != 1 || m[0].Path != "tool --nope" {
+		t.Errorf("misses: %+v", m)
+	}
+}

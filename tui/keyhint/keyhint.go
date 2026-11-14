@@ -46,6 +46,9 @@ type Hint struct {
 	// On marks a hint whose effect is applied, drawn in PanelStyles.On by
 	// Panel.
 	On bool
+	// Fresh marks a key the user has not been pressing, drawn bold and
+	// underlined over Styles.Key so the legend points at what is worth learning.
+	Fresh bool
 }
 
 // Styles are the faces a hint is drawn with, passed in so the package never
@@ -64,6 +67,15 @@ type Styles struct {
 	// Bare draws a hint as its key and then its word, with no brackets, so the
 	// two faces alone tell them apart.
 	Bare bool
+}
+
+// keyFace is the face h's key is drawn in.
+func (s Styles) keyFace(h Hint) lipgloss.Style {
+	if h.Fresh {
+		return s.Key.Bold(true).Underline(true)
+	}
+
+	return s.Key
 }
 
 func (s Styles) gap() string {
@@ -111,7 +123,7 @@ func One(s Styles, h Hint) string {
 
 	at := index(h.Key, h.What)
 	if at < 0 {
-		return s.Key.Render(mark) + " " + s.Text.Render(h.What)
+		return s.keyFace(h).Render(mark) + " " + s.Text.Render(h.What)
 	}
 
 	// The letter matched in the word is not the key's own byte for a shifted or
@@ -119,7 +131,7 @@ func One(s Styles, h Hint) string {
 	_, size := utf8.DecodeRuneInString(h.What[at:])
 
 	return s.Text.Render(h.What[:at]) +
-		s.Key.Render(mark) +
+		s.keyFace(h).Render(mark) +
 		s.Text.Render(h.What[at+size:])
 }
 
@@ -128,7 +140,7 @@ func bare(s Styles, h Hint) string {
 		return s.Off.Render(h.Key + " " + h.What)
 	}
 
-	return s.Key.Render(h.Key) + " " + s.Text.Render(h.What)
+	return s.keyFace(h).Render(h.Key) + " " + s.Text.Render(h.What)
 }
 
 // index is where the key sits in the word, or -1 where it does not. A word
@@ -198,7 +210,7 @@ func Help(s Styles, hints []Hint, width int) []string {
 		}
 
 		out = append(out, Indent+
-			s.Key.Render(table.Pad(h.Key, keys, table.AlignRight))+
+			s.keyFace(h).Render(table.Pad(h.Key, keys, table.AlignRight))+
 			Gutter+s.Text.Render(table.Truncate(h.What, room)))
 	}
 

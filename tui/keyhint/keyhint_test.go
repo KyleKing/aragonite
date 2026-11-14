@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kyleking/aragonite/tui/keyhint"
 )
@@ -246,5 +247,17 @@ func TestPanel_AlignsKeysAndCountsAndFitsTheWidth(t *testing.T) {
 				t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
 			}
 		})
+	}
+}
+
+func TestFreshDrawsKeyApart(t *testing.T) {
+	t.Parallel()
+
+	s := keyhint.Styles{Key: lipgloss.NewStyle()}
+	plain := keyhint.One(s, keyhint.Hint{Key: "F", What: "fixme"})
+	fresh := keyhint.One(s, keyhint.Hint{Key: "F", What: "fixme", Fresh: true})
+
+	if plain == fresh || ansi.Strip(fresh) != plain {
+		t.Fatalf("fresh %q should differ from plain %q", fresh, plain)
 	}
 }

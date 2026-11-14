@@ -167,7 +167,7 @@ func colRow(s Styles, h Hint, keys, room int) []string {
 		case h.Off:
 			out[i] = s.Off.Render(pad + w)
 		case i == 0:
-			out[i] = s.Key.Render(key) + Gutter + s.Text.Render(w)
+			out[i] = s.keyFace(h).Render(key) + Gutter + s.Text.Render(w)
 		default:
 			out[i] = pad + s.Text.Render(w)
 		}

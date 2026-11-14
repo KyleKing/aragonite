@@ -1,0 +1,28 @@
+# Key usage
+
+`keyusage` logs the command keys a tool's user presses and reads the log back against the tool's bindings. The point is to find keys nobody presses, so they can be removed or made easier to find. nvim's `utils/usage` (`~/.config/nvim/FEATURE_USAGE_DESIGN.md`) set the pattern.
+
+## Recording
+
+`keyusage.Open(app)` records into `$<APP>_USAGE_DIR`, else `~/Sync/.<app>/usage/` when `~/Sync` exists. With neither, it returns nil and every method does nothing. Files are named `<host>-YYYY-MM.jsonl`, one per host per month, so Syncthing never sees two writers append to one file.
+
+The consumer calls `Key(ctx, msg.String())` in its own dispatch, after prompts and child panes have taken their keys. Typed text never reaches the log, and aragonite needs no key registry.
+
+## Context
+
+The same key does different things on different screens, overlays, and cursor targets. In second-look, `r` replies on the queue and gives a ready verdict on a thread, and `u` is a chord on review but jumps to the next unread on the queue. So every line carries `ctx`, and the consumer names where the key landed (`review`, `review/thread`, `review/help`, `queue/inbox`) before dispatching it. Both reading and counting are per context:
+
+- `Keymap` maps each context to its `[]Binding` (keys as `msg.String()` spells them, what the key does, and a prefix's `Kids`). A chord's second key is matched in the prefix's own context, giving the path `m x`
+- `Usage.Overloads` lists every top-level key bound to different things in two or more contexts, with each one's count. This is where muscle memory from one screen misfires on another
+- `Usage.Misses` lists keys pressed where nothing is bound, including chord misses such as `a q`. A frequent miss is a key the user expects to exist
+
+Pick context names at the level where meaning changes. A cursor target that changes what a key does (a thread under the cursor) is its own context. A cursor target that only changes what the key acts on is not.
+
+## Surfaces
+
+- **`<tool> keys`.** `keyusage.Write` prints the never-used bindings, the ones gone stale, the misses, the overloads, and any contexts missing from the keymap
+- **Brightening.** `keyhint.Hint.Fresh` draws the key bold and underlined in `Line`, `Help`, `Page`, and `Panel`. The consumer sets it from `Usage.Fresh(ctx, path, now-30d)`, so the keys that need learning stand out in the place you look them up
+
+## Not built
+
+Compaction into per-month summaries, and an nvim-style denylist (for example dropping arrow keys). Add them when a log grows large enough to make `Load` slow.

@@ -1,3 +1,11 @@
+## v1.17.0 (2026-11-14)
+
+### Feat
+
+- **vcs**: count the commits a history walk covers
+- **vcs**: let a history walk diff blobs past a size as binary
+- **vcs**: read blobs across calls through one long-lived cat-file process
+
 ## v1.16.0 (2026-11-14)
 
 ### Feat

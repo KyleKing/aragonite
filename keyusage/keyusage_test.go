@@ -15,6 +15,7 @@ func keymap() keyusage.Keymap {
 	return keyusage.Keymap{
 		"review": {
 			{Keys: []string{"j", "down"}, What: "line down"},
+			{Keys: []string{"G"}, What: "bottom"},
 			{Keys: []string{"m"}, What: "a state", Kids: []keyusage.Binding{
 				{Keys: []string{"x"}, What: "skip"},
 				{Keys: []string{"r"}, What: "ready"},
@@ -52,6 +53,7 @@ func TestRoundTrip(t *testing.T) {
 	record(t, dir, start, [][2]string{
 		{"review", "down"},
 		{"review", "j"},
+		{"review", "G"},
 		{"review", "m"},
 		{"review", "x"},
 		{"review", "m"},
@@ -85,7 +87,8 @@ func checkCounts(t *testing.T, u keyusage.Usage) {
 		ctx, path string
 		want      int
 	}{
-		{"review", "j", 2},
+		{"review", "j", 0},
+		{"review", "G", 1},
 		{"review", "m x", 1},
 		{"review", "m r", 0},
 		{"review", "F", 0},
@@ -113,8 +116,20 @@ func checkSignals(t *testing.T, u keyusage.Usage, km keyusage.Keymap, start time
 		t.Errorf("unmapped: %v", u.Unmapped)
 	}
 
-	if !u.Fresh("review", "F", start) || u.Fresh("review", "j", start) {
-		t.Error("fresh: F never used should be fresh, j used should not")
+	for _, c := range []struct {
+		at   time.Time
+		path string
+		want int
+	}{
+		{start, "F", 3},
+		{start.AddDate(0, 0, 1), "m x", 0},
+		{start.AddDate(0, 0, 8), "m x", 1},
+		{start.AddDate(0, 0, 15), "m x", 2},
+		{start.AddDate(0, 0, 29), "m x", 3},
+	} {
+		if got := u.Level("review", c.path, c.at); got != c.want {
+			t.Errorf("level %q at %s: got %d, want %d", c.path, c.at, got, c.want)
+		}
 	}
 
 	over := u.Overloads(km)
@@ -154,7 +169,7 @@ func TestOpenOff(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(keyusage.EnvVar("some-app"), dir)
 
-	keyusage.Open("some-app").Key("ctx", "k")
+	keyusage.Open("some-app").Key("ctx", "F")
 
 	if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
 		t.Fatalf("override dir should hold one log, got %d (%v)", len(entries), err)

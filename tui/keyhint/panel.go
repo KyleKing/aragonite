@@ -77,8 +77,8 @@ func panelRow(s PanelStyles, h Hint, keys, whats, counts int) string {
 		keyFace, textFace = s.Off, s.Off
 	case h.On:
 		keyFace, textFace = s.On, s.On
-	case h.Fresh:
-		keyFace = s.Key.Bold(true).Underline(true)
+	case h.Fresh > 0:
+		keyFace = brighten(s.Key, h.Fresh)
 	}
 
 	row := keyFace.Render(key) + Gutter + textFace.Render(text)

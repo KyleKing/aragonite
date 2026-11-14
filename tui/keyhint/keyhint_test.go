@@ -254,10 +254,18 @@ func TestFreshDrawsKeyApart(t *testing.T) {
 	t.Parallel()
 
 	s := keyhint.Styles{Key: lipgloss.NewStyle()}
-	plain := keyhint.One(s, keyhint.Hint{Key: "F", What: "fixme"})
-	fresh := keyhint.One(s, keyhint.Hint{Key: "F", What: "fixme", Fresh: true})
+	seen := map[string]int{}
 
-	if plain == fresh || ansi.Strip(fresh) != plain {
-		t.Fatalf("fresh %q should differ from plain %q", fresh, plain)
+	for level := range 4 {
+		got := keyhint.One(s, keyhint.Hint{Key: "F", What: "fixme", Fresh: level})
+		if ansi.Strip(got) != "[F]ixme" {
+			t.Fatalf("level %d changed the text: %q", level, got)
+		}
+
+		if prev, dup := seen[got]; dup {
+			t.Fatalf("levels %d and %d draw alike: %q", prev, level, got)
+		}
+
+		seen[got] = level
 	}
 }

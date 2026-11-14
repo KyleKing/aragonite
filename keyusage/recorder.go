@@ -116,9 +116,26 @@ func hostname() string {
 	return short
 }
 
-// Key records a command key pressed in ctx. Callers must not pass keys typed
+// Key records a command key pressed in ctx, except line movement. Callers must not pass keys typed
 // into a text field: the log answers what was reached for, not what was written.
-func (r *Recorder) Key(ctx, key string) { r.put(Entry{S: ctx, E: "key", W: key}) }
+func (r *Recorder) Key(ctx, key string) {
+	if ignored(key) {
+		return
+	}
+
+	r.put(Entry{S: ctx, E: "key", W: key})
+}
+
+// ignored reports keys too constant to say anything about learning a tool:
+// line-by-line movement is neither recorded nor reported.
+func ignored(key string) bool {
+	switch key {
+	case "up", "down", "j", "k":
+		return true
+	}
+
+	return false
+}
 
 // Event records something the session did in ctx, with an optional detail.
 func (r *Recorder) Event(ctx, name, detail string) { r.put(Entry{S: ctx, E: name, W: detail}) }

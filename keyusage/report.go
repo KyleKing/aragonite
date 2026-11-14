@@ -42,7 +42,7 @@ func (u Usage) Cold(km Keymap) []Row {
 
 func (u Usage) walk(rows []Row, ctx, prefix string, bs []Binding) []Row {
 	for _, b := range bs {
-		if len(b.Keys) == 0 {
+		if len(b.Keys) == 0 || allIgnored(b.Keys) {
 			continue
 		}
 
@@ -94,6 +94,10 @@ func (u Usage) Overloads(km Keymap) []Overload {
 	for ctx, bs := range km {
 		for _, b := range bs {
 			for _, k := range b.Keys {
+				if ignored(k) {
+					continue
+				}
+
 				byKey[k] = append(byKey[k], Row{Ctx: ctx, Path: b.Keys[0], What: b.What, Stat: u.Stat(ctx, b.Keys[0])})
 			}
 		}
@@ -142,6 +146,16 @@ func merge(rows []Row) []Row {
 	slices.SortFunc(out, func(a, b Row) int { return cmp.Or(cmp.Compare(a.Ctx, b.Ctx), cmp.Compare(a.Path, b.Path)) })
 
 	return out
+}
+
+func allIgnored(keys []string) bool {
+	for _, k := range keys {
+		if !ignored(k) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func differs(uses []Row) bool {

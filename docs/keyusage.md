@@ -6,7 +6,7 @@
 
 `keyusage.Open(app)` records into `$<APP>_USAGE_DIR`, else `~/Sync/.<app>/usage/` when `~/Sync` exists. With neither, it returns nil and every method does nothing. Files are named `<host>-YYYY-MM.jsonl`, one per host per month, so Syncthing never sees two writers append to one file.
 
-The consumer calls `Key(ctx, msg.String())` in its own dispatch, after prompts and child panes have taken their keys. Typed text never reaches the log, and aragonite needs no key registry.
+Line movement (`up`, `down`, `j`, `k`) is never recorded or reported. The consumer calls `Key(ctx, msg.String())` in its own dispatch, after prompts and child panes have taken their keys. Typed text never reaches the log, and aragonite needs no key registry.
 
 ## Context
 
@@ -21,8 +21,8 @@ Pick context names at the level where meaning changes. A cursor target that chan
 ## Surfaces
 
 - **`<tool> keys`.** `keyusage.Write` prints the never-used bindings, the ones gone stale, the misses, the overloads, and any contexts missing from the keymap
-- **Brightening.** `keyhint.Hint.Fresh` draws the key bold and underlined in `Line`, `Help`, `Page`, and `Panel`. The consumer sets it from `Usage.Fresh(ctx, path, now-30d)`, so the keys that need learning stand out in the place you look them up
+- **Brightening.** `keyhint.Hint.Fresh` is a level from `Usage.Level(ctx, path, now)`: unused for 7 days underlines the key, for 14 days bolds it, and for 28 days or never does both. `Line`, `Help`, `Page`, and `Panel` all draw it, so the keys that need learning stand out in the place you look them up
 
 ## Not built
 
-Compaction into per-month summaries, and an nvim-style denylist (for example dropping arrow keys). Add them when a log grows large enough to make `Load` slow.
+Compaction into per-month summaries (add it when a log grows large enough to slow `Load`), and a per-tool denylist beyond line movement (add it when a tool has a key as constant as `j`).

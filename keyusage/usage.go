@@ -111,6 +111,10 @@ func (u *Usage) readFile(path string, km Keymap) error {
 }
 
 func (u *Usage) tally(e Entry, km Keymap, wait *pending) *pending {
+	if ignored(e.W) {
+		return nil
+	}
+
 	if wait != nil && wait.ctx == e.S {
 		if kid := find(wait.b.Kids, e.W); kid != nil {
 			bump(u.hits, e.S, wait.path+" "+kid.Keys[0], e.T)
@@ -172,10 +176,26 @@ func bump(m map[string]map[string]Stat, ctx, path string, t time.Time) {
 // Stat is how often the binding at path fired in ctx.
 func (u Usage) Stat(ctx, path string) Stat { return u.hits[ctx][path] }
 
-// Fresh reports whether the binding at path in ctx has not fired since since,
-// which is the key a legend should draw brighter so it gets learned.
-func (u Usage) Fresh(ctx, path string, since time.Time) bool {
+// Level is how strongly a legend should brighten the binding at path in ctx,
+// from 0 (pressed within a week) through 1 (7 days), 2 (14 days), to 3 (28 days
+// or never).
+func (u Usage) Level(ctx, path string, now time.Time) int {
 	s := u.Stat(ctx, path)
+	if s.Count == 0 {
+		return len(levelDays)
+	}
 
-	return s.Count == 0 || s.Last.Before(since)
+	idle := now.Sub(s.Last)
+	level := 0
+
+	for i, days := range levelDays {
+		if idle >= time.Duration(days)*24*time.Hour {
+			level = i + 1
+		}
+	}
+
+	return level
 }
+
+// levelDays are the idle spans that raise a binding one brightening level.
+var levelDays = [...]int{7, 14, 28} //nolint:gochecknoglobals // a constant table

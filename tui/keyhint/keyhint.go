@@ -46,9 +46,9 @@ type Hint struct {
 	// On marks a hint whose effect is applied, drawn in PanelStyles.On by
 	// Panel.
 	On bool
-	// Fresh marks a key the user has not been pressing, drawn bold and
-	// underlined over Styles.Key so the legend points at what is worth learning.
-	Fresh bool
+	// Fresh is how long the user has gone without the key, 0 to 3 as
+	// keyusage.Usage.Level grades it: 1 underlines it, 2 bolds it, 3 does both.
+	Fresh int
 }
 
 // Styles are the faces a hint is drawn with, passed in so the package never
@@ -70,12 +70,19 @@ type Styles struct {
 }
 
 // keyFace is the face h's key is drawn in.
-func (s Styles) keyFace(h Hint) lipgloss.Style {
-	if h.Fresh {
-		return s.Key.Bold(true).Underline(true)
+func (s Styles) keyFace(h Hint) lipgloss.Style { return brighten(s.Key, h.Fresh) }
+
+func brighten(face lipgloss.Style, level int) lipgloss.Style {
+	switch {
+	case level >= 3: //nolint:mnd // the top Fresh level
+		return face.Bold(true).Underline(true)
+	case level == 2: //nolint:mnd // the middle Fresh level
+		return face.Bold(true)
+	case level == 1:
+		return face.Underline(true)
 	}
 
-	return s.Key
+	return face
 }
 
 func (s Styles) gap() string {

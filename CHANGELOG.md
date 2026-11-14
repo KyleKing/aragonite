@@ -1,3 +1,9 @@
+## v1.18.0 (2026-11-14)
+
+### Feat
+
+- add highlight, generated, and diff.MechanicalHunks for tools that draw diffs
+
 ## v1.17.0 (2026-11-14)
 
 ### Feat

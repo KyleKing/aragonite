@@ -1,3 +1,9 @@
+## v1.15.0 (2026-11-14)
+
+### Feat
+
+- **keyusage**: skip line movement and grade brightening at 7, 14, and 28 days
+
 ## v1.14.0 (2026-11-14)
 
 ### Feat

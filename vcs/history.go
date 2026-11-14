@@ -120,6 +120,9 @@ type LogOptions struct {
 	Paths       []string // restrict the walk and its diffs to these paths
 	FirstParent bool     // follow only the first-parent chain
 	Reverse     bool     // oldest first
+	// MaxDiffBytes diffs a blob larger than this as binary, with no hunks or
+	// line text, sparing git a line diff of a huge file. Zero keeps git's default.
+	MaxDiffBytes int64
 }
 
 // readBufSize is the stdin/stdout pipe buffer for streaming git output.
@@ -455,10 +458,12 @@ func (*GitOperations) LogHistory(ctx context.Context, repoPath string, opts LogO
 // first-parent diff, -U0 makes hunks name only changed lines, and -M keeps
 // renames from reading as a delete plus an add.
 func logArgs(opts LogOptions) []string {
-	args := []string{
-		"-c", "core.quotePath=false", "log", "-m", "--no-ext-diff", "--no-textconv",
-		"-U0", "-M", "--no-color", "--format=" + logFormat,
+	args := []string{"-c", "core.quotePath=false"}
+	if opts.MaxDiffBytes > 0 {
+		args = append(args, "-c", "core.bigFileThreshold="+strconv.FormatInt(opts.MaxDiffBytes, 10))
 	}
+	args = append(args, "log", "-m", "--no-ext-diff", "--no-textconv",
+		"-U0", "-M", "--no-color", "--format="+logFormat)
 	if opts.FirstParent {
 		args = append(args, "--first-parent")
 	}

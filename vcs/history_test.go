@@ -217,6 +217,29 @@ func TestLogHistoryFileDetail(t *testing.T) {
 	}
 }
 
+func TestLogHistoryMaxDiffBytesDiffsAsBinary(t *testing.T) {
+	t.Parallel()
+
+	dir := historyRepo(t)
+	capped := collect(t, vcs.NewGitOperations().LogHistory(t.Context(), dir,
+		vcs.LogOptions{FirstParent: true, MaxDiffBytes: 4}))
+	seen := 0
+	for _, rec := range capped {
+		for _, f := range rec.Files {
+			if f.Path != "f.txt" {
+				continue
+			}
+			seen++
+			if !f.Binary || len(f.Hunks) > 0 || len(f.Added) > 0 {
+				t.Fatalf("f.txt past MaxDiffBytes = %+v", f)
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no f.txt diff in the capped walk")
+	}
+}
+
 func TestLogHistoryOrderAndRange(t *testing.T) {
 	t.Parallel()
 

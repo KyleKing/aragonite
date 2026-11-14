@@ -454,6 +454,37 @@ func (*GitOperations) LogHistory(ctx context.Context, repoPath string, opts LogO
 	}
 }
 
+// CountCommits counts the commits a LogHistory walk with opts covers, a merge
+// once, so a caller can show progress against the total.
+func (g *GitOperations) CountCommits(ctx context.Context, repoPath string, opts LogOptions) (int, error) {
+	args := []string{"rev-list", "--count"}
+	if opts.FirstParent {
+		args = append(args, "--first-parent")
+	}
+	if opts.Since != "" {
+		args = append(args, "--since="+opts.Since)
+	}
+	rev := opts.Range
+	if rev == "" {
+		rev = headRef
+	}
+	args = append(args, rev)
+	if len(opts.Paths) > 0 {
+		args = append(args, "--")
+		args = append(args, opts.Paths...)
+	}
+	out, err := g.runGit(ctx, repoPath, args...)
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.Atoi(out)
+	if err != nil {
+		return 0, fmt.Errorf("git rev-list --count: %q: %w", out, ErrUnexpectedOutput)
+	}
+
+	return n, nil
+}
+
 // logArgs builds the git log invocation for a walk. -m keeps a merge's
 // first-parent diff, -U0 makes hunks name only changed lines, and -M keeps
 // renames from reading as a delete plus an add.

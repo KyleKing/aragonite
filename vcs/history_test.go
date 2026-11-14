@@ -167,6 +167,10 @@ func TestLogHistoryFirstParent(t *testing.T) {
 	if len(records) != 4 {
 		t.Fatalf("got %d first-parent records, want 4 (c1, c2, c5, merge)", len(records))
 	}
+	n, err := ops.CountCommits(t.Context(), dir, vcs.LogOptions{FirstParent: true})
+	if err != nil || n != len(records) {
+		t.Fatalf("CountCommits = %d, %v, want %d", n, err, len(records))
+	}
 
 	merge := records[0]
 	if merge.Hash != head || len(merge.Parents) != 2 {

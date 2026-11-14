@@ -389,6 +389,38 @@ func TestTreeAndBlobsAgainstRealGit(t *testing.T) {
 	}
 }
 
+func TestBlobReaderReadsAcrossCalls(t *testing.T) {
+	t.Parallel()
+
+	dir := historyRepo(t)
+	ops := vcs.NewGitOperations()
+	entries, err := ops.TreeEntries(t.Context(), dir, "HEAD")
+	if err != nil {
+		t.Fatalf("TreeEntries: %v", err)
+	}
+	shaByPath := map[string]string{}
+	for _, e := range entries {
+		shaByPath[e.Path] = e.SHA
+	}
+
+	r, err := ops.OpenBlobReader(t.Context(), dir)
+	if err != nil {
+		t.Fatalf("OpenBlobReader: %v", err)
+	}
+	for _, sha := range []string{shaByPath["f.txt"], shaByPath["new.txt"], shaByPath["f.txt"]} {
+		got, err := r.Read([]string{sha, "0000000000000000000000000000000000000000"})
+		if err != nil {
+			t.Fatalf("BlobReader.Read: %v", err)
+		}
+		if len(got) != 1 || vcs.BlobSHA(got[sha]) != sha {
+			t.Fatalf("BlobReader.Read(%s) = %v", sha, got)
+		}
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("BlobReader.Close: %v", err)
+	}
+}
+
 func TestDiffRefsAgainstRealGit(t *testing.T) {
 	t.Parallel()
 

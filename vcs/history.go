@@ -179,19 +179,39 @@ func (g *GitOperations) BlobContent(ctx context.Context, repoPath, sha string) (
 
 // BlobContents reads many blobs through one cat-file --batch process. A sha
 // git does not know, including an all-zero sha, is absent from the result.
-func (*GitOperations) BlobContents(ctx context.Context, repoPath string, shas []string) (map[string][]byte, error) {
-	want := make([]string, 0, len(shas))
-	for _, sha := range shas {
-		if sha != "" && !isZeroSHA(sha) {
-			want = append(want, sha)
-		}
+func (g *GitOperations) BlobContents(ctx context.Context, repoPath string, shas []string) (map[string][]byte, error) {
+	if len(wantedSHAs(shas)) == 0 {
+		return map[string][]byte{}, nil
 	}
-	out := make(map[string][]byte, len(want))
-	if len(want) == 0 {
-		return out, nil
+	r, err := g.OpenBlobReader(ctx, repoPath)
+	if err != nil {
+		return nil, err
+	}
+	out, readErr := r.Read(shas)
+	if err := r.Close(); err != nil {
+		return nil, err
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "cat-file", "--batch") // #nosec G204 -- fixed argv
+	return out, readErr
+}
+
+// batchArgs is the cat-file invocation a BlobReader runs.
+var batchArgs = []string{"cat-file", "--batch"} //nolint:gochecknoglobals // a fixed argv is a constant
+
+// BlobReader reads blobs through one long-lived cat-file --batch process, so a
+// caller reading blobs for many commits pays for one process instead of one per
+// call. It is not safe for concurrent use. Close it to release the process.
+type BlobReader struct {
+	err   error
+	cmd   *exec.Cmd
+	stdin io.WriteCloser
+	out   *bufio.Reader
+}
+
+// OpenBlobReader starts the cat-file process a BlobReader reads through. The
+// process ends when ctx is canceled or the reader is closed.
+func (*GitOperations) OpenBlobReader(ctx context.Context, repoPath string) (*BlobReader, error) {
+	cmd := exec.CommandContext(ctx, "git", batchArgs...) // #nosec G204 -- fixed argv
 	cmd.Dir = repoPath
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -202,29 +222,83 @@ func (*GitOperations) BlobContents(ctx context.Context, repoPath string, shas []
 		return nil, fmt.Errorf("git cat-file --batch: %w", err)
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, gitError([]string{"cat-file", "--batch"}, err)
+		return nil, gitError(batchArgs, err)
 	}
 
-	go func() {
-		for _, sha := range want {
-			// A write error means the reader already saw the process die; the
-			// error surfaces through cmd.Wait below.
-			_, _ = fmt.Fprintln(stdin, sha) //nolint:errcheck // see comment
-		}
-		_ = stdin.Close() //nolint:errcheck // closing signals EOF; git then exits
-	}()
+	return &BlobReader{cmd: cmd, stdin: stdin, out: bufio.NewReaderSize(stdout, readBufSize)}, nil
+}
 
-	r := bufio.NewReaderSize(stdout, readBufSize)
-	readErr := readBatch(r, want, out)
-	waitErr := cmd.Wait()
-	if readErr != nil {
-		return nil, readErr
+// Read answers each blob's bytes, keyed by the sha as requested. A sha git does
+// not know, including an all-zero sha, is absent from the result. After an
+// error the reader is broken and every later Read returns that error.
+func (b *BlobReader) Read(shas []string) (map[string][]byte, error) {
+	want := wantedSHAs(shas)
+	out := make(map[string][]byte, len(want))
+	if len(want) == 0 {
+		return out, nil
 	}
-	if waitErr != nil {
-		return nil, gitError([]string{"cat-file", "--batch"}, waitErr)
+	if b.err != nil {
+		return nil, b.err
+	}
+	written := make(chan error, 1)
+	go func() { written <- writeSHAs(b.stdin, want) }()
+	if err := readBatch(b.out, want, out); err != nil {
+		b.err = err
+		// Killing the process unblocks a writer stuck on a full pipe.
+		_ = b.cmd.Process.Kill() //nolint:errcheck // the read error is the one worth reporting
+		<-written
+
+		return nil, err
+	}
+	if err := <-written; err != nil {
+		b.err = fmt.Errorf("git cat-file --batch: %w", err)
+
+		return nil, b.err
 	}
 
 	return out, nil
+}
+
+// Close ends the cat-file process. It returns the error that broke the reader,
+// if a Read failed, else how the process exited.
+func (b *BlobReader) Close() error {
+	_ = b.stdin.Close() //nolint:errcheck // closing signals EOF; git then exits
+	waitErr := b.cmd.Wait()
+	if b.err != nil {
+		return b.err
+	}
+	if waitErr != nil {
+		return gitError(batchArgs, waitErr)
+	}
+
+	return nil
+}
+
+// wantedSHAs drops the empty and all-zero shas git has no object for.
+func wantedSHAs(shas []string) []string {
+	want := make([]string, 0, len(shas))
+	for _, sha := range shas {
+		if sha != "" && !isZeroSHA(sha) {
+			want = append(want, sha)
+		}
+	}
+
+	return want
+}
+
+// writeSHAs sends one request line per sha to cat-file.
+func writeSHAs(w io.Writer, shas []string) error {
+	bw := bufio.NewWriterSize(w, readBufSize)
+	for _, sha := range shas {
+		if _, err := bw.WriteString(sha + "\n"); err != nil {
+			return fmt.Errorf("writing request: %w", err)
+		}
+	}
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("writing request: %w", err)
+	}
+
+	return nil
 }
 
 // readBatch parses cat-file --batch output: a "<sha> <type> <size>" header,

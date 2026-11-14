@@ -1,3 +1,9 @@
+## v1.16.0 (2026-11-14)
+
+### Feat
+
+- **keyusage**: record CLI subcommands and flag names and report unused ones
+
 ## v1.15.0 (2026-11-14)
 
 ### Feat

@@ -1,3 +1,9 @@
+## v1.14.0 (2026-11-14)
+
+### Feat
+
+- **keyusage**: log command keys per context and report unused ones
+
 ## v1.13.1 (2026-11-10)
 
 ### Fix

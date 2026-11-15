@@ -172,3 +172,59 @@ func TestAtCoversWhatBlitDraws(t *testing.T) {
 		}
 	}
 }
+
+func TestOver_DimsTheBackgroundAroundTheContent(t *testing.T) {
+	t.Parallel()
+
+	red := lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Bold(true)
+	styles := testStyles()
+	styles.Dim = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+
+	tests := []struct {
+		name string
+		row  string
+	}{
+		{name: "ascii", row: strings.Repeat("abcdefghij", 6)},
+		{name: "wide runes straddling the edges", row: strings.Repeat("\u4e16", 30)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			const width, height = 60, 12
+
+			base := strings.TrimSuffix(strings.Repeat(red.Render(tc.row)+"\n", height), "\n")
+			got := overlay.Over(base, "hello", width, height, styles)
+
+			if strings.Contains(got, "\x1b[1m") || strings.Contains(got, "31m") {
+				t.Errorf("the background kept its own styling: %q", got)
+			}
+
+			lines := strings.Split(got, "\n")
+			if len(lines) != height {
+				t.Fatalf("drew %d rows, want %d", len(lines), height)
+			}
+
+			assertWidths(t, lines, width)
+
+			if !strings.Contains(lines[0], "\x1b[2") {
+				t.Errorf("an uncovered row is not faint: %q", lines[0])
+			}
+
+			if !strings.Contains(ansi.Strip(got), "hello") {
+				t.Error("the content is missing")
+			}
+		})
+	}
+}
+
+func assertWidths(t *testing.T, lines []string, width int) {
+	t.Helper()
+
+	for i, line := range lines {
+		if w := ansi.StringWidth(line); w != width {
+			t.Errorf("row %d is %d cells wide, want %d", i, w, width)
+		}
+	}
+}

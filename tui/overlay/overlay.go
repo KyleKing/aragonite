@@ -25,11 +25,16 @@ type Styles struct {
 	Frame lipgloss.Style
 	// Elision draws the marker standing in for lines too tall to show.
 	Elision lipgloss.Style
+	// Dim draws the background Over leaves visible around the content. Faint is
+	// always added, so the background still recedes where color is off.
+	Dim lipgloss.Style
 }
 
 // ElisionMarker replaces the lines an overlay taller than its frame cannot
 // show, so content is never dropped without saying so.
 const ElisionMarker = "…"
+
+const halves = 2
 
 // Center draws content inside s.Frame, centered on a frame width by height
 // cells. Content taller or wider than the room inside the frame is clipped,
@@ -43,6 +48,52 @@ func Center(content string, width, height int, s Styles) string {
 	return lipgloss.Place(
 		width, height, lipgloss.Center, lipgloss.Center, framed, lipgloss.WithWhitespaceChars(" "),
 	)
+}
+
+// Over draws content as Center does, on top of base instead of blank space.
+// Every cell of the width by height base that the content does not cover is
+// restyled with s.Dim and faint, dropping the color and attributes it arrived
+// with.
+func Over(base, content string, width, height int, s Styles) string {
+	box := strings.Split(
+		s.Frame.Render(clip(content, ContentWidth(width, s), ContentHeight(height, s), s)), "\n",
+	)
+
+	boxWidth := 0
+	for _, l := range box {
+		boxWidth = max(boxWidth, ansi.StringWidth(l))
+	}
+
+	x, y := max((width-boxWidth)/halves, 0), max((height-len(box))/halves, 0)
+	face := s.Dim.Faint(true)
+	lines := strings.Split(base, "\n")
+	out := make([]string, height)
+
+	for row := range out {
+		line := ""
+		if row < len(lines) {
+			line = ansi.Truncate(ansi.Strip(lines[row]), width, "")
+		}
+
+		line += strings.Repeat(" ", max(width-ansi.StringWidth(line), 0))
+
+		if row < y || row >= y+len(box) {
+			out[row] = face.Render(line)
+
+			continue
+		}
+
+		right := ansi.Cut(line, x+boxWidth, width)
+		right = strings.Repeat(" ", max(width-x-boxWidth-ansi.StringWidth(right), 0)) + right
+		left := ansi.Cut(line, 0, x)
+		left += strings.Repeat(" ", max(x-ansi.StringWidth(left), 0))
+
+		cell := box[row-y]
+		cell += strings.Repeat(" ", max(boxWidth-ansi.StringWidth(cell), 0))
+		out[row] = face.Render(left) + cell + face.Render(right)
+	}
+
+	return strings.Join(out, "\n")
 }
 
 // ContentWidth is the room content has inside the frame, which is what a

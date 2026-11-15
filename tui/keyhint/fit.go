@@ -9,8 +9,9 @@ import (
 
 // Fit renders hints along one line of at most width cells, shedding whole hints
 // rather than clipping one. A hint marked Off goes before any that is on, then
-// the lowest Priority, and the later of two equals. The last hint standing is
-// clipped to width, and a width of zero or less draws nothing.
+// the lowest Priority, and the later of two equals. A Pin hint is shed only
+// after every other hint. The last hint standing is clipped to width, and a
+// width of zero or less draws nothing.
 func Fit(s Styles, hints []Hint, width int) string {
 	if width <= 0 {
 		return ""
@@ -33,10 +34,24 @@ func shed(hints []Hint) int {
 	for i, h := range hints {
 		v := hints[victim]
 
+		if v.Pin != h.Pin {
+			if v.Pin {
+				victim = i
+			}
+
+			continue
+		}
+
 		if (h.Off && !v.Off) || (h.Off == v.Off && h.Priority <= v.Priority) {
 			victim = i
 		}
 	}
 
 	return victim
+}
+
+// Pinned renders only the hints marked Pin, which is the width a footer must
+// leave them.
+func Pinned(s Styles, hints []Hint) string {
+	return Line(s, slices.DeleteFunc(slices.Clone(hints), func(h Hint) bool { return !h.Pin }))
 }

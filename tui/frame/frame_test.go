@@ -166,3 +166,47 @@ func TestClicksLandOnWhatRenderDrew(t *testing.T) {
 		}
 	}
 }
+
+func TestFooterKeepsPinnedHintsAndCutsTheStatusAtAWord(t *testing.T) {
+	t.Parallel()
+
+	s := skin.New(theme.Macchiato(), theme.Macchiato().Blue)
+	f := frame.Frame{
+		Status: "refreshing 14 repositories from github",
+		Hints: []keyhint.Hint{
+			{Key: "enter", What: "open", Priority: 9},
+			{Key: "r", What: "refresh", Priority: 8},
+			{Key: "?", What: "help", Pin: true},
+			{Key: "q", What: "quit", Pin: true},
+		},
+	}
+
+	tests := []struct {
+		status string
+		width  int
+	}{
+		{"refreshing 14 repositories from github", 80},
+		{"refreshing 14…", 36},
+		{"ref…", 24},
+		{"", 20},
+	}
+
+	for _, tc := range tests {
+		foot := ansi.Strip(frame.Render(s, f, tc.width, 3))
+		foot = foot[strings.LastIndex(foot, "\n")+1:]
+
+		for _, k := range []string{"[?] help", "[q]uit"} {
+			if !strings.Contains(foot, k) {
+				t.Errorf("width %d lost the pinned %q: %q", tc.width, k, foot)
+			}
+		}
+
+		if tc.status != "" && !strings.HasSuffix(foot, tc.status) {
+			t.Errorf("width %d footer should end on %q: %q", tc.width, tc.status, foot)
+		}
+
+		if w := lipgloss.Width(foot); w > tc.width {
+			t.Errorf("width %d footer is %d cells: %q", tc.width, w, foot)
+		}
+	}
+}

@@ -128,7 +128,8 @@ func TabAt(s skin.Skin, f Frame, width, x, y int) (int, bool) {
 
 // Render draws f into exactly height lines of at most width cells. Body lines
 // are clipped to width and the body fills the rows between header and panel.
-// A Status takes at most half the footer, and the hints are fitted to the rest.
+// A Status takes at most half the footer and yields to hints marked Pin, cut at
+// a word with an ellipsis. The hints are fitted to the rest.
 func Render(s skin.Skin, f Frame, width, height int) string {
 	if width <= 0 || height <= 0 {
 		return ""
@@ -326,19 +327,44 @@ func rule(s skin.Skin, f Frame, h head, width int) string {
 }
 
 func footer(s skin.Skin, f Frame, width int) string {
-	status := ansi.Truncate(s.Accent.Render(f.Status), width/statusShare, "…")
+	faces := keyhint.Styles{Key: s.Key, Text: s.Subtitle, Off: s.Muted}
+	if f.Strip {
+		faces = keyhint.Styles{Key: s.Accent, Text: s.Muted, Off: s.Muted.Faint(true), Bare: true, Gap: bareGap}
+	}
+
+	pinned := lipgloss.Width(keyhint.Pinned(faces, f.Hints))
+	if pinned > 0 {
+		pinned += len(gap)
+	}
+
+	status := s.Accent.Render(wordTruncate(f.Status, min(width/statusShare, width-pinned-len(gap))))
 
 	room := width - lipgloss.Width(status)
 	if status != "" {
 		room -= len(gap)
 	}
 
-	faces := keyhint.Styles{Key: s.Key, Text: s.Subtitle, Off: s.Muted}
-	if f.Strip {
-		faces = keyhint.Styles{Key: s.Accent, Text: s.Muted, Off: s.Muted.Faint(true), Bare: true, Gap: bareGap}
+	return join(keyhint.Fit(faces, f.Hints, room), status, width)
+}
+
+// wordTruncate cuts text to width cells at a word boundary and ends it with an
+// ellipsis. A first word wider than width is cut mid-word, since nothing else
+// of it can show.
+func wordTruncate(text string, width int) string {
+	if width <= 0 {
+		return ""
 	}
 
-	return join(keyhint.Fit(faces, f.Hints, room), status, width)
+	if ansi.StringWidth(text) <= width {
+		return text
+	}
+
+	fits := ansi.Truncate(text, width, "")
+	if at := strings.LastIndexByte(fits, ' '); at > 0 {
+		return strings.TrimRight(fits[:at], " ") + "…"
+	}
+
+	return ansi.Truncate(text, width-1, "") + "…"
 }
 
 func join(left, right string, width int) string {

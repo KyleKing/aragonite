@@ -36,6 +36,10 @@ type Hint struct {
 	// Priority is how long Fit keeps the hint as a line runs out of room: the
 	// lowest goes first, and equal priorities shed the later hint first.
 	Priority int
+	// Pin keeps the hint on the line whatever else is shed, for the keys that
+	// must stay reachable: help and quit. Fit sheds a pinned hint only once
+	// every other hint is gone and the pinned ones alone still overflow.
+	Pin bool
 	// Head makes this a heading over the hints under it, drawn in Styles.Head
 	// where the descriptions are. A heading carries no key.
 	Head bool

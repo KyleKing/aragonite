@@ -1,3 +1,10 @@
+## v1.19.0 (2026-11-15)
+
+### Feat
+
+- **keyhint**: pin hints so help and quit outlast the status
+- **overlay**: draw a modal over a dimmed live frame
+
 ## v1.18.0 (2026-11-14)
 
 ### Feat

@@ -210,3 +210,134 @@ func TestFooterKeepsPinnedHintsAndCutsTheStatusAtAWord(t *testing.T) {
 		}
 	}
 }
+
+// tagged is a face that names itself around the text it draws, so a test can
+// read which face drew what without decoding escapes.
+func tagged(tag string) lipgloss.Style {
+	return lipgloss.NewStyle().Transform(func(s string) string { return tag + "<" + s + ">" })
+}
+
+func taggedSkin() skin.Skin {
+	return skin.Skin{
+		Title: tagged("T"), Subtitle: tagged("S"), Badge: tagged("B"), BadgeActive: tagged("A"),
+		Tab: tagged("t"), TabActive: tagged("a"), Muted: tagged("M"), Accent: tagged("C"),
+		Hairline: tagged("H"), Key: tagged("K"), Warning: tagged("W"), Error: tagged("E"),
+	}
+}
+
+func tabbed(strip bool) frame.Frame {
+	return frame.Frame{
+		Title: "gh", Strip: strip, Note: "n",
+		Facts: []frame.Fact{{Text: "3", Tone: frame.Warning}},
+		Tabs:  []frame.Tab{{Label: "in", Count: "12", Active: true}, {Label: "st", Count: "1", Alert: true}},
+		Body:  []string{"b"},
+		Hints: []keyhint.Hint{{Key: "q", What: "quit"}},
+	}
+}
+
+// The active tab and its count are drawn in the active faces and every other
+// tab in the idle ones, in either header. A header wider than the screen
+// keeps its tabs flush left rather than shifted by a gap.
+func TestRender_DrawsEachFaceWhereItBelongs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		want  []string
+		f     frame.Frame
+		width int
+	}{
+		{
+			name:  "strip",
+			f:     tabbed(true),
+			width: 60,
+			want: []string{
+				"T<gh>   T<in> A<12>   S<st> B<1>                        W<3>",
+				"H<────────>C<━━━━━━━━━━━>H<────────────────────────────────────> M<n>",
+				"b",
+				"C<q> M<quit>                                             C<>",
+			},
+		},
+		{
+			name:  "tabs at the right",
+			f:     tabbed(false),
+			width: 60,
+			want: []string{
+				"T<gh>  W<3>                           a<in> A<12> t<st> B<1>",
+				"b",
+				"",
+				"S<>K<[q]>S<uit>                                          C<>",
+			},
+		},
+		{
+			name:  "tabs wider than the screen",
+			f:     tabbed(false),
+			width: 10,
+			want:  []string{"a<in> A<12", "b", "", "S<>K<  C<>"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := frame.Render(taggedSkin(), tc.f, tc.width, len(tc.want))
+			if want := strings.Join(tc.want, "\n"); got != want {
+				t.Errorf("Render =\n%s\nwant\n%s", got, want)
+			}
+		})
+	}
+
+	if got := frame.Render(taggedSkin(), tabbed(true), 0, 4); got != "" {
+		t.Errorf("a zero-width frame drew %q", got)
+	}
+
+	const footer = "C<q> M<quit>                                             C<>"
+	if got := frame.Render(taggedSkin(), tabbed(true), 60, 1); got != footer {
+		t.Errorf("a one-row frame drew %q, want only the footer %q", got, footer)
+	}
+}
+
+// A tab pushed partly off the left edge is clicked from the first cell.
+func TestTabAt_ClipsTabsPastTheLeftEdge(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		x, tab int
+		ok     bool
+	}{{0, 1, true}, {9, 1, true}, {10, 0, false}} {
+		if tab, ok := frame.TabAt(taggedSkin(), tabbed(false), 10, c.x, 0); ok != c.ok || (ok && tab != c.tab) {
+			t.Errorf("TabAt(x=%d) = %d, %v, want %d, %v", c.x, tab, ok, c.tab, c.ok)
+		}
+	}
+}
+
+func TestLit_PadsAndKeepsTheBackgroundThroughResets(t *testing.T) {
+	t.Parallel()
+
+	red := lipgloss.NewStyle().Background(lipgloss.Color("1"))
+	tests := []struct {
+		face             lipgloss.Style
+		name, text, want string
+		width            int
+	}{
+		{name: "an unstyled face draws text as is", text: "ab", width: 5, face: lipgloss.NewStyle(), want: "ab"},
+		{name: "one cell short", text: "ab", width: 3, face: red, want: "\x1b[41mab \x1b[m"},
+		{name: "exact", text: "ab", width: 2, face: red, want: "\x1b[41mab\x1b[m"},
+		{name: "too wide is not cut", text: "abc", width: 2, face: red, want: "\x1b[41mabc\x1b[m"},
+		{
+			name: "both reset spellings reopen", text: "a\x1b[mb\x1b[0mc", width: 3, face: red,
+			want: "\x1b[41ma\x1b[m\x1b[41mb\x1b[0m\x1b[41mc\x1b[m",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := frame.Lit(tc.text, tc.width, tc.face); got != tc.want {
+				t.Errorf("Lit(%q, %d) = %q, want %q", tc.text, tc.width, got, tc.want)
+			}
+		})
+	}
+}

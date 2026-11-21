@@ -2,6 +2,7 @@ package vcs_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -180,8 +181,24 @@ func TestLogHistoryFirstParent(t *testing.T) {
 	if len(merge.Files) != 1 || merge.Files[0].Path != "side.txt" || merge.Files[0].LinesAdded() != 2 {
 		t.Fatalf("merge files = %+v, want one side.txt adding 2", merge.Files)
 	}
-	if merge.AuthorName != "test" || merge.Subject != "merge side" {
-		t.Fatalf("merge metadata = %q %q", merge.AuthorName, merge.Subject)
+	checkMergeMetadata(t, merge)
+}
+
+// checkMergeMetadata reads every header field the log format carries off the
+// merge record.
+func checkMergeMetadata(t *testing.T, merge vcs.CommitRecord) {
+	t.Helper()
+
+	if merge.AuthorName != "test" || merge.AuthorEmail != "test@example.com" ||
+		merge.CommitterName != "test" || merge.CommitterEmail != "test@example.com" ||
+		merge.Subject != "merge side" || merge.Body != "" {
+		t.Fatalf("merge metadata = %+v", merge)
+	}
+	if want := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC); !merge.AuthorTime.Equal(want) {
+		t.Fatalf("AuthorTime = %v, want %v", merge.AuthorTime, want)
+	}
+	if since := time.Since(merge.CommitTime); since < -time.Minute || since > time.Hour {
+		t.Fatalf("CommitTime = %v, want the time the test committed", merge.CommitTime)
 	}
 }
 
@@ -225,22 +242,24 @@ func TestLogHistoryMaxDiffBytesDiffsAsBinary(t *testing.T) {
 	t.Parallel()
 
 	dir := historyRepo(t)
-	capped := collect(t, vcs.NewGitOperations().LogHistory(t.Context(), dir,
-		vcs.LogOptions{FirstParent: true, MaxDiffBytes: 4}))
-	seen := 0
-	for _, rec := range capped {
-		for _, f := range rec.Files {
-			if f.Path != "f.txt" {
-				continue
-			}
-			seen++
-			if !f.Binary || len(f.Hunks) > 0 || len(f.Added) > 0 {
-				t.Fatalf("f.txt past MaxDiffBytes = %+v", f)
+	for _, limit := range []int64{1, 4} {
+		capped := collect(t, vcs.NewGitOperations().LogHistory(t.Context(), dir,
+			vcs.LogOptions{FirstParent: true, MaxDiffBytes: limit}))
+		seen := 0
+		for _, rec := range capped {
+			for _, f := range rec.Files {
+				if f.Path != "f.txt" {
+					continue
+				}
+				seen++
+				if !f.Binary || len(f.Hunks) > 0 || len(f.Added) > 0 {
+					t.Fatalf("f.txt past MaxDiffBytes %d = %+v", limit, f)
+				}
 			}
 		}
-	}
-	if seen == 0 {
-		t.Fatal("no f.txt diff in the capped walk")
+		if seen != 2 {
+			t.Fatalf("%d f.txt diffs in the walk capped at %d, want 2", seen, limit)
+		}
 	}
 }
 
@@ -273,6 +292,9 @@ func TestLogHistoryPatchBytesCannotSplitRecords(t *testing.T) {
 	run("commit", "-m", "c1")
 	write("min.js", "a=1;b=\x1e2\n")
 	write("after.txt", "after\n")
+	// The attribute diffs a NUL as text, so the patch carries one.
+	write(".gitattributes", "nul.txt diff\n")
+	write("nul.txt", "a\x00b\n")
 	run("add", "-A")
 	run("commit", "-m", "c2")
 	write("last.txt", "last\n")
@@ -285,10 +307,17 @@ func TestLogHistoryPatchBytesCannotSplitRecords(t *testing.T) {
 	}
 
 	c2 := records[1]
-	if len(c2.Files) != 2 || c2.Files[0].Path != "after.txt" || c2.Files[1].Path != "min.js" {
-		t.Fatalf("c2 files = %+v, want after.txt and min.js", c2.Files)
+	paths := make([]string, 0, len(c2.Files))
+	for _, f := range c2.Files {
+		paths = append(paths, f.Path)
 	}
-	minJS := c2.Files[1]
+	if want := []string{".gitattributes", "after.txt", "min.js", "nul.txt"}; !slices.Equal(paths, want) {
+		t.Fatalf("c2 files = %q, want %q", paths, want)
+	}
+	if nul := c2.Files[3]; nul.Binary || !slices.Equal(nul.Added, []string{"a\x00b"}) {
+		t.Fatalf("nul.txt = %+v, want one added line holding the NUL", nul)
+	}
+	minJS := c2.Files[2]
 	if !slices.Equal(minJS.Added, []string{"a=1;b=\x1e2"}) || !slices.Equal(minJS.Removed, []string{"a=1"}) {
 		t.Fatalf("min.js lines = added %q removed %q", minJS.Added, minJS.Removed)
 	}
@@ -434,8 +463,9 @@ func TestBlobReaderReadsAcrossCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenBlobReader: %v", err)
 	}
+	const unknown = "1234567812345678123456781234567812345678"
 	for _, sha := range []string{shaByPath["f.txt"], shaByPath["new.txt"], shaByPath["f.txt"]} {
-		got, err := r.Read([]string{sha, "0000000000000000000000000000000000000000"})
+		got, err := r.Read([]string{unknown, sha, "0000000000000000000000000000000000000000"})
 		if err != nil {
 			t.Fatalf("BlobReader.Read: %v", err)
 		}
@@ -652,6 +682,48 @@ func TestParsePatchReadsHunkBodyAsContent(t *testing.T) {
 			if got.Path != "lua/init.lua" || !slices.Equal(got.Added, tt.wantAdded) ||
 				!slices.Equal(got.Removed, tt.wantRemoved) {
 				t.Fatalf("file = %+v, want added %v removed %v", got, tt.wantAdded, tt.wantRemoved)
+			}
+		})
+	}
+}
+
+// The count asks rev-list for the same walk LogHistory makes, and an answer
+// that is not a number is a failure rather than a zero.
+func TestCountCommitsAsksForTheWalk(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		err  error
+		name string
+		key  string
+		out  string
+		opts vcs.LogOptions
+		want int
+	}{
+		{name: "head", key: "git rev-list --count HEAD", out: "12\n", want: 12},
+		{
+			name: "every option",
+			opts: vcs.LogOptions{FirstParent: true, Since: "2.weeks", Range: "a..b", Paths: []string{"x", "y"}},
+			key:  "git rev-list --count --first-parent --since=2.weeks a..b -- x y", out: "3", want: 3,
+		},
+		{name: "not a number", key: "git rev-list --count HEAD", out: "many", err: vcs.ErrUnexpectedOutput},
+		{name: "git fails", key: "git rev-list --count HEAD", err: errBoom},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			canned, failures := map[string]string{}, map[string]error{}
+			if errors.Is(tc.err, errBoom) {
+				failures[tc.key] = errBoom
+			} else {
+				canned[tc.key] = tc.out
+			}
+
+			n, err := vcs.NewGitOperations().CountCommits(stubCommands(t, canned, failures), testRepoPath, tc.opts)
+			if n != tc.want || !errors.Is(err, tc.err) || (tc.err == nil && err != nil) {
+				t.Errorf("CountCommits = %d, %v, want %d, %v", n, err, tc.want, tc.err)
 			}
 		})
 	}

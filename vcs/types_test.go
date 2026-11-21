@@ -6,123 +6,157 @@ import (
 	"github.com/kyleking/aragonite/vcs"
 )
 
-func TestRepoSummaryName(t *testing.T) {
-	t.Parallel()
-
-	s := vcs.RepoSummary{Path: "/home/user/projects/my-repo"}
-	if s.Name() != "my-repo" {
-		t.Errorf("expected 'my-repo', got '%s'", s.Name())
-	}
-}
-
-func TestRepoSummaryUncommittedCount(t *testing.T) {
-	t.Parallel()
-
-	s := vcs.RepoSummary{Staged: 2, Unstaged: 3, Untracked: 1, Conflicted: 0}
-	if s.UncommittedCount() != 6 {
-		t.Errorf("expected 6, got %d", s.UncommittedCount())
-	}
-}
-
-func TestRepoSummaryIsDirty(t *testing.T) {
+// Every state a summary reports is derived from its counts: how many files
+// are uncommitted, whether it is dirty and why, and where it stands against
+// its upstream, with ahead-and-behind outranking a dirty tree.
+func TestRepoSummary_DerivesItsStateFromItsCounts(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		summary  vcs.RepoSummary
-		expected bool
+		name        string
+		label       string
+		summary     vcs.RepoSummary
+		status      vcs.RepoStatus
+		uncommitted int
+		dirty       bool
 	}{
-		{name: "clean repo", summary: vcs.RepoSummary{}, expected: false},
-		{name: "has staged", summary: vcs.RepoSummary{Staged: 1}, expected: true},
-		{name: "has unstaged", summary: vcs.RepoSummary{Unstaged: 1}, expected: true},
-		{name: "has untracked", summary: vcs.RepoSummary{Untracked: 1}, expected: true},
-		{name: "has ahead", summary: vcs.RepoSummary{Ahead: 1}, expected: true},
-		{name: "only behind is not dirty", summary: vcs.RepoSummary{Behind: 1}, expected: false},
+		{name: "clean", summary: vcs.RepoSummary{}, status: vcs.RepoStatusClean},
+		{
+			name:        "staged",
+			summary:     vcs.RepoSummary{Staged: 2},
+			uncommitted: 2,
+			dirty:       true,
+			label:       "uncommitted",
+			status:      vcs.RepoStatusDirty,
+		},
+		{
+			name:        "unstaged",
+			summary:     vcs.RepoSummary{Unstaged: 1},
+			uncommitted: 1,
+			dirty:       true,
+			label:       "uncommitted",
+			status:      vcs.RepoStatusDirty,
+		},
+		{
+			name:        "untracked",
+			summary:     vcs.RepoSummary{Untracked: 1},
+			uncommitted: 1,
+			dirty:       true,
+			label:       "uncommitted",
+			status:      vcs.RepoStatusDirty,
+		},
+		{
+			name:        "conflicted",
+			summary:     vcs.RepoSummary{Conflicted: 1},
+			uncommitted: 1,
+			dirty:       true,
+			label:       "uncommitted",
+			status:      vcs.RepoStatusDirty,
+		},
+		{
+			name: "every kind of file", summary: vcs.RepoSummary{Staged: 2, Unstaged: 3, Untracked: 1, Conflicted: 4},
+			uncommitted: 10, dirty: true, label: "uncommitted", status: vcs.RepoStatusDirty,
+		},
+		{
+			name:    "ahead",
+			summary: vcs.RepoSummary{Ahead: 1},
+			dirty:   true,
+			label:   "unpushed",
+			status:  vcs.RepoStatusAhead,
+		},
+		{name: "only behind is not dirty", summary: vcs.RepoSummary{Behind: 1}, status: vcs.RepoStatusBehind},
+		{
+			name:    "diverged",
+			summary: vcs.RepoSummary{Ahead: 1, Behind: 1},
+			dirty:   true,
+			label:   "unpushed",
+			status:  vcs.RepoStatusDiverged,
+		},
+		{
+			name: "uncommitted and unpushed", summary: vcs.RepoSummary{Unstaged: 1, Ahead: 1},
+			uncommitted: 1, dirty: true, label: "uncommitted, unpushed", status: vcs.RepoStatusAhead,
+		},
+		{
+			name:        "behind outranks a dirty tree",
+			summary:     vcs.RepoSummary{Unstaged: 1, Behind: 2},
+			uncommitted: 1,
+			dirty:       true,
+			label:       "uncommitted",
+			status:      vcs.RepoStatusBehind,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if tt.summary.IsDirty() != tt.expected {
-				t.Errorf("expected IsDirty() = %v, got %v", tt.expected, tt.summary.IsDirty())
+			s := tt.summary
+			if got := s.UncommittedCount(); got != tt.uncommitted {
+				t.Errorf("UncommittedCount() = %d, want %d", got, tt.uncommitted)
+			}
+			if got := s.IsDirty(); got != tt.dirty {
+				t.Errorf("IsDirty() = %v, want %v", got, tt.dirty)
+			}
+			if got := s.DirtyLabel(); got != tt.label {
+				t.Errorf("DirtyLabel() = %q, want %q", got, tt.label)
+			}
+			if got := s.Status(); got != tt.status {
+				t.Errorf("Status() = %v, want %v", got, tt.status)
 			}
 		})
 	}
 }
 
-func TestRepoSummaryStatus(t *testing.T) {
+func TestRepoSummary_NameLinkAndOverrides(t *testing.T) {
 	t.Parallel()
 
+	s := vcs.RepoSummary{Path: "/home/user/projects/my-repo", Branch: "main"}
+	if s.Name() != "my-repo" || s.IsLinkedCheckout() || s.HasConfigOverrides() || s.IsDetached() {
+		t.Errorf("a plain clone reads as name %q, linked %v, overrides %v, detached %v",
+			s.Name(), s.IsLinkedCheckout(), s.HasConfigOverrides(), s.IsDetached())
+	}
+
+	s.ParentPath = "/home/user/projects/main-repo"
+	s.ConfigOverrides = []vcs.GitConfigOverride{{Key: "user.email"}}
+	s.Branch = vcs.DetachedBranchLabel("abc1234")
+
+	if !s.IsLinkedCheckout() || !s.HasConfigOverrides() || !s.IsDetached() {
+		t.Errorf("a linked, overridden, detached checkout reads as linked %v, overrides %v, detached %v",
+			s.IsLinkedCheckout(), s.HasConfigOverrides(), s.IsDetached())
+	}
+}
+
+func TestBranchNames_DetachedAndDefault(t *testing.T) {
+	t.Parallel()
+
+	if got := vcs.DetachedBranchLabel("abc1234"); got != "(abc1234)" {
+		t.Errorf("DetachedBranchLabel = %q, want (abc1234)", got)
+	}
+
 	tests := []struct {
-		name     string
-		summary  vcs.RepoSummary
-		expected vcs.RepoStatus
+		label     string
+		detached  bool
+		isDefault bool
 	}{
-		{name: "clean", summary: vcs.RepoSummary{}, expected: vcs.RepoStatusClean},
-		{name: "dirty", summary: vcs.RepoSummary{Unstaged: 1}, expected: vcs.RepoStatusDirty},
-		{name: "ahead", summary: vcs.RepoSummary{Ahead: 1}, expected: vcs.RepoStatusAhead},
-		{name: "behind", summary: vcs.RepoSummary{Behind: 1}, expected: vcs.RepoStatusBehind},
-		{name: "diverged", summary: vcs.RepoSummary{Ahead: 1, Behind: 1}, expected: vcs.RepoStatusDiverged},
+		{label: "(abc1234)", detached: true},
+		{label: "(a)", detached: true},
+		{label: "()"},
+		{label: "("},
+		{label: ""},
+		{label: "(main"},
+		{label: "main)"},
+		{label: "main", isDefault: true},
+		{label: "master", isDefault: true},
+		{label: "trunk", isDefault: true},
+		{label: "feature/x"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if tt.summary.Status() != tt.expected {
-				t.Errorf("expected Status() = %v, got %v", tt.expected, tt.summary.Status())
-			}
-		})
-	}
-}
-
-func TestRepoSummaryDirtyLabel(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		expected string
-		summary  vcs.RepoSummary
-	}{
-		{name: "clean", summary: vcs.RepoSummary{}, expected: ""},
-		{name: "uncommitted", summary: vcs.RepoSummary{Unstaged: 1}, expected: "uncommitted"},
-		{name: "unpushed", summary: vcs.RepoSummary{Ahead: 1}, expected: "unpushed"},
-		{name: "both", summary: vcs.RepoSummary{Unstaged: 1, Ahead: 1}, expected: "uncommitted, unpushed"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := tt.summary.DirtyLabel(); got != tt.expected {
-				t.Errorf("expected DirtyLabel() = %q, got %q", tt.expected, got)
-			}
-		})
-	}
-}
-
-func TestDetachedBranchLabelRoundTrips(t *testing.T) {
-	t.Parallel()
-
-	label := vcs.DetachedBranchLabel("abc1234")
-	if !vcs.IsDetachedBranch(label) {
-		t.Errorf("%q should read as detached", label)
-	}
-	if vcs.IsDetachedBranch("main") {
-		t.Error("a branch name should not read as detached")
-	}
-}
-
-func TestIsDefaultBranchName(t *testing.T) {
-	t.Parallel()
-
-	for _, name := range vcs.DefaultBranchNames {
-		if !vcs.IsDefaultBranchName(name) {
-			t.Errorf("%q should be a default branch name", name)
+		if got := vcs.IsDetachedBranch(tt.label); got != tt.detached {
+			t.Errorf("IsDetachedBranch(%q) = %v, want %v", tt.label, got, tt.detached)
 		}
-	}
-	if vcs.IsDefaultBranchName("feature/x") {
-		t.Error("a feature branch should not be a default branch name")
+		if got := vcs.IsDefaultBranchName(tt.label); got != tt.isDefault {
+			t.Errorf("IsDefaultBranchName(%q) = %v, want %v", tt.label, got, tt.isDefault)
+		}
 	}
 }

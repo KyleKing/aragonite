@@ -2,8 +2,11 @@ package keyusage_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -59,6 +62,9 @@ func TestRoundTrip(t *testing.T) {
 		{"review", "m"},
 		{"review", "q"},
 		{"review", "s"},
+		{"review", "z"},
+		{"queue", "x"},
+		{"review", "s"},
 		{"queue", "r"},
 		{"elsewhere", "z"},
 	})
@@ -103,13 +109,15 @@ func checkCounts(t *testing.T, u keyusage.Usage) {
 func checkSignals(t *testing.T, u keyusage.Usage, km keyusage.Keymap, start time.Time) {
 	t.Helper()
 
-	misses := map[string]int{}
-	for _, r := range u.Misses() {
-		misses[r.Path] = r.Count
+	// Most frequent first, then by context and path.
+	rows := u.Misses()
+	misses := make([]string, 0, len(rows))
+	for _, r := range rows {
+		misses = append(misses, r.Ctx+":"+r.Path+"="+strconv.Itoa(r.Count))
 	}
 
-	if misses["m q"] != 1 || misses["s"] != 1 {
-		t.Errorf("misses: %v", misses)
+	if want := []string{"review:s=2", "queue:x=1", "review:m q=1", "review:z=1"}; !slices.Equal(misses, want) {
+		t.Errorf("misses = %v, want %v", misses, want)
 	}
 
 	if u.Unmapped["elsewhere"] != 1 {
@@ -187,12 +195,21 @@ func TestInvocations(t *testing.T) {
 	dir := t.TempDir()
 	r := keyusage.Open("tool", keyusage.WithDir(dir), keyusage.WithHost("h"))
 
-	for _, args := range [][]string{
-		{"pr", "view", "123", "--repo=secret/name", "--web"},
-		{"pr", "view", "--repo", "secret/name", "keys"},
-		{"--nope", "secret-path"},
-	} {
-		r.Invoke(root, args)
+	// Only declared names are recorded, and a subcommand's name after a
+	// positional argument is that argument's neighbor, not a subcommand.
+	tests := []struct {
+		want string
+		args []string
+	}{
+		{args: []string{"pr", "view", "123", "--repo=secret/name", "--web"}, want: "tool pr view --repo --web"},
+		{args: []string{"pr", "view", "--repo", "secret/name", "keys"}, want: "tool pr view --repo"},
+		{args: []string{"--nope", "secret-path"}, want: "tool --nope"},
+		{args: []string{"pr", "123", "view"}, want: "tool pr"},
+		{args: []string{"keys", "-", "--", "--web"}, want: "tool keys"},
+	}
+
+	for _, tc := range tests {
+		r.Invoke(root, tc.args)
 	}
 
 	if err := r.Close(); err != nil {
@@ -206,8 +223,20 @@ func TestInvocations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if strings.Contains(string(raw), "secret") || strings.Contains(string(raw), "123") {
-		t.Fatalf("a positional argument or flag value was recorded:\n%s", raw)
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(tests) {
+		t.Fatalf("logged %d lines for %d invocations:\n%s", len(lines), len(tests), raw)
+	}
+
+	for i, line := range lines {
+		var e keyusage.Entry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatal(err)
+		}
+
+		if e.S != keyusage.CLI || e.E != keyusage.CLI || e.W != tests[i].want {
+			t.Errorf("Invoke(%q) logged %+v, want %q", tests[i].args, e, tests[i].want)
+		}
 	}
 
 	km := keyusage.Keymap{keyusage.CLI: keyusage.Commands(root)}
@@ -218,7 +247,7 @@ func TestInvocations(t *testing.T) {
 	}
 
 	for path, want := range map[string]int{
-		"tool pr view": 2, "tool pr view --repo": 2, "tool pr view --web": 1, "tool": 1, "tool keys": 0,
+		"tool pr view": 2, "tool pr view --repo": 2, "tool pr view --web": 1, "tool": 1, "tool keys": 1, "tool pr": 1,
 	} {
 		if got := u.Stat(keyusage.CLI, path).Count; got != want {
 			t.Errorf("%q: got %d, want %d", path, got, want)
@@ -227,5 +256,76 @@ func TestInvocations(t *testing.T) {
 
 	if m := u.Misses(); len(m) != 1 || m[0].Path != "tool --nope" {
 		t.Errorf("misses: %+v", m)
+	}
+}
+
+// openFiles is every path this process holds open under dir, read from
+// /proc, or false where the platform has no /proc to read.
+func openFiles(t *testing.T, dir string) ([]string, bool) {
+	t.Helper()
+
+	fds, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		return nil, false
+	}
+
+	var held []string
+
+	for _, fd := range fds {
+		if target, err := os.Readlink("/proc/self/fd/" + fd.Name()); err == nil && strings.HasPrefix(target, dir) {
+			held = append(held, target)
+		}
+	}
+
+	return held, true
+}
+
+// A recorder names its file for the host and month, closes the old month's
+// file when the month turns, and closes cleanly whether or not it wrote.
+func TestRecorder_RollsAndClosesItsFiles(t *testing.T) {
+	t.Parallel()
+
+	if err := keyusage.Open("app", keyusage.WithDir(t.TempDir())).Close(); err != nil {
+		t.Errorf("closing a recorder that never wrote: %v", err)
+	}
+
+	dir := t.TempDir()
+	now := time.Date(2026, 10, 31, 23, 59, 0, 0, time.UTC)
+	r := keyusage.Open("app", keyusage.WithDir(dir), keyusage.WithClock(func() time.Time { return now }))
+
+	r.Key("review", "G")
+
+	now = now.Add(2 * time.Minute)
+	r.Key("review", "G")
+
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = "unknown"
+	}
+
+	host, _, _ = strings.Cut(host, ".")
+	october, november := filepath.Join(dir, host+"-2026-10.jsonl"), filepath.Join(dir, host+"-2026-11.jsonl")
+
+	if held, ok := openFiles(t, dir); ok && !slices.Equal(held, []string{november}) {
+		t.Errorf("open files after the month turned = %v, want only %s", held, november)
+	}
+
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := r.Close(); err != nil {
+		t.Errorf("a second Close: %v", err)
+	}
+
+	if held, ok := openFiles(t, dir); ok && len(held) != 0 {
+		t.Errorf("files still open after Close: %v", held)
+	}
+
+	for _, path := range []string{october, november} {
+		raw, err := os.ReadFile(path) //nolint:gosec // the test's temp dir
+		if err != nil || strings.Count(string(raw), "\n") != 1 {
+			t.Errorf("%s holds %q (%v), want one line", path, raw, err)
+		}
 	}
 }

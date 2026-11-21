@@ -117,6 +117,22 @@ func TestRenderDrawsTheEdgesAndCaptions(t *testing.T) {
 			},
 		},
 		{
+			name:  "a title that fills the top edge leaves no run",
+			c:     card.Card{Title: "ab", Body: []string{"x"}},
+			width: 8,
+			want: []string{
+				"╭─ ab ─╮",
+				"│ x    │",
+				"╰──────╯",
+			},
+		},
+		{
+			name:  "too narrow for the border is cut",
+			c:     card.Card{Title: "ab", Body: []string{"x"}, Foot: "f"},
+			width: 3,
+			want:  []string{"╭──", "│  ", "╰──"},
+		},
+		{
 			name:  "over-long body line is cut to the inner width",
 			c:     card.Card{Body: []string{"this line is much too long"}},
 			width: 16,

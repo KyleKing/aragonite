@@ -4,8 +4,10 @@ package transport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -162,4 +164,19 @@ func TestCurrentGuardsWhenNoFakeRegistered(t *testing.T) {
 	//nolint:bodyclose // the guard panics before a response exists
 	resp, err := rt.RoundTrip(req)
 	t.Fatalf("RoundTrip returned without panic: resp=%v err=%v", resp, err)
+}
+
+// Outside `go test` the seam refuses, so a production build cannot reroute
+// its clients through a fake.
+func TestSetTestTransportPanicsOutsideTests(t *testing.T) {
+	t.Parallel()
+
+	cmd := exec.CommandContext(t.Context(), "go", "run", "./testdata/outside")
+
+	out, err := cmd.CombinedOutput()
+
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || !strings.Contains(string(out), "panic: transport.SetTestTransport is test-only") {
+		t.Errorf("a non-test binary calling SetTestTransport exited %v:\n%s", err, out)
+	}
 }

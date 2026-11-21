@@ -27,55 +27,49 @@ func hueGap(a, b float64) float64 {
 	return min(gap, 360-gap)
 }
 
-func TestTintKeepsTheAccentHueAndLiftsTowardMiddleGrey(t *testing.T) {
+// A tint keeps the accent's hue at Sat of its saturation, and moves the base's
+// lightness Lift of the way toward middle grey: up from a dark base, down from
+// a light one. Two accents on one base therefore stay apart by their hues.
+func TestTint_KeepsTheAccentHueAndLiftsTowardMiddleGrey(t *testing.T) {
 	t.Parallel()
 
-	macchiato := theme.Macchiato()
-	depth := theme.Depth{Lift: 0.06, Sat: 0.35}
+	macchiato, latte := theme.Macchiato(), theme.Latte()
+	depth := theme.Depth{Lift: 0.25, Sat: 0.35}
 
 	tests := []struct {
+		base   color.Color
 		accent color.Color
 		name   string
 	}{
-		{name: "blue", accent: macchiato.Blue},
-		{name: "red", accent: macchiato.Red},
-		{name: "green", accent: macchiato.Green},
-		{name: "mauve", accent: macchiato.Mauve},
+		{name: "blue on dark", base: macchiato.Base, accent: macchiato.Blue},
+		{name: "red on dark", base: macchiato.Base, accent: macchiato.Red},
+		{name: "green on dark", base: macchiato.Base, accent: macchiato.Green},
+		{name: "mauve on dark", base: macchiato.Base, accent: macchiato.Mauve},
+		{name: "blue on light", base: latte.Base, accent: latte.Blue},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			tinted := theme.Tint(macchiato.Base, tc.accent, depth)
+			tinted := theme.Tint(tc.base, tc.accent, depth)
 
-			accentHue, _, _ := colorOf(t, tc.accent).Hsl()
-			tintHue, _, tintL := colorOf(t, tinted).Hsl()
-			_, _, baseL := colorOf(t, macchiato.Base).Hsl()
+			accentHue, accentSat, _ := colorOf(t, tc.accent).Hsl()
+			tintHue, tintSat, tintL := colorOf(t, tinted).Hsl()
+			_, _, baseL := colorOf(t, tc.base).Hsl()
 
 			if gap := hueGap(tintHue, accentHue); gap > 1 {
 				t.Errorf("hue moved %.2f degrees, want at most 1", gap)
 			}
 
-			lo, hi := min(baseL, 0.5), max(baseL, 0.5)
-			if tintL < lo || tintL > hi {
-				t.Errorf("lightness %.3f is outside [%.3f, %.3f]", tintL, lo, hi)
+			if want := accentSat * depth.Sat; math.Abs(tintSat-want) > 0.02 {
+				t.Errorf("saturation %.3f, want %.3f", tintSat, want)
+			}
+
+			if want := baseL + (0.5-baseL)*depth.Lift; math.Abs(tintL-want) > 0.005 {
+				t.Errorf("lightness %.3f, want %.3f (base %.3f lifted %.2f toward 0.5)", tintL, want, baseL, depth.Lift)
 			}
 		})
-	}
-}
-
-func TestTintKeepsTwoAccentsApart(t *testing.T) {
-	t.Parallel()
-
-	macchiato := theme.Macchiato()
-	depth := theme.Depth{Lift: 0.06, Sat: 0.35}
-
-	blue := colorOf(t, theme.Tint(macchiato.Base, macchiato.Blue, depth)).Hex()
-	red := colorOf(t, theme.Tint(macchiato.Base, macchiato.Red, depth)).Hex()
-
-	if blue == red {
-		t.Errorf("blue and red tinted onto one background both became %s", blue)
 	}
 }
 

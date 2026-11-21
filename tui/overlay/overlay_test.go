@@ -19,70 +19,54 @@ func testStyles() overlay.Styles {
 }
 
 // lipgloss.Place centers each line against its own width, so a block of
-// differing line lengths staggers. Every line of the overlay has to start in
-// the same column, which is what padding to a uniform width buys.
-func TestCenter_DrawsTheBlockAsOneRatherThanLineByLine(t *testing.T) {
+// differing line lengths staggers: every line is padded to the widest first.
+// Content larger than the room inside the frame is clipped, and an elision
+// says lines were dropped. A frame with no room at all draws content as is.
+func TestCenter_FramesClipsAndCentersTheBlockAsOne(t *testing.T) {
 	t.Parallel()
 
-	styles := testStyles()
-	content := "a short line\nand one that is considerably longer\nmid"
-
-	rendered := ansi.Strip(overlay.Center(content, 80, 24, styles))
-
-	lines := strings.Split(rendered, "\n")
-	if len(lines) != 24 {
-		t.Fatalf("the overlay is %d rows on a 24-row frame", len(lines))
+	styles := overlay.Styles{Frame: lipgloss.NewStyle().Border(lipgloss.NormalBorder())}
+	tests := []struct {
+		name          string
+		content       string
+		want          string
+		width, height int
+	}{
+		{
+			name: "fits", content: "ab\nlonger\nc", width: 10, height: 5,
+			want: " ┌──────┐ \n │ab    │ \n │longer│ \n │c     │ \n └──────┘ ",
+		},
+		{
+			name: "too tall", content: "1\n2\n3\n4", width: 7, height: 5,
+			want: "  ┌─┐  \n  │1│  \n  │2│  \n  │…│  \n  └─┘  ",
+		},
+		{name: "too wide", content: "abcdefghij", width: 6, height: 3, want: "┌────┐\n│abc…│\n└────┘"},
+		{name: "one cell of room", content: "abc", width: 3, height: 3, want: "┌─┐\n│a│\n└─┘"},
+		{name: "one row of room", content: "abc\ndef", width: 4, height: 3, want: "┌─┐ \n│…│ \n└─┘ "},
+		{
+			name: "no columns of room", content: "abc\nd", width: 2, height: 6,
+			want: "     \n┌───┐\n│abc│\n│d  │\n└───┘\n     ",
+		},
+		{name: "no rows of room", content: "abc\nd", width: 6, height: 2, want: "┌───┐ \n│abc│ \n│d  │ \n└───┘ "},
 	}
 
-	var lefts []int
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	for _, line := range lines {
-		if trimmed := strings.TrimLeft(line, " "); trimmed != "" {
-			lefts = append(lefts, len(line)-len(trimmed))
-		}
+			if got := ansi.Strip(overlay.Center(tc.content, tc.width, tc.height, styles)); got != tc.want {
+				t.Errorf("Center(%q, %d, %d) =\n%s\nwant\n%s", tc.content, tc.width, tc.height, got, tc.want)
+			}
+		})
 	}
 
-	if len(lefts) == 0 {
-		t.Fatal("the overlay drew nothing")
-	}
-
-	for i, left := range lefts {
-		if left != lefts[0] {
-			t.Errorf("row %d starts at column %d, want %d: the block staggered", i, left, lefts[0])
-		}
-	}
-}
-
-// Content larger than the frame is clipped rather than pushing the overlay off
-// screen, and the elision says so.
-func TestCenter_ClipsToTheRoomInsideTheFrame(t *testing.T) {
-	t.Parallel()
-
-	styles := testStyles()
-
-	if got := overlay.ContentWidth(80, styles); got != 72 {
+	padded := testStyles()
+	if got := overlay.ContentWidth(80, padded); got != 72 {
 		t.Errorf("content has %d cells inside a bordered, padded 80-cell frame, want 72", got)
 	}
 
-	if got := overlay.ContentHeight(24, styles); got != 20 {
+	if got := overlay.ContentHeight(24, padded); got != 20 {
 		t.Errorf("content has %d rows inside the frame, want 20", got)
-	}
-
-	tall := strings.Repeat("row\n", 40) + strings.Repeat("w", 200)
-
-	rendered := ansi.Strip(overlay.Center(tall, 80, 24, styles))
-	if got := len(strings.Split(rendered, "\n")); got != 24 {
-		t.Errorf("an overlarge overlay drew %d rows on a 24-row frame", got)
-	}
-
-	for _, line := range strings.Split(rendered, "\n") {
-		if got := ansi.StringWidth(line); got > 80 {
-			t.Fatalf("a row is %d cells wide on an 80-cell frame", got)
-		}
-	}
-
-	if !strings.Contains(rendered, overlay.ElisionMarker) {
-		t.Error("content was dropped without the elision saying so")
 	}
 }
 

@@ -63,85 +63,59 @@ func plain(s string) string {
 	return b.String()
 }
 
-func TestRenderFoldsReleaseNoteDumps(t *testing.T) {
-	t.Parallel()
-
-	got := render(t, dependabotBody, 60, 0)
-
-	for _, want := range []string{
-		"github.com/alecthomas/chroma/v2",
-		"▸ Release notes (4 lines hidden)",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("rendering is missing %q:\n%s", want, got)
-		}
-	}
-
-	for _, unwanted := range []string{"<", ">", "](", "a6d00fe", "`"} {
-		if strings.Contains(got, unwanted) {
-			t.Errorf("rendering still carries %q:\n%s", unwanted, got)
-		}
-	}
-}
-
-func TestRenderMarkdownBlocks(t *testing.T) {
+func TestRender_DrawsEachBlockAsText(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		body    string
-		want    []string
-		notWant []string
+		name  string
+		body  string
+		want  string
+		width int
 	}{
 		{
-			name: "headings drop their hashes",
-			body: "## What changed\ntext",
-			want: []string{"What changed", "text"},
+			name:  "a release note dump folds behind its summary",
+			body:  dependabotBody,
+			width: 60,
+			want: "Bumps the go-dependencies group with 2 updates in the /\n" +
+				"directory: github.com/alecthomas/chroma/v2 and\n" +
+				"github.com/charmbracelet/bubbletea.\n\n" +
+				"Updates github.com/alecthomas/chroma/v2 from 2.23.0 to\n2.27.0\n" +
+				"▸ Release notes (4 lines hidden)",
 		},
+		{name: "headings drop their hashes", body: "## What changed\ntext", want: "What changed\ntext"},
 		{
 			name: "list items take a bullet and keep their nesting",
 			body: "- top\n    - nested",
-			want: []string{"• top", "  • nested"},
+			want: "• top\n    • nested",
+		},
+		{name: "task boxes survive as boxes", body: "- [x] done\n- [ ] todo", want: "☑ done\n☐ todo"},
+		{
+			name: "links keep the label and drop the target",
+			body: "see [the docs](https://example.com/docs) for more",
+			want: "see the docs\nfor more",
 		},
 		{
-			name: "task boxes survive as boxes",
-			body: "- [x] done\n- [ ] todo",
-			want: []string{"☑ done", "☐ todo"},
+			name: "a bare link label falls back to its target",
+			body: "![](https://example.com/img.png)",
+			want: "https://exam\nple.com/img.\npng",
 		},
 		{
-			name:    "links keep the label and drop the target",
-			body:    "see [the docs](https://example.com/docs) for more",
-			want:    []string{"see the docs for more"},
-			notWant: []string{"example.com"},
+			name: "html entities decode and comments vanish",
+			body: "<!-- hidden -->\nA &amp; B &lt;ok&gt;",
+			want: "A & B <ok>",
 		},
 		{
-			name:    "a bare link label falls back to its target",
-			body:    "![](https://example.com/img.png)",
-			want:    []string{"https://example.com/img.png"},
-			notWant: []string{"!["},
+			name: "fenced code loses its fences and is cut, not wrapped",
+			body: "```go\nfmt.Println(1)\n```",
+			want: "  fmt.Printl",
 		},
+		{name: "fenced code that fits is kept whole", body: "```\nok()\n```", want: "  ok()"},
+		{name: "quotes take a gutter", body: "> quoted", want: "│ quoted"},
+		{name: "blank runs collapse to one line", body: "first\n\n\n\nsecond", want: "first\n\nsecond"},
 		{
-			name:    "html entities decode and comments vanish",
-			body:    "<!-- hidden -->\nA &amp; B &lt;ok&gt;",
-			want:    []string{"A & B <ok>"},
-			notWant: []string{"hidden", "&amp;"},
-		},
-		{
-			name:    "fenced code keeps its lines and loses its fences",
-			body:    "```go\nfmt.Println(1)\n```",
-			want:    []string{"fmt.Println(1)"},
-			notWant: []string{"```"},
-		},
-		{
-			name: "quotes take a gutter",
-			body: "> quoted",
-			want: []string{"│ quoted"},
-		},
-		{
-			name:    "blank runs collapse to one line",
-			body:    "first\n\n\n\nsecond",
-			want:    []string{"first\n\nsecond"},
-			notWant: []string{"first\n\n\n"},
+			name: "a wrapped list item hangs under its bullet",
+			body: "- one two three four five six",
+			want: "• one two\n  three four\n  five six",
 		},
 	}
 
@@ -149,16 +123,13 @@ func TestRenderMarkdownBlocks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := render(t, tt.body, 60, 0)
-			for _, want := range tt.want {
-				if !strings.Contains(got, want) {
-					t.Errorf("rendering is missing %q:\n%s", want, got)
-				}
+			width := tt.width
+			if width == 0 {
+				width = 12
 			}
-			for _, unwanted := range tt.notWant {
-				if strings.Contains(got, unwanted) {
-					t.Errorf("rendering still carries %q:\n%s", unwanted, got)
-				}
+
+			if got := render(t, tt.body, width, 0); got != tt.want {
+				t.Errorf("Render(%q) =\n%s\nwant\n%s", tt.body, got, tt.want)
 			}
 		})
 	}
@@ -178,18 +149,5 @@ func TestRenderCapsTheLineCount(t *testing.T) {
 
 	if !strings.Contains(got, "… 35 more lines") {
 		t.Errorf("rendering does not say how much it dropped:\n%s", got)
-	}
-}
-
-func TestRenderWrapsToTheWidthItIsGiven(t *testing.T) {
-	t.Parallel()
-
-	body := "- " + strings.Repeat("word ", 40)
-
-	got := render(t, body, 20, 0)
-	for _, line := range strings.Split(got, "\n")[1:] {
-		if !strings.HasPrefix(line, "  ") {
-			t.Errorf("a wrapped list item must hang under its bullet, got %q", line)
-		}
 	}
 }

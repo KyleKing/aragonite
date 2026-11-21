@@ -388,9 +388,23 @@ func TestAMovedStampMissesOnDisk(t *testing.T) {
 	}
 
 	peer := cache.Stamp{Scope: "/peer", Fingerprint: "head-c"}
-	if _, ok := cache.PersistedUsing(store, cache.NewTTLCache[[]prInfo](time.Hour),
-		upstream, listKey, peer); !ok {
+	memory := cache.NewTTLCache[[]prInfo](time.Hour)
+	if _, ok := cache.PersistedUsing(store, memory, upstream, listKey, peer); !ok {
 		t.Error("another checkout of the same remote missed on an entry it had never read")
+	}
+
+	// The read seeds memory under the reader's stamp as well as the writer's,
+	// so either checkout moving afterwards evicts it there too.
+	if _, ok := memory.Fresh(listKey, peer); !ok {
+		t.Error("the seeded entry forgot the stamp it was read under")
+	}
+
+	if _, ok := memory.Fresh(listKey, written); !ok {
+		t.Error("the seeded entry forgot the stamp it was written under")
+	}
+
+	if _, ok := memory.Get(listKey, cache.Stamp{Scope: "/peer", Fingerprint: "head-d"}); ok {
+		t.Error("the reading checkout moved and was still served the seeded entry")
 	}
 }
 
@@ -478,6 +492,25 @@ func TestPersistedStale(t *testing.T) {
 				t.Errorf("Persisted served fresh=%v after %v", fresh, tc.wait)
 			}
 		})
+	}
+}
+
+// A value on disk this build cannot decode into the cache's type is a miss,
+// stale or not, rather than a zero value served with an age.
+func TestPersistedStale_UndecodableIsAMiss(t *testing.T) {
+	t.Parallel()
+
+	store := cache.NewDiskCache(t.TempDir())
+	cache.PersistUsing(store, cache.NewTTLCache[[]prInfo](time.Hour), upstream, listKey, cache.NoStamp, samplePRs())
+
+	if got, age, ok := cache.PersistedStaleUsing(store, cache.NewTTLCache[int](time.Hour),
+		upstream, listKey, cache.NoStamp); ok || got != 0 || age != 0 {
+		t.Errorf("PersistedStale = %v, %v, %v, want a miss", got, age, ok)
+	}
+
+	if got, ok := cache.PersistedUsing(store, cache.NewTTLCache[int](time.Hour),
+		upstream, listKey, cache.NoStamp); ok || got != 0 {
+		t.Errorf("Persisted = %v, %v, want a miss", got, ok)
 	}
 }
 

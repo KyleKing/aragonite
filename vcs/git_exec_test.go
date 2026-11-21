@@ -361,6 +361,25 @@ func TestGitStatusCounts_PorcelainEdgeCases(t *testing.T) {
 			porcelain: "R  new.go\x00old.go\x00",
 			staged:    1,
 		},
+		{
+			name:      "copy origin path is not a second entry",
+			porcelain: "C  copy.go\x00?? x\x00 M b.go\x00",
+			staged:    1,
+			unstaged:  1,
+		},
+		{
+			name:       "only both-deleted, both-added, and U codes conflict",
+			porcelain:  "DD a\x00AA b\x00UD c\x00DU d\x00D  e\x00 D f\x00A  g\x00AD h\x00",
+			staged:     3,
+			unstaged:   2,
+			conflicted: 4,
+		},
+		{
+			name:      "a bare status code still counts",
+			porcelain: "MM\x00M\x00",
+			staged:    1,
+			unstaged:  1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -495,10 +514,59 @@ func gitRepoSummaryCases() []gitRepoSummaryCase {
 	}
 }
 
+// gitConfigOverrideCases read the local and global config into overrides.
+func gitConfigOverrideCases() []gitRepoSummaryCase {
+	return []gitRepoSummaryCase{
+		{
+			name: "a local value differing from the global one is an override",
+			canned: map[string]string{
+				"git rev-parse --abbrev-ref HEAD": "feature",
+				"git status --porcelain -z":       "",
+				"git stash list":                  "",
+				"git log -1 --format=%ct":         "1700000000",
+				"git config --local --list": "user.email=work@example.com\ncore.editor=vim\n" +
+					"remote.origin.url=x\nnot a pair",
+				"git config --global --list": "user.email=home@example.com\ncore.editor=vim\nalias.co=checkout",
+			},
+			failures: map[string]error{
+				"git rev-parse --abbrev-ref feature@{upstream}": errNoUpstream,
+			},
+			expected: vcs.RepoSummary{
+				Path:         testRepoPath,
+				VCSType:      vcs.TypeGit,
+				Branch:       "feature",
+				LastModified: time.Unix(1700000000, 0),
+				ConfigOverrides: []vcs.GitConfigOverride{
+					{Key: "user.email", LocalValue: "work@example.com", GlobalValue: "home@example.com"},
+				},
+			},
+		},
+		{
+			name: "no global config means no overrides",
+			canned: map[string]string{
+				"git rev-parse --abbrev-ref HEAD": "feature",
+				"git status --porcelain -z":       "",
+				"git stash list":                  "",
+				"git log -1 --format=%ct":         "1700000000",
+				"git config --local --list":       "user.email=work@example.com",
+			},
+			failures: map[string]error{
+				"git rev-parse --abbrev-ref feature@{upstream}": errNoUpstream,
+			},
+			expected: vcs.RepoSummary{
+				Path:         testRepoPath,
+				VCSType:      vcs.TypeGit,
+				Branch:       "feature",
+				LastModified: time.Unix(1700000000, 0),
+			},
+		},
+	}
+}
+
 func TestGitGetRepoSummary(t *testing.T) {
 	t.Parallel()
 
-	for _, tt := range gitRepoSummaryCases() {
+	for _, tt := range append(gitRepoSummaryCases(), gitConfigOverrideCases()...) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := stubCommands(t, tt.canned, tt.failures)
@@ -1175,6 +1243,8 @@ type blameExpectation struct {
 	email  string
 	line   int
 	unix   int64
+	// offset is the author's zone in seconds east of UTC.
+	offset int
 }
 
 func assertBlameLines(t *testing.T, got []vcs.BlameLine, want []blameExpectation) {
@@ -1192,6 +1262,9 @@ func assertBlameLines(t *testing.T, got []vcs.BlameLine, want []blameExpectation
 		if !g.When.Equal(time.Unix(w.unix, 0)) {
 			t.Errorf("line %d: When = %v, want instant %v", i, g.When, time.Unix(w.unix, 0))
 		}
+		if _, offset := g.When.Zone(); offset != w.offset {
+			t.Errorf("line %d: When is in a zone %ds east of UTC, want %d", i, offset, w.offset)
+		}
 	}
 }
 
@@ -1206,11 +1279,11 @@ func TestParseGitBlamePorcelain(t *testing.T) {
 		"author test\n" +
 		"author-mail <test@example.com>\n" +
 		"author-time 1577894400\n" +
-		"author-tz -0600\n" +
+		"author-tz -0630\n" +
 		"committer test\n" +
 		"committer-mail <test@example.com>\n" +
 		"committer-time 1577894400\n" +
-		"committer-tz -0600\n" +
+		"committer-tz -0630\n" +
 		"summary first\n" +
 		"boundary\n" +
 		"filename f.txt\n" +
@@ -1246,23 +1319,23 @@ func TestParseGitBlamePorcelain(t *testing.T) {
 			expected: []blameExpectation{
 				{
 					commit: "933a090c754dd1ab62d23c700a43cf5f3fbce8d7", author: "test",
-					email: "test@example.com", line: 1, unix: 1577894400,
+					email: "test@example.com", line: 1, unix: 1577894400, offset: -23400,
 				},
 				{
 					commit: "875897cf2872915cdc4fbb7ca34cf053f4ff4558", author: "test",
-					email: "test@example.com", line: 2, unix: 1622530800,
+					email: "test@example.com", line: 2, unix: 1622530800, offset: 7200,
 				},
 				{
 					commit: "875897cf2872915cdc4fbb7ca34cf053f4ff4558", author: "test",
-					email: "test@example.com", line: 3, unix: 1622530800,
+					email: "test@example.com", line: 3, unix: 1622530800, offset: 7200,
 				},
 				{
 					commit: "875897cf2872915cdc4fbb7ca34cf053f4ff4558", author: "test",
-					email: "test@example.com", line: 4, unix: 1622530800,
+					email: "test@example.com", line: 4, unix: 1622530800, offset: 7200,
 				},
 				{
 					commit: "933a090c754dd1ab62d23c700a43cf5f3fbce8d7", author: "test",
-					email: "test@example.com", line: 5, unix: 1577894400,
+					email: "test@example.com", line: 5, unix: 1577894400, offset: -23400,
 				},
 			},
 		},
@@ -1281,6 +1354,7 @@ func TestParseGitBlamePorcelain(t *testing.T) {
 	}
 }
 
+// Blame asks git for the ranges and revision given, and reports git's failure.
 func TestGitBlame(t *testing.T) {
 	t.Parallel()
 
@@ -1295,8 +1369,9 @@ func TestGitBlame(t *testing.T) {
 			"filename file.txt\n" +
 			"\tone\n",
 	}
+	failures := map[string]error{"git blame --porcelain -- file.txt": errBoom}
 
-	ctx := stubCommands(t, canned, nil)
+	ctx := stubCommands(t, canned, failures)
 	g := vcs.NewGitOperations()
 
 	got, err := g.Blame(ctx, testRepoPath, "abc1234", "file.txt", []vcs.LineRange{{From: 1, To: 2}, {From: 10, To: 12}})
@@ -1310,17 +1385,8 @@ func TestGitBlame(t *testing.T) {
 			email: "kyle@example.com", line: 1, unix: 1700000000,
 		},
 	})
-}
 
-func TestGitBlameCommandFailure(t *testing.T) {
-	t.Parallel()
-
-	ctx := stubCommands(t, nil, map[string]error{
-		"git blame --porcelain -- file.txt": errBoom,
-	})
-
-	g := vcs.NewGitOperations()
-	if _, err := g.Blame(ctx, testRepoPath, "", "file.txt", nil); err == nil {
-		t.Fatal("expected error")
+	if got, err := g.Blame(ctx, testRepoPath, "", "file.txt", nil); !errors.Is(err, errBoom) || got != nil {
+		t.Errorf("Blame with git failing = %v, %v, want %v", got, err, errBoom)
 	}
 }

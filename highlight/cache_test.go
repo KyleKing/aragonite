@@ -86,3 +86,47 @@ func BenchmarkCacheSpans(b *testing.B) {
 		cache.Spans("big.go", lines[i%len(lines)])
 	}
 }
+
+// A file is found by its new path, or by its old one where the change deleted
+// it, and each is lexed in its own grammar.
+func TestCache_FindsTheFileByEitherPath(t *testing.T) {
+	t.Parallel()
+
+	patch := "diff --git a/kept.go b/kept.go\n--- a/kept.go\n+++ b/kept.go\n@@ -1,1 +1,1 @@\n" +
+		"-const a = 1\n+var b = \"x\"\n" +
+		"diff --git a/gone.go b/gone.go\n--- a/gone.go\n+++ /dev/null\n@@ -1,1 +0,0 @@\n" +
+		"-const c = 2\n" +
+		"diff --git a/new.py b/new.py\n--- /dev/null\n+++ b/new.py\n@@ -0,0 +1,1 @@\n" +
+		"+# hi\n"
+	d := diff.Parse([]byte(patch))
+	cache := highlight.NewCache(d)
+
+	tests := []struct {
+		path string
+		want string
+		line diff.Line
+	}{
+		{
+			path: "kept.go",
+			line: diff.Line{Text: "const a = 1", Kind: diff.KindRemove, Old: 1},
+			want: "k[const] i[a] p[=] n[1]",
+		},
+		{
+			path: "kept.go",
+			line: diff.Line{Text: `var b = "x"`, Kind: diff.KindAdd, New: 1},
+			want: `k[var] i[b] p[=] s["x"]`,
+		},
+		{
+			path: "gone.go",
+			line: diff.Line{Text: "const c = 2", Kind: diff.KindRemove, Old: 1},
+			want: "k[const] i[c] p[=] n[2]",
+		},
+		{path: "new.py", line: diff.Line{Text: "# hi", Kind: diff.KindAdd, New: 1}, want: "c[# hi]"},
+	}
+
+	for _, tc := range tests {
+		if got := classed(tc.line.Text, cache.Spans(tc.path, tc.line)); got != tc.want {
+			t.Errorf("%s %q lexed as %s, want %s", tc.path, tc.line.Text, got, tc.want)
+		}
+	}
+}

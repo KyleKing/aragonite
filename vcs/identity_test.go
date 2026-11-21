@@ -28,6 +28,16 @@ func TestCheckoutIdentity(t *testing.T) {
 	writeFile(t, filepath.Join(workspace, ".jj", "repo"),
 		filepath.Join(parent, ".jj", "repo"))
 
+	// A submodule's .git file points into its superproject's modules, which
+	// is a checkout of another repository rather than a worktree of one.
+	submodule := filepath.Join(parent, "sub")
+	mkdir(t, submodule)
+	writeFile(t, filepath.Join(submodule, ".git"), "gitdir: "+filepath.Join(parent, ".git", "modules", "sub")+"\n")
+
+	notPointer := filepath.Join(root, "odd")
+	mkdir(t, notPointer)
+	writeFile(t, filepath.Join(notPointer, ".git"), "ref: refs/heads/main\n")
+
 	tests := []struct {
 		name     string
 		path     string
@@ -37,6 +47,8 @@ func TestCheckoutIdentity(t *testing.T) {
 		{"git worktree resolves to its parent", worktree, parent},
 		{"jj workspace resolves to its parent", workspace, parent},
 		{"missing path is its own identity", filepath.Join(root, "gone"), filepath.Join(root, "gone")},
+		{"submodule is its own identity", submodule, submodule},
+		{"a .git file that is not a gitdir pointer is its own identity", notPointer, notPointer},
 	}
 
 	for _, tt := range tests {

@@ -1,6 +1,9 @@
 package diff_test
 
 import (
+	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -23,117 +26,227 @@ func marked(text string, spans []diff.Span) string {
 	return b.String() + text[at:]
 }
 
-func TestRefineMarksOnlyWhatChanged(t *testing.T) {
-	t.Parallel()
+// hunk is a one-file patch whose lines are written with their own prefix.
+func hunk(lines ...string) string {
+	return "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,9 +1,9 @@\n" +
+		strings.Join(lines, "\n") + "\n"
+}
 
-	tests := []struct {
-		name   string
-		before string
-		after  string
-		gone   string
-		came   string
-	}{
+func patchOf(before, after string) string {
+	return hunk("-"+before, "+"+after)
+}
+
+// pairingOf renders every changed line of d the pairing touched, in patch
+// order: its marked text, an R where it was re-indented, and the line it
+// paired with.
+func pairingOf(d *diff.Diff) []string {
+	marks, reindented, _, mates := d.Paired()
+
+	var out []string
+
+	for _, l := range d.Files[0].Lines {
+		ref := diff.LineRef{Path: "a.go", Kind: l.Kind, Old: l.Old, New: l.New}
+		mate, paired := mates[ref]
+
+		if !paired && !reindented[ref] {
+			if _, ok := marks[ref]; !ok {
+				continue
+			}
+		}
+
+		row := fmt.Sprintf("%c%q", l.Kind, marked(l.Text, marks[ref]))
+		if reindented[ref] {
+			row += " R"
+		}
+
+		if paired {
+			row += fmt.Sprintf(" ~ %c%d/%d", mate.Kind, mate.Old, mate.New)
+		}
+
+		out = append(out, row)
+	}
+
+	return out
+}
+
+type pairingCase struct {
+	name  string
+	patch string
+	want  []string
+}
+
+func pairingCases() []pairingCase {
+	return []pairingCase{
 		{
-			name:   "one identifier",
-			before: "\tif err := run(ctx); err != nil {",
-			after:  "\tif err := walk(ctx); err != nil {",
-			gone:   "\tif err := [run](ctx); err != nil {",
-			came:   "\tif err := [walk](ctx); err != nil {",
+			name:  "one identifier",
+			patch: patchOf("\tif err := run(ctx); err != nil {", "\tif err := walk(ctx); err != nil {"),
+			want: []string{
+				`-"\tif err := [run](ctx); err != nil {" ~ +0/1`,
+				`+"\tif err := [walk](ctx); err != nil {" ~ -1/0`,
+			},
 		},
 		{
-			name:   "an argument added",
-			before: "return fmt.Errorf(\"reading: %w\", err)",
-			after:  "return fmt.Errorf(\"reading %s: %w\", path, err)",
-			gone:   "return fmt.Errorf(\"reading: %w\", err)",
-			came:   "return fmt.Errorf(\"reading[ %s]: %w\", [path, ]err)",
+			name:  "an argument added",
+			patch: patchOf(`return fmt.Errorf("reading: %w", err)`, `return fmt.Errorf("reading %s: %w", path, err)`),
+			want: []string{
+				`-"return fmt.Errorf(\"reading: %w\", err)" ~ +0/1`,
+				`+"return fmt.Errorf(\"reading[ %s]: %w\", [path, ]err)" ~ -1/0`,
+			},
 		},
 		{
-			name:   "trailing text only",
-			before: "const timeout = 5",
-			after:  "const timeout = 30",
-			gone:   "const timeout = [5]",
-			came:   "const timeout = [30]",
+			name:  "trailing text only",
+			patch: patchOf("const timeout = 5", "const timeout = 30"),
+			want: []string{
+				`-"const timeout = [5]" ~ +0/1`,
+				`+"const timeout = [30]" ~ -1/0`,
+			},
+		},
+		{
+			name:  "a rewrite is left whole",
+			patch: patchOf("\tcount := len(items)", "\treturn fmt.Sprintf(\"%s/%s\", owner, repo)"),
+			want:  nil,
+		},
+		{
+			name:  "identical text pairs nothing",
+			patch: hunk("-same line", "+same line"),
+			want:  nil,
+		},
+		{
+			name:  "a context line ends the block",
+			patch: hunk("-const a = 1", "+const a = 2", " context", "-const b = 3", "+const b = 4"),
+			want: []string{
+				`-"const a = [1]" ~ +0/1`,
+				`+"const a = [2]" ~ -1/0`,
+				`-"const b = [3]" ~ +0/3`,
+				`+"const b = [4]" ~ -3/0`,
+			},
+		},
+		{
+			name:  "an addition before a removal ends the block",
+			patch: hunk("-const a = 1", "+const a = 2", "-const a = 3"),
+			want: []string{
+				`-"const a = [1]" ~ +0/1`,
+				`+"const a = [2]" ~ -1/0`,
+			},
+		},
+		{
+			// The second removal shares fewer bytes with the addition and is
+			// floored out, so the first is the only candidate however the
+			// shorter line's ratio rounds.
+			name: "the closer of two removals pairs",
+			patch: hunk(
+				"-aaaa bbbb qqqqqqqqqqqqqqqqqqqq",
+				"-aaaa xxxxxxx",
+				"+aaaa bbbb",
+			),
+			want: []string{
+				`-"aaaa bbbb[ qqqqqqqqqqqqqqqqqqqq]" ~ +0/1`,
+				`+"aaaa bbbb" ~ -1/0`,
+			},
+		},
+		{
+			name:  "a line the indent pairing took is not paired again",
+			patch: hunk("-\tfoo(a, b)", "+\tif ok {", "+\t\tfoo(a, b)", "+\tfoo(a, c)"),
+			want: []string{
+				`-"\tfoo(a, b)" R ~ +0/2`,
+				`+"\t[\t]foo(a, b)" R ~ -1/0`,
+			},
 		},
 	}
+}
+
+// indentCases pair lines that say the same thing at another indent.
+func indentCases() []pairingCase {
+	return []pairingCase{
+		{
+			name: "a line pushed under a new block pairs with itself",
+			patch: hunk(
+				"-\tfoo(a)", "-\tbar(b)",
+				"+\tif ok {", "+\t\tfoo(a)", "+\t\tbar(b)", "+\t}",
+			),
+			want: []string{
+				`-"\tfoo(a)" R ~ +0/2`,
+				`-"\tbar(b)" R ~ +0/3`,
+				`+"\t[\t]foo(a)" R ~ -1/0`,
+				`+"\t[\t]bar(b)" R ~ -2/0`,
+			},
+		},
+		{
+			name: "what the indent pairing leaves still pairs by match",
+			patch: hunk(
+				"-\tfoo(a)", "-\tconst x = 1",
+				"+\tif ok {", "+\t\tfoo(a)", "+\tconst x = 2",
+			),
+			want: []string{
+				`-"\tfoo(a)" R ~ +0/2`,
+				`-"\tconst x = [1]" ~ +0/3`,
+				`+"\t[\t]foo(a)" R ~ -1/0`,
+				`+"\tconst x = [2]" ~ -2/0`,
+			},
+		},
+		{
+			name:  "four characters are enough to pair across an indent",
+			patch: hunk("-\tx++;", "+\tif ok {", "+\t\tx++;", "+\t}"),
+			want: []string{
+				`-"\tx++;" R ~ +0/2`,
+				`+"\t[\t]x++;" R ~ -1/0`,
+			},
+		},
+		{
+			name:  "three characters are not",
+			patch: hunk("-\tx++", "+\tif ok {", "+\t\tx++", "+\t}"),
+			want: []string{
+				`-"\tx++" ~ +0/2`,
+				`+"\t[\t]x++" ~ -1/0`,
+			},
+		},
+		{
+			name:  "a line kept as is beside an addition is not marked",
+			patch: hunk("-\tkeep(it)", "+\tkeep(it)", "+\tmore()"),
+			want:  nil,
+		},
+	}
+}
+
+func TestPaired_MarksWhatChangedAndNamesTheMate(t *testing.T) {
+	t.Parallel()
+
+	tests := append(pairingCases(), indentCases()...)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			d := diff.Parse([]byte(patchOf(tc.before, tc.after)))
-			r := d.Refine()
-
-			gone := r[diff.LineRef{Path: "a.go", Kind: diff.KindRemove, Old: 1}]
-			came := r[diff.LineRef{Path: "a.go", Kind: diff.KindAdd, New: 1}]
-
-			if got := marked(tc.before, gone); got != tc.gone {
-				t.Errorf("removed line marked as\n  %s\nwant\n  %s", got, tc.gone)
-			}
-
-			if got := marked(tc.after, came); got != tc.came {
-				t.Errorf("added line marked as\n  %s\nwant\n  %s", got, tc.came)
+			if got := pairingOf(diff.Parse([]byte(tc.patch))); !slices.Equal(got, tc.want) {
+				t.Errorf("pairing =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(tc.want, "\n  "))
 			}
 		})
 	}
 }
 
-// A line rewritten rather than edited is left whole: a mark covering most of it
-// says less than the color already does.
-func TestRefineLeavesARewriteWhole(t *testing.T) {
+// Refine, Reindented, and Mates each answer one part of Paired.
+func TestPaired_AgreesWithItsParts(t *testing.T) {
 	t.Parallel()
 
-	rewritten := patchOf("\tcount := len(items)", "\treturn fmt.Sprintf(\"%s/%s\", owner, repo)")
+	d := diff.Parse([]byte(hunk(
+		"-\tfoo(a)", "-\tconst x = 1",
+		"+\tif ok {", "+\t\tfoo(a)", "+\tconst x = 2",
+	)))
+	marks, reindented, moved, mates := d.Paired()
 
-	d := diff.Parse([]byte(rewritten))
-
-	if got := d.Refine(); len(got) != 0 {
-		t.Errorf("a rewritten line was marked: %v", got)
-	}
-}
-
-// Pairing is positional inside a change block, and a block ends at the first
-// context line, so two unrelated edits in one hunk do not pair across the gap.
-func TestRefinePairsWithinAChangeBlock(t *testing.T) {
-	t.Parallel()
-
-	patch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,4 +1,4 @@\n" +
-		"-const a = 1\n+const a = 2\n context\n-const b = 3\n+const b = 4\n"
-
-	r := diff.Parse([]byte(patch)).Refine()
-
-	second := r[diff.LineRef{Path: "a.go", Kind: diff.KindRemove, Old: 3}]
-	if got := marked("const b = 3", second); got != "const b = [3]" {
-		t.Errorf("the second block marked as %q", got)
-	}
-}
-
-// A line pushed under a new block pairs with itself rather than with the line
-// that opened the block, so only its indent is marked.
-func TestRefinePairsALineAcrossANewIndent(t *testing.T) {
-	t.Parallel()
-
-	patch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,2 +1,4 @@\n" +
-		"-\tfoo(a)\n-\tbar(b)\n+\tif ok {\n+\t\tfoo(a)\n+\t\tbar(b)\n+\t}\n"
-
-	r := diff.Parse([]byte(patch)).Refine()
-
-	if _, ok := r[diff.LineRef{Path: "a.go", Kind: diff.KindAdd, New: 1}]; ok {
-		t.Error("the line opening the block was paired")
+	if !maps.EqualFunc(d.Refine(), marks, slices.Equal) {
+		t.Errorf("Refine = %v, Paired marks = %v", d.Refine(), marks)
 	}
 
-	came := r[diff.LineRef{Path: "a.go", Kind: diff.KindAdd, New: 2}]
-	if got := marked("\t\tfoo(a)", came); got != "\t[\t]foo(a)" {
-		t.Errorf("the re-indented line marked as %q", got)
+	if !maps.Equal(d.Reindented(), reindented) || len(reindented) != 2 {
+		t.Errorf("Reindented = %v, Paired = %v", d.Reindented(), reindented)
 	}
 
-	moved := diff.Parse([]byte(patch)).Reindented()
-	if !moved[diff.LineRef{Path: "a.go", Kind: diff.KindRemove, Old: 1}] ||
-		moved[diff.LineRef{Path: "a.go", Kind: diff.KindAdd, New: 1}] {
-		t.Errorf("re-indented lines = %v, want foo and bar on both sides", moved)
+	if !maps.Equal(d.Mates(), mates) || len(mates) != 4 {
+		t.Errorf("Mates = %v, Paired = %v", d.Mates(), mates)
 	}
-}
 
-func patchOf(before, after string) string {
-	return "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,1 +1,1 @@\n" +
-		"-" + before + "\n+" + after + "\n"
+	if !maps.Equal(d.Moved(), moved) || len(moved) != 0 {
+		t.Errorf("Moved = %v, Paired = %v", d.Moved(), moved)
+	}
 }

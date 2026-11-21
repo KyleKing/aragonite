@@ -256,18 +256,90 @@ func TestCheckDetailStatusDisplay(t *testing.T) {
 	}
 }
 
-func TestCheckDetailDuration(t *testing.T) {
+func TestCheckDuration_RendersElapsedOrEmDash(t *testing.T) {
 	t.Parallel()
 
 	start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	completed := forge.CheckDetail{StartedAt: start, CompletedAt: start.Add(90 * time.Second)}
-	if got := display.CheckDuration(completed); got != "1m30s" {
-		t.Errorf("expected '1m30s', got %q", got)
+	tests := []struct {
+		name  string
+		want  string
+		check forge.CheckDetail
+	}{
+		{
+			name:  "completed",
+			check: forge.CheckDetail{StartedAt: start, CompletedAt: start.Add(90 * time.Second)},
+			want:  "1m30s",
+		},
+		{
+			name:  "rounds to the second",
+			check: forge.CheckDetail{StartedAt: start, CompletedAt: start.Add(1600 * time.Millisecond)},
+			want:  "2s",
+		},
+		{name: "instant", check: forge.CheckDetail{StartedAt: start, CompletedAt: start}, want: "0s"},
+		{name: "running", check: forge.CheckDetail{StartedAt: start}, want: display.EmDash},
+		{name: "never started", check: forge.CheckDetail{CompletedAt: start}, want: display.EmDash},
+		{
+			name:  "clock skew",
+			check: forge.CheckDetail{StartedAt: start, CompletedAt: start.Add(-time.Minute)},
+			want:  display.EmDash,
+		},
 	}
 
-	running := forge.CheckDetail{StartedAt: start}
-	if got := display.CheckDuration(running); got != "—" {
-		t.Errorf("expected an em dash while running, got %q", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := display.CheckDuration(tt.check); got != tt.want {
+				t.Errorf("CheckDuration = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPRActivityAndGlyph(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		activity string
+		glyph    string
+		pr       forge.PullRequest
+	}{
+		{name: "no activity", pr: forge.PullRequest{}, activity: display.EmDash, glyph: ""},
+		{
+			name:     "zero activity time",
+			pr:       forge.PullRequest{Activity: &forge.PRActivity{Author: "a"}, ReviewDecision: "REVIEW_REQUIRED"},
+			activity: display.EmDash,
+			glyph:    "",
+		},
+		{
+			name: "approved with recent comment",
+			pr: forge.PullRequest{
+				Activity:       &forge.PRActivity{At: time.Now().Add(-2 * time.Hour), Author: "kyle"},
+				ReviewDecision: "APPROVED",
+			},
+			activity: "2 hours ago kyle",
+			glyph:    "✓",
+		},
+		{
+			name:     "changes requested",
+			pr:       forge.PullRequest{ReviewDecision: "CHANGES_REQUESTED"},
+			activity: display.EmDash,
+			glyph:    "✗",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := display.PRActivitySummary(&tt.pr); got != tt.activity {
+				t.Errorf("PRActivitySummary = %q, want %q", got, tt.activity)
+			}
+			if got := display.PRReviewGlyph(&tt.pr); got != tt.glyph {
+				t.Errorf("PRReviewGlyph = %q, want %q", got, tt.glyph)
+			}
+		})
 	}
 }
 

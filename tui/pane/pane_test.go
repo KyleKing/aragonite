@@ -135,15 +135,17 @@ func TestPaneReportsTheExit(t *testing.T) {
 func TestPaneKillEndsTheWatch(t *testing.T) {
 	t.Parallel()
 
-	p, err := pane.New(t.Context(), []string{"cat"}, 40, 6)
+	// The child ignores the hangup a closed pty sends, so only a kill ends it.
+	p, err := pane.New(t.Context(), []string{"sh", "-c", "trap '' HUP; echo ready; exec sleep 30"}, 40, 6)
 	if err != nil {
 		t.Fatalf("starting the pane: %v", err)
 	}
 
+	wait(t, p, "ready")
 	p.Kill()
 
-	if msg := gone(t, p); msg.Err == nil {
-		t.Error("a killed child reported a clean exit")
+	if msg := gone(t, p); msg.Err == nil || msg.Err.Error() != "signal: killed" {
+		t.Errorf("a killed child reported %v, want signal: killed", msg.Err)
 	}
 }
 
@@ -162,7 +164,7 @@ func TestPaneTranscriptKeepsTheSession(t *testing.T) {
 	}
 	defer p.Kill()
 
-	if got := p.Transcript(); !strings.Contains(got, "gone") || strings.Contains(got, "the-evidence") {
+	if got := p.Transcript(); got != "gone" {
 		t.Errorf("the transcript is not the rendered line: %q", got)
 	}
 }

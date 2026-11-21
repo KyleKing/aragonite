@@ -115,6 +115,8 @@ func TestReplaceLastWord(t *testing.T) {
 		{"first word", "re", "reset", "reset"},
 		{"later word", "workflow ci", "ci.yml", "workflow ci.yml"},
 		{"opening a new word", "workflow ", "ci.yml", "workflow ci.yml"},
+		{"leading space is kept", " re", "reset", " reset"},
+		{"only the last of several words", "a b c", "cd", "a b cd"},
 	}
 
 	for _, tt := range tests {

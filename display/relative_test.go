@@ -5,119 +5,130 @@ import (
 	"time"
 
 	"github.com/kyleking/aragonite/display"
+	"github.com/kyleking/aragonite/forge"
 	"github.com/kyleking/aragonite/vcs"
 )
 
-func TestRelativeTimeJustNow(t *testing.T) {
+const day = 24 * time.Hour
+
+func TestRelativeTime_NamesTheLargestWholeUnit(t *testing.T) {
 	t.Parallel()
-	result := display.RelativeTime(time.Now())
-	if result != "just now" {
-		t.Errorf("expected 'just now', got '%s'", result)
+
+	tests := []struct {
+		name string
+		want string
+		ago  time.Duration
+	}{
+		{name: "now", ago: 0, want: "just now"},
+		{name: "under a minute", ago: 59 * time.Second, want: "just now"},
+		{name: "one minute", ago: time.Minute, want: "1 min ago"},
+		{name: "minutes", ago: 5 * time.Minute, want: "5 mins ago"},
+		{name: "last minute of the hour", ago: 59 * time.Minute, want: "59 mins ago"},
+		{name: "one hour", ago: time.Hour, want: "1 hour ago"},
+		{name: "hours", ago: 3 * time.Hour, want: "3 hours ago"},
+		{name: "last hour of the day", ago: 23 * time.Hour, want: "23 hours ago"},
+		{name: "one day", ago: day, want: "1 day ago"},
+		{name: "days", ago: 2 * day, want: "2 days ago"},
+		{name: "last day of the week", ago: 6 * day, want: "6 days ago"},
+		{name: "one week", ago: 7 * day, want: "1 week ago"},
+		{name: "weeks", ago: 14 * day, want: "2 weeks ago"},
+		{name: "last day of the month", ago: 29 * day, want: "4 weeks ago"},
+		{name: "one month", ago: 30 * day, want: "1 month ago"},
+		{name: "months", ago: 60 * day, want: "2 months ago"},
+		{name: "last day of the year", ago: 364 * day, want: "12 months ago"},
+		{name: "one year", ago: 365 * day, want: "1 year ago"},
+		{name: "years", ago: 730 * day, want: "2 years ago"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := display.RelativeTime(time.Now().Add(-tt.ago)); got != tt.want {
+				t.Errorf("RelativeTime(now-%v) = %q, want %q", tt.ago, got, tt.want)
+			}
+		})
 	}
 }
 
-func TestRelativeTimeMinutes(t *testing.T) {
+// A table's time column is a handful of cells wide, so the compact form has to
+// stay short at every scale and say something for a time the model lacks.
+func TestRelativeTimeCompact_StaysShortAtEveryScale(t *testing.T) {
 	t.Parallel()
-	result := display.RelativeTime(time.Now().Add(-5 * time.Minute))
-	if result != "5 mins ago" {
-		t.Errorf("expected '5 mins ago', got '%s'", result)
+
+	old := time.Now().AddDate(0, -2, 0)
+	week := time.Now().Add(-7*day - time.Minute)
+	tests := []struct {
+		name string
+		when time.Time
+		want string
+	}{
+		{name: "zero", when: time.Time{}, want: display.EmDash},
+		{name: "seconds", when: time.Now().Add(-30 * time.Second), want: "just now"},
+		{name: "one minute", when: time.Now().Add(-time.Minute), want: "1m ago"},
+		{name: "minutes", when: time.Now().Add(-21 * time.Minute), want: "21m ago"},
+		{name: "one hour", when: time.Now().Add(-time.Hour), want: "1h ago"},
+		{name: "hours", when: time.Now().Add(-5 * time.Hour), want: "5h ago"},
+		{name: "one day", when: time.Now().Add(-day), want: "1d ago"},
+		{name: "days", when: time.Now().Add(-3 * day), want: "3d ago"},
+		{name: "a week falls back to the date", when: week, want: week.Format("Jan 2")},
+		{name: "months", when: old, want: old.Format("Jan 2")},
 	}
 
-	result = display.RelativeTime(time.Now().Add(-1 * time.Minute))
-	if result != "1 min ago" {
-		t.Errorf("expected '1 min ago', got '%s'", result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := display.RelativeTimeCompact(tt.when); got != tt.want {
+				t.Errorf("RelativeTimeCompact(%v) = %q, want %q", tt.when, got, tt.want)
+			}
+		})
 	}
 }
 
-func TestRelativeTimeHours(t *testing.T) {
+// Each model's accessor reads its own time field and renders it the way
+// RelativeTime does, with the em dash for a time the model lacks.
+func TestModelRelativeTimes_ReadTheirOwnField(t *testing.T) {
 	t.Parallel()
-	result := display.RelativeTime(time.Now().Add(-3 * time.Hour))
-	if result != "3 hours ago" {
-		t.Errorf("expected '3 hours ago', got '%s'", result)
+
+	threeHours := time.Now().Add(-3 * time.Hour)
+	tests := []struct {
+		got  func(time.Time) string
+		name string
+	}{
+		{name: "branch", got: func(at time.Time) string {
+			return display.BranchRelativeLastCommit(vcs.BranchInfo{LastCommit: at})
+		}},
+		{
+			name: "commit",
+			got:  func(at time.Time) string { return display.CommitRelativeDate(vcs.CommitInfo{Date: at}) },
+		},
+		{name: "stash", got: func(at time.Time) string { return display.StashRelativeDate(vcs.StashDetail{Date: at}) }},
+		{name: "repo", got: func(at time.Time) string {
+			return display.RepoRelativeModified(vcs.RepoSummary{LastModified: at})
+		}},
+		{name: "comment", got: func(at time.Time) string {
+			return display.CommentRelativeCreated(forge.PRComment{CreatedAt: at})
+		}},
+		{name: "pr created", got: func(at time.Time) string {
+			return display.PRDetailRelativeCreated(forge.PRDetail{CreatedAt: at})
+		}},
+		{name: "pr updated", got: func(at time.Time) string {
+			return display.PRDetailRelativeUpdated(forge.PRDetail{UpdatedAt: at})
+		}},
 	}
 
-	result = display.RelativeTime(time.Now().Add(-1 * time.Hour))
-	if result != "1 hour ago" {
-		t.Errorf("expected '1 hour ago', got '%s'", result)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-func TestRelativeTimeDays(t *testing.T) {
-	t.Parallel()
-	result := display.RelativeTime(time.Now().Add(-2 * 24 * time.Hour))
-	if result != "2 days ago" {
-		t.Errorf("expected '2 days ago', got '%s'", result)
-	}
-
-	result = display.RelativeTime(time.Now().Add(-1 * 24 * time.Hour))
-	if result != "1 day ago" {
-		t.Errorf("expected '1 day ago', got '%s'", result)
-	}
-}
-
-func TestRelativeTimeWeeks(t *testing.T) {
-	t.Parallel()
-	result := display.RelativeTime(time.Now().Add(-14 * 24 * time.Hour))
-	if result != "2 weeks ago" {
-		t.Errorf("expected '2 weeks ago', got '%s'", result)
-	}
-
-	result = display.RelativeTime(time.Now().Add(-7 * 24 * time.Hour))
-	if result != "1 week ago" {
-		t.Errorf("expected '1 week ago', got '%s'", result)
-	}
-}
-
-func TestRelativeTimeMonths(t *testing.T) {
-	t.Parallel()
-	result := display.RelativeTime(time.Now().Add(-60 * 24 * time.Hour))
-	if result != "2 months ago" {
-		t.Errorf("expected '2 months ago', got '%s'", result)
-	}
-}
-
-func TestRelativeTimeYears(t *testing.T) {
-	t.Parallel()
-	result := display.RelativeTime(time.Now().Add(-730 * 24 * time.Hour))
-	if result != "2 years ago" {
-		t.Errorf("expected '2 years ago', got '%s'", result)
-	}
-}
-
-func TestRelativeTimeZero(t *testing.T) {
-	t.Parallel()
-	result := display.RelativeTime(time.Time{})
-	if result != display.EmDash {
-		t.Errorf("expected '—', got '%s'", result)
-	}
-}
-
-func TestBranchInfoRelativeLastCommit(t *testing.T) {
-	t.Parallel()
-	b := vcs.BranchInfo{}
-	if display.BranchRelativeLastCommit(b) != display.EmDash {
-		t.Errorf("expected '—' for zero time, got '%s'", display.BranchRelativeLastCommit(b))
-	}
-
-	b.LastCommit = time.Now()
-	if display.BranchRelativeLastCommit(b) == display.EmDash {
-		t.Error("expected non-empty relative time")
-	}
-}
-
-func TestCommitInfoRelativeDate(t *testing.T) {
-	t.Parallel()
-	c := vcs.CommitInfo{Date: time.Now()}
-	if display.CommitRelativeDate(c) == display.EmDash {
-		t.Error("expected non-empty relative date")
-	}
-}
-
-func TestStashDetailRelativeDate(t *testing.T) {
-	t.Parallel()
-	s := vcs.StashDetail{Date: time.Now()}
-	if display.StashRelativeDate(s) == display.EmDash {
-		t.Error("expected non-empty relative date")
+			if got := tt.got(threeHours); got != "3 hours ago" {
+				t.Errorf("three hours ago reads %q, want %q", got, "3 hours ago")
+			}
+			if got := tt.got(time.Time{}); got != display.EmDash {
+				t.Errorf("a zero time reads %q, want the em dash", got)
+			}
+		})
 	}
 }
 
@@ -133,9 +144,17 @@ func TestRepoStatusSummary(t *testing.T) {
 		{name: "staged only", summary: vcs.RepoSummary{Staged: 2}, expected: "+2"},
 		{name: "unstaged only", summary: vcs.RepoSummary{Unstaged: 3}, expected: "~3"},
 		{name: "untracked only", summary: vcs.RepoSummary{Untracked: 1}, expected: "?1"},
+		{name: "conflicted only", summary: vcs.RepoSummary{Conflicted: 4}, expected: "!4"},
 		{name: "ahead only", summary: vcs.RepoSummary{Ahead: 5}, expected: "↑5"},
 		{name: "behind only", summary: vcs.RepoSummary{Behind: 3}, expected: "↓3"},
 		{name: "mixed", summary: vcs.RepoSummary{Staged: 1, Unstaged: 2, Ahead: 3}, expected: "+1 ~2 ↑3"},
+		{
+			name: "every field in a fixed order",
+			summary: vcs.RepoSummary{
+				Staged: 1, Unstaged: 2, Untracked: 3, Conflicted: 4, Ahead: 5, Behind: 6,
+			},
+			expected: "+1 ~2 ?3 !4 ↑5 ↓6",
+		},
 	}
 
 	for _, tt := range tests {
@@ -146,55 +165,5 @@ func TestRepoStatusSummary(t *testing.T) {
 				t.Errorf("expected %q, got %q", tt.expected, got)
 			}
 		})
-	}
-}
-
-func TestRepoRelativeModified(t *testing.T) {
-	t.Parallel()
-
-	s := vcs.RepoSummary{}
-	if display.RepoRelativeModified(s) != display.EmDash {
-		t.Errorf("expected the em dash for zero time, got %q", display.RepoRelativeModified(s))
-	}
-
-	s.LastModified = time.Now()
-	if display.RepoRelativeModified(s) == display.EmDash {
-		t.Error("expected non-empty relative time")
-	}
-}
-
-// A table's time column is a handful of cells wide, so the compact form has to
-// stay short at every scale and say something for a time the model lacks.
-func TestRelativeTimeCompact(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		want string
-		ago  time.Duration
-	}{
-		{name: "seconds", ago: 30 * time.Second, want: "just now"},
-		{name: "minutes", ago: 21 * time.Minute, want: "21m ago"},
-		{name: "hours", ago: 5 * time.Hour, want: "5h ago"},
-		{name: "days", ago: 3 * 24 * time.Hour, want: "3d ago"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := display.RelativeTimeCompact(time.Now().Add(-tt.ago)); got != tt.want {
-				t.Errorf("%v ago reads %q, want %q", tt.ago, got, tt.want)
-			}
-		})
-	}
-
-	if got := display.RelativeTimeCompact(time.Time{}); got != display.EmDash {
-		t.Errorf("a zero time reads %q, want an em dash", got)
-	}
-
-	old := time.Now().AddDate(0, -2, 0)
-	if got := display.RelativeTimeCompact(old); got != old.Format("Jan 2") {
-		t.Errorf("a two-month-old time reads %q, want a calendar date", got)
 	}
 }

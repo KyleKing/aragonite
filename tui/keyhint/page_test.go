@@ -1,6 +1,7 @@
 package keyhint_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -169,51 +170,48 @@ func TestPageFitsItsWidth(t *testing.T) {
 	}
 }
 
-func TestAtWalksAPathIntoNestedPages(t *testing.T) {
+// At walks into the page a prefix key opens. A leaf opens nothing, and a key
+// the page does not have opens nothing either: both leave the path dead rather
+// than answering some other page.
+func TestAt_WalksAPathIntoNestedPages(t *testing.T) {
 	t.Parallel()
 
 	folds := []keyhint.Hint{{Key: "a", What: "all"}, {Key: "i", What: "invert"}}
+	name := []keyhint.Hint{{Key: "n", What: "name"}}
 	root := []keyhint.Hint{
 		{Key: "j", What: "down"},
+		{Key: "e", What: "empty", Kids: []keyhint.Hint{}},
 		{Key: "z", What: "folds", Kids: folds},
-		{Key: "g", What: "go", Kids: []keyhint.Hint{
-			{Key: "f", What: "file", Kids: []keyhint.Hint{{Key: "n", What: "name"}}},
-		}},
+		{Key: "g", What: "go", Kids: []keyhint.Hint{{Key: "f", What: "file", Kids: name}}},
+		// A leaf sharing a later prefix's key does not hide the prefix.
+		{Key: "m", What: "mark"},
+		{Key: "m", What: "marks", Kids: folds[:1]},
 	}
 
-	if got, ok := keyhint.At(root, nil); !ok || len(got) != len(root) {
-		t.Fatalf("At(root) = %v, %v", got, ok)
+	tests := []struct {
+		name string
+		path []string
+		want []keyhint.Hint
+		ok   bool
+	}{
+		{name: "no path is the root", path: nil, want: root, ok: true},
+		{name: "one level", path: []string{"z"}, want: folds, ok: true},
+		{name: "two levels", path: []string{"g", "f"}, want: name, ok: true},
+		{name: "a prefix after a leaf of the same key", path: []string{"m"}, want: folds[:1], ok: true},
+		{name: "a leaf", path: []string{"j"}},
+		{name: "an empty page is a leaf", path: []string{"e"}},
+		{name: "a missing key", path: []string{"x"}},
+		{name: "past a leaf", path: []string{"z", "a", "a"}},
 	}
 
-	if got, ok := keyhint.At(root, []string{"z"}); !ok || len(got) != len(folds) {
-		t.Fatalf("At(z) = %v, %v", got, ok)
-	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	got, ok := keyhint.At(root, []string{"g", "f"})
-	if !ok || len(got) != 1 || got[0].Key != "n" {
-		t.Fatalf("At(g, f) = %v, %v", got, ok)
-	}
-}
-
-// A leaf opens nothing, and a key the page does not have opens nothing either:
-// both leave the path dead rather than answering some other page.
-func TestAtDeadEndsOnALeafAndAMissingKey(t *testing.T) {
-	t.Parallel()
-
-	root := []keyhint.Hint{
-		{Key: "j", What: "down"},
-		{Key: "z", What: "folds", Kids: []keyhint.Hint{{Key: "a", What: "all"}}},
-	}
-
-	if _, ok := keyhint.At(root, []string{"j"}); ok {
-		t.Error("At(j) reached a page under a leaf")
-	}
-
-	if _, ok := keyhint.At(root, []string{"x"}); ok {
-		t.Error("At(x) reached a page under a key that is not there")
-	}
-
-	if _, ok := keyhint.At(root, []string{"z", "a", "a"}); ok {
-		t.Error("At(z, a, a) reached a page under a leaf")
+			got, ok := keyhint.At(root, tc.path)
+			if ok != tc.ok || !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("At(%v) = %v, %v, want %v, %v", tc.path, got, ok, tc.want, tc.ok)
+			}
+		})
 	}
 }

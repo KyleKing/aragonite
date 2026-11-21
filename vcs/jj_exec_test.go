@@ -171,8 +171,35 @@ func TestJJGetAheadBehind(t *testing.T) {
 			canned:   map[string]string{key: "main\tlocal\nmain\torigin\t0\t0\n"},
 		},
 		{
+			name:     "the named bookmark among several",
+			branch:   "feature",
+			upstream: "feature@origin",
+			canned: map[string]string{
+				key: "main\tlocal\nmain\torigin\t2\t1\nfeature\tlocal\nfeature\torigin\t4\t3\n",
+			},
+			ahead:  4,
+			behind: 3,
+		},
+		{
+			name:     "a bookmark tracking another upstream counts nothing",
+			branch:   "main",
+			upstream: "main@fork",
+			canned:   map[string]string{key: "main\tlocal\nmain\torigin\t2\t1\n"},
+		},
+		{
+			name:     "an upstream belonging to another bookmark counts nothing",
+			branch:   "feature",
+			upstream: "main@origin",
+			canned:   map[string]string{key: "main\tlocal\nmain\torigin\t2\t1\nfeature\tlocal\n"},
+		},
+		{
 			name:   "anonymous working copy",
 			branch: "@",
+		},
+		{
+			name:     "no branch",
+			branch:   "",
+			upstream: "main@origin",
 		},
 		{
 			name:     "no upstream",
@@ -627,6 +654,15 @@ func TestJJPushAndSwitchBranch(t *testing.T) {
 			expectedOK: true,
 			expected:   "Switched to feature",
 		},
+		{
+			name:     "switch failure reports the message",
+			failures: map[string]error{editKey: errBoom},
+			run: func(ctx context.Context, j *vcs.JJOperations) (bool, string, error) {
+				return j.SwitchBranch(ctx, testRepoPath, "feature")
+			},
+			expectedOK: false,
+			expected:   "boom",
+		},
 	}
 
 	for _, tt := range tests {
@@ -784,6 +820,19 @@ func TestJJBlame(t *testing.T) {
 	key := jjKey("--ignore-working-copy file annotate -T " + vcs.JJBlameFormat + " -- f.txt")
 	revKey := jjKey("--ignore-working-copy file annotate -r abc1234 -T " + vcs.JJBlameFormat + " -- f.txt")
 
+	kyleAt := func(line int) blameExpectation {
+		return blameExpectation{
+			commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com",
+			line: line, unix: 1577894400, offset: -21600,
+		}
+	}
+	testAt := func(line int) blameExpectation {
+		return blameExpectation{
+			commit: "328ffc0a6206", author: "test", email: "test@example.com",
+			line: line, unix: 1622530800, offset: 7200,
+		}
+	}
+
 	tests := []struct {
 		name     string
 		canned   map[string]string
@@ -804,8 +853,8 @@ func TestJJBlame(t *testing.T) {
 			},
 			ranges: []vcs.LineRange{{From: 1, To: 1}, {From: 5, To: 5}},
 			expected: []blameExpectation{
-				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 1, unix: 1577894400},
-				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 5, unix: 1577894400},
+				kyleAt(1),
+				kyleAt(5),
 			},
 		},
 		{
@@ -815,8 +864,8 @@ func TestJJBlame(t *testing.T) {
 					"328ffc0a6206\ttest\ttest@example.com\t2021-06-01T09:00:00+02:00\t2\n",
 			},
 			expected: []blameExpectation{
-				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 1, unix: 1577894400},
-				{commit: "328ffc0a6206", author: "test", email: "test@example.com", line: 2, unix: 1622530800},
+				kyleAt(1),
+				testAt(2),
 			},
 		},
 		{
@@ -826,7 +875,7 @@ func TestJJBlame(t *testing.T) {
 			},
 			rev: "abc1234",
 			expected: []blameExpectation{
-				{commit: "0ecbeb4636bd", author: "Kyle King", email: "kyle@example.com", line: 1, unix: 1577894400},
+				kyleAt(1),
 			},
 		},
 		{

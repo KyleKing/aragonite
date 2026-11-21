@@ -42,25 +42,25 @@ func TestInkTextHoldsReadableContrast(t *testing.T) {
 	}
 }
 
-func TestSelectionIsATintInColorAndReverseVideoWithout(t *testing.T) {
-	t.Parallel()
-
+// NO_COLOR set to anything draws the selection and band in reverse video,
+// where a tint cannot show; unset or empty, they are a tint.
+func TestNew_SelectionIsATintInColorAndReverseVideoWithout(t *testing.T) {
 	ink := theme.Ink()
 
 	tests := []struct {
 		name    string
-		mono    bool
+		env     string
 		reverse bool
 	}{
-		{name: "color", mono: false, reverse: false},
-		{name: "no color", mono: true, reverse: true},
+		{name: "color", env: "", reverse: false},
+		{name: "no color", env: "1", reverse: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			t.Setenv("NO_COLOR", tc.env)
 
-			s := skin.Build(ink, ink.Lavender, tc.mono)
+			s := skin.New(ink, ink.Lavender)
 			for name, face := range map[string]lipgloss.Style{"selection": s.Selection, "band": s.Band} {
 				if got := face.GetReverse(); got != tc.reverse {
 					t.Errorf("%s reverse is %v, want %v", name, got, tc.reverse)
@@ -70,6 +70,10 @@ func TestSelectionIsATintInColorAndReverseVideoWithout(t *testing.T) {
 				if none != tc.reverse {
 					t.Errorf("%s has no background is %v, want %v", name, none, tc.reverse)
 				}
+			}
+
+			if got := s.Accent.GetForeground(); got != ink.Lavender {
+				t.Errorf("the accent is %v, want the one New was given", got)
 			}
 		})
 	}

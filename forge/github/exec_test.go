@@ -508,15 +508,8 @@ func TestGetPRCount(t *testing.T) {
 			ctx, _ := stubRunGH(tt.output, tt.runErr)
 
 			count, err := github.GetPRCount(ctx, "/repo", testRemoteID, "owner/repo")
-			if tt.expectErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+			if tt.expectErr != errors.Is(err, errGHFailed) || (!tt.expectErr && err != nil) {
+				t.Fatalf("error = %v, want gh's failure: %v", err, tt.expectErr)
 			}
 			if count != tt.expected {
 				t.Errorf("expected count %d, got %d", tt.expected, count)

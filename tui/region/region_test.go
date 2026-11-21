@@ -26,90 +26,146 @@ func block() region.Region {
 	}
 }
 
-// TestRenderIsTotal covers the invariant the table above a region depends on:
-// whatever the region holds, it occupies exactly the height it was given, so
-// data landing underneath the cursor cannot move the rows above it.
-func TestRenderIsTotal(t *testing.T) {
-	t.Parallel()
+const caption = "───────────── Bump the deps ──"
 
-	for _, height := range []int{1, 2, 4, 8, 30} {
-		got := block().Render(plainStyles(), width, height)
-		if len(got) != height {
-			t.Errorf("height %d: rendered %d lines", height, len(got))
-		}
-		for i, line := range got {
-			if w := lipgloss.Width(line); w > width {
-				t.Errorf("height %d line %d is %d cells wide: %q", height, i, w, line)
-			}
-		}
-	}
-}
-
-// TestClosingRuleSurvivesATightRegion covers the trim: a region with no room
-// for its body still has to say where it ended, or the table below runs into
-// the footer with nothing marking the seam.
-func TestClosingRuleSurvivesATightRegion(t *testing.T) {
-	t.Parallel()
-
-	got := block().Render(plainStyles(), width, 3)
-	if last := got[len(got)-1]; !strings.Contains(last, "Bump the deps") {
-		t.Errorf("the closing caption should survive a trim, got %q", last)
-	}
-}
-
-// TestBodyElidesItsMiddle covers what a long body loses: the ends a reader
-// scans first survive and the count of what went is stated.
-func TestBodyElidesItsMiddle(t *testing.T) {
+// Render occupies exactly the height it was given whatever the region holds,
+// so data landing underneath the cursor cannot move the rows above it. A
+// trimmed region keeps its closing caption, and a long body loses its middle.
+func TestRender_FillsExactlyItsHeight(t *testing.T) {
 	t.Parallel()
 
 	long := block()
 	long.Body = []string{"first", "b", "c", "d", "e", "f", "last"}
+	opening := []string{
+		"── acme/alpha · #11 ──────────",
+		"Reviewers erin",
+		"Checks    3 ok",
+		"── description ───────────────",
+	}
 
-	joined := strings.Join(long.Render(plainStyles(), width, 8), "\n")
-	for _, want := range []string{"first", "last", "more lines"} {
-		if !strings.Contains(joined, want) {
-			t.Errorf("expected %q in:\n%s", want, joined)
-		}
+	tests := []struct {
+		name   string
+		want   []string
+		region region.Region
+		height int
+	}{
+		{
+			name:   "exact",
+			region: block(),
+			height: 8,
+			want:   slices.Concat(opening, []string{"one", "two", "three", caption}),
+		},
+		{
+			name:   "slack collects above the caption",
+			region: block(),
+			height: 10,
+			want:   slices.Concat(opening, []string{"one", "two", "three", "", "", caption}),
+		},
+		{name: "tight keeps the caption", region: block(), height: 3, want: []string{opening[0], opening[1], caption}},
+		{name: "one row is the caption", region: block(), height: 1, want: []string{caption}},
+		{name: "no rows", region: block(), height: 0, want: nil},
+		{
+			name:   "a long body keeps its ends",
+			region: long,
+			height: 8,
+			want:   slices.Concat(opening, []string{"first", "  ⋯ 5 more lines ⋯", "last", caption}),
+		},
+		{
+			name:   "even elision favors the tail",
+			region: long,
+			height: 7,
+			want:   slices.Concat(opening, []string{"  ⋯ 6 more lines ⋯", "last", caption}),
+		},
+		{
+			name:   "a body with one row is the count",
+			region: long,
+			height: 6,
+			want:   slices.Concat(opening, []string{"  ⋯ 7 more lines ⋯", caption}),
+		},
+		{
+			name:   "an empty region is its rule",
+			region: region.Region{},
+			height: 2,
+			want:   []string{"", "──────────────────────────────"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tc.region.Render(plainStyles(), 30, tc.height); !slices.Equal(got, tc.want) {
+				t.Errorf(
+					"Render(height %d) =\n%s\nwant\n%s",
+					tc.height,
+					strings.Join(got, "\n"),
+					strings.Join(tc.want, "\n"),
+				)
+			}
+		})
 	}
 }
 
-// TestHeadPacksToTheColumnsTheCallerAllows covers the density knob: facts pair
-// up only where the caller asked for it and the width can carry it.
-func TestHeadPacksToTheColumnsTheCallerAllows(t *testing.T) {
+// Facts pair up only where the caller asked for it and the width can carry
+// it, and the last fact on a line runs to the edge instead of the column cap.
+func TestLines_PacksTheHeadToTheColumnsAllowed(t *testing.T) {
 	t.Parallel()
+
+	b := block()
+	b.Body, b.Section = nil, ""
+	b.Head = append(b.Head, region.Fact{Label: "Branch", Value: strings.Repeat("branch-", 7)})
 
 	tests := []struct {
 		name    string
+		head    []region.Fact
+		want    []string
 		columns int
 		width   int
-		want    int
 	}{
-		{"one column by default", 0, 120, 2},
-		{"paired when asked and wide", 2, 120, 1},
-		{"narrow falls back to one", 2, 40, 2},
+		{
+			name: "one column by default", columns: 0, width: 40,
+			want: []string{"Reviewers erin", "Checks    3 ok", "Branch    branch-branch-branch-branch-b…"},
+		},
+		{
+			name: "paired when asked and wide", columns: 2, width: 120,
+			want: []string{
+				"Reviewers erin" + strings.Repeat(" ", 41) + "Checks    3 ok",
+				"Branch    branch-branch-branch-branch-branch-branch-branch-",
+			},
+		},
+		{
+			name: "a column is capped at its width", columns: 2, width: 70,
+			want: []string{
+				"Reviewers erin" + strings.Repeat(" ", 22) + "Checks    3 ok",
+				"Branch    branch-branch-branch-br…",
+			},
+		},
+		{
+			name:    "narrow falls back to one",
+			columns: 2,
+			width:   40,
+			want:    []string{"Reviewers erin", "Checks    3 ok", "Branch    branch-branch-branch-branch-b…"},
+		},
+		{
+			name:  "unlabeled facts take no label column",
+			head:  []region.Fact{{Value: "x"}, {Value: "y"}},
+			width: 40,
+			want:  []string{" x", " y"},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			b := block()
-			b.HeadColumns = tt.columns
-			b.Body = nil
-			b.Section = ""
-
-			// Title, head rows, and the closing rule: everything but the head
-			// is one line, so the head's own line count is what is left.
-			lines := b.Render(plainStyles(), tt.width, 2+tt.want)
-			head := 0
-			for _, line := range lines {
-				if strings.HasPrefix(line, "Reviewers") || strings.HasPrefix(line, "Checks") {
-					head++
-				}
+			r := region.Region{Head: b.Head, HeadColumns: tc.columns}
+			if tc.head != nil {
+				r.Head = tc.head
 			}
 
-			if head != tt.want {
-				t.Errorf("expected %d head lines, got %d:\n%s", tt.want, head, strings.Join(lines, "\n"))
+			got := r.Lines(plainStyles(), tc.width, 20)
+			if want := append(slices.Clone(tc.want), strings.Repeat("─", tc.width)); !slices.Equal(got, want) {
+				t.Errorf("Lines =\n%q\nwant\n%q", got, want)
 			}
 		})
 	}

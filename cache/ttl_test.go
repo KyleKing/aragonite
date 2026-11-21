@@ -7,46 +7,6 @@ import (
 	"github.com/kyleking/aragonite/cache"
 )
 
-func TestTTLCacheSetGet(t *testing.T) {
-	t.Parallel()
-	c := cache.NewTTLCache[string](5 * time.Minute)
-
-	c.Set("key1", cache.NoStamp, "value1")
-
-	value, ok := c.Get("key1", cache.NoStamp)
-	if !ok {
-		t.Error("expected key to exist")
-	}
-	if value != "value1" {
-		t.Errorf("expected 'value1', got '%s'", value)
-	}
-}
-
-func TestTTLCacheGetMissing(t *testing.T) {
-	t.Parallel()
-	c := cache.NewTTLCache[string](5 * time.Minute)
-
-	_, ok := c.Get("nonexistent", cache.NoStamp)
-	if ok {
-		t.Error("expected key to not exist")
-	}
-}
-
-func TestTTLCacheExpiration(t *testing.T) {
-	t.Parallel()
-
-	clock := newFakeClock()
-	c := cache.NewTTLCacheWithClock[string](5*time.Minute, clock.now)
-
-	c.Set("key1", cache.NoStamp, "value1")
-	clock.advance(6 * time.Minute)
-
-	_, ok := c.Get("key1", cache.NoStamp)
-	if ok {
-		t.Error("expected key to be expired")
-	}
-}
-
 // fakeClock ages a cache without sleeping. One clock belongs to one test, so
 // it needs no locking.
 type fakeClock struct{ at time.Time }
@@ -58,92 +18,120 @@ func newFakeClock() *fakeClock {
 func (c *fakeClock) now() time.Time          { return c.at }
 func (c *fakeClock) advance(d time.Duration) { c.at = c.at.Add(d) }
 
-func TestTTLCacheClear(t *testing.T) {
+// An entry is served as set until its TTL has passed, the last Set wins, and
+// Delete and Clear drop what they name and nothing else.
+func TestTTLCache_ServesWhatWasSetUntilItsTTL(t *testing.T) {
 	t.Parallel()
-	c := cache.NewTTLCache[string](5 * time.Minute)
 
-	c.Set("key1", cache.NoStamp, "value1")
-	c.Set("key2", cache.NoStamp, "value2")
-
-	c.Clear()
-
-	_, ok1 := c.Get("key1", cache.NoStamp)
-	_, ok2 := c.Get("key2", cache.NoStamp)
-
-	if ok1 || ok2 {
-		t.Error("expected all keys to be cleared")
+	tests := []struct {
+		act  func(c *cache.TTLCache[string], clock *fakeClock)
+		want map[string]string
+		name string
+	}{
+		{
+			name: "set then get",
+			act:  func(_ *cache.TTLCache[string], _ *fakeClock) {},
+			want: map[string]string{"k1": "v1", "k2": "v2"},
+		},
+		{
+			name: "the last set wins",
+			act:  func(c *cache.TTLCache[string], _ *fakeClock) { c.Set("k1", cache.NoStamp, "v3") },
+			want: map[string]string{"k1": "v3", "k2": "v2"},
+		},
+		{
+			name: "served at exactly its TTL",
+			act:  func(_ *cache.TTLCache[string], clock *fakeClock) { clock.advance(5 * time.Minute) },
+			want: map[string]string{"k1": "v1", "k2": "v2"},
+		},
+		{
+			name: "gone past its TTL",
+			act:  func(_ *cache.TTLCache[string], clock *fakeClock) { clock.advance(5*time.Minute + time.Nanosecond) },
+			want: map[string]string{},
+		},
+		{
+			name: "a later set restarts the TTL",
+			act: func(c *cache.TTLCache[string], clock *fakeClock) {
+				clock.advance(4 * time.Minute)
+				c.Set("k2", cache.NoStamp, "v2")
+				clock.advance(2 * time.Minute)
+			},
+			want: map[string]string{"k2": "v2"},
+		},
+		{
+			name: "delete drops one key",
+			act:  func(c *cache.TTLCache[string], _ *fakeClock) { c.Delete("k1"); c.Delete("missing") },
+			want: map[string]string{"k2": "v2"},
+		},
+		{
+			name: "clear drops every key",
+			act:  func(c *cache.TTLCache[string], _ *fakeClock) { c.Clear() },
+			want: map[string]string{},
+		},
 	}
-}
 
-func TestTTLCacheDelete(t *testing.T) {
-	t.Parallel()
-	c := cache.NewTTLCache[string](5 * time.Minute)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	c.Set("key1", cache.NoStamp, "value1")
-	c.Set("key2", cache.NoStamp, "value2")
+			clock := newFakeClock()
+			c := cache.NewTTLCacheWithClock[string](5*time.Minute, clock.now)
+			c.Set("k1", cache.NoStamp, "v1")
+			c.Set("k2", cache.NoStamp, "v2")
 
-	c.Delete("key1")
+			tc.act(c, clock)
 
-	_, ok1 := c.Get("key1", cache.NoStamp)
-	_, ok2 := c.Get("key2", cache.NoStamp)
-
-	if ok1 {
-		t.Error("expected key1 to be deleted")
+			for _, key := range []string{"k1", "k2", "missing"} {
+				got, ok := c.Get(key, cache.NoStamp)
+				want, held := tc.want[key]
+				if ok != held || got != want {
+					t.Errorf("Get(%q) = %q, %v, want %q, %v", key, got, ok, want, held)
+				}
+			}
+		})
 	}
-	if !ok2 {
-		t.Error("expected key2 to still exist")
-	}
-}
 
-func TestTTLCacheOverwrite(t *testing.T) {
-	t.Parallel()
-	c := cache.NewTTLCache[string](5 * time.Minute)
-
-	c.Set("key1", cache.NoStamp, "value1")
-	c.Set("key1", cache.NoStamp, "value2")
-
-	value, ok := c.Get("key1", cache.NoStamp)
-	if !ok {
-		t.Error("expected key to exist")
-	}
-	if value != "value2" {
-		t.Errorf("expected 'value2', got '%s'", value)
-	}
-}
-
-func TestTTLCacheWithInt(t *testing.T) {
-	t.Parallel()
-	c := cache.NewTTLCache[int](5 * time.Minute)
-
-	c.Set("count", cache.NoStamp, 42)
-
-	value, ok := c.Get("count", cache.NoStamp)
-	if !ok {
-		t.Error("expected key to exist")
-	}
-	if value != 42 {
-		t.Errorf("expected 42, got %d", value)
-	}
-}
-
-func TestTTLCacheWithStruct(t *testing.T) {
-	t.Parallel()
-	type TestData struct {
+	type data struct {
 		Name  string
 		Count int
 	}
 
-	c := cache.NewTTLCache[TestData](5 * time.Minute)
+	structs := cache.NewTTLCache[data](time.Minute)
+	structs.Set("d", cache.NoStamp, data{Name: "test", Count: 5})
 
-	data := TestData{Name: "test", Count: 5}
-	c.Set("data", cache.NoStamp, data)
-
-	value, ok := c.Get("data", cache.NoStamp)
-	if !ok {
-		t.Error("expected key to exist")
+	if got, ok := structs.Get("d", cache.NoStamp); !ok || got != (data{Name: "test", Count: 5}) {
+		t.Errorf("a struct value read back as %+v, %v", got, ok)
 	}
-	if value.Name != "test" || value.Count != 5 {
-		t.Errorf("expected {test, 5}, got {%s, %d}", value.Name, value.Count)
+}
+
+// Fresh serves a value only to the checkout stamp it was written or read
+// under, however old it is, and never to a checkout that could not be
+// stamped.
+func TestTTLCache_FreshFollowsTheStampNotTheTTL(t *testing.T) {
+	t.Parallel()
+
+	clock := newFakeClock()
+	c := cache.NewTTLCacheWithClock[int](time.Minute, clock.now)
+	written := cache.Stamp{Scope: "/repo", Fingerprint: "a"}
+
+	c.Set("k", written, 7)
+	clock.advance(time.Hour)
+
+	for _, tc := range []struct {
+		stamp cache.Stamp
+		ok    bool
+	}{
+		{written, true},
+		{cache.Stamp{Scope: "/repo", Fingerprint: "b"}, false},
+		{cache.Stamp{Scope: "/other", Fingerprint: "a"}, false},
+		{cache.Stamp{Scope: "/repo"}, false},
+	} {
+		if got, ok := c.Fresh("k", tc.stamp); ok != tc.ok || (ok && got != 7) {
+			t.Errorf("Fresh(%+v) = %d, %v, want ok %v", tc.stamp, got, ok, tc.ok)
+		}
+	}
+
+	if _, ok := c.Fresh("missing", written); ok {
+		t.Error("Fresh served a key never set")
 	}
 }
 

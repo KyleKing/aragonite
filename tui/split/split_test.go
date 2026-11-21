@@ -1,6 +1,7 @@
 package split_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -135,11 +136,91 @@ func TestRenderSizesRenderers(t *testing.T) {
 	}
 }
 
-func TestMainWidthEvenSplit(t *testing.T) {
+func TestMainWidth(t *testing.T) {
 	t.Parallel()
 
-	even := split.Spec{SideMin: 100}
-	if got := even.MainWidth(split.Side, 101); got != 50 {
-		t.Fatalf("MainWidth = %d, want 50", got)
+	tests := []struct {
+		name      string
+		spec      split.Spec
+		placement split.Placement
+		width     int
+		want      int
+	}{
+		{name: "even split", spec: split.Spec{}, placement: split.Side, width: 101, want: 50},
+		{
+			name:      "even split around a padded rule",
+			spec:      split.Spec{Pad: 2},
+			placement: split.Side,
+			width:     101,
+			want:      48,
+		},
+		{name: "capped", spec: split.Spec{MainMax: 30}, placement: split.Side, width: 101, want: 30},
+		{name: "a cap of one", spec: split.Spec{MainMax: 1}, placement: split.Side, width: 101, want: 1},
+		{
+			name:      "the cap yields to the rule",
+			spec:      split.Spec{MainMax: 100, Pad: 1},
+			placement: split.Side,
+			width:     50,
+			want:      47,
+		},
+		{name: "below is full width", spec: split.Spec{MainMax: 30}, placement: split.Below, width: 101, want: 101},
+		{name: "none is full width", spec: split.Spec{MainMax: 30}, placement: split.None, width: 101, want: 101},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tc.spec.MainWidth(tc.placement, tc.width); got != tc.want {
+				t.Errorf("MainWidth = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// Each block is cut and padded to its own share, and a padded rule sits
+// between side-by-side blocks.
+func TestRender_JoinsTheBlocks(t *testing.T) {
+	t.Parallel()
+
+	small := split.Spec{SideMin: 10, MainMax: 4, BelowPercent: 50, Pad: 1}
+	main := func(int, int) []string { return []string{"main block", "m"} }
+	detail := func(int, int) []string { return []string{"detail block", "d", "x"} }
+	rule := split.Styles{Rule: lipgloss.NewStyle().Transform(func(s string) string { return "[" + s + "]" })}
+
+	tests := []struct {
+		name          string
+		want          []string
+		placement     split.Placement
+		width, height int
+	}{
+		{
+			name:      "side",
+			placement: split.Side,
+			width:     13,
+			height:    3,
+			want:      []string{"main [│] detail", "m    [│] d     ", "     [│] x     "},
+		},
+		{
+			name:      "below",
+			placement: split.Below,
+			width:     6,
+			height:    4,
+			want:      []string{"main b", "m     ", "detail", "d     "},
+		},
+		{name: "none", placement: split.None, width: 6, height: 3, want: []string{"main b", "m     ", "      "}},
+		{name: "no width", placement: split.None, width: 0, height: 3, want: nil},
+		{name: "no height", placement: split.Side, width: 13, height: 0, want: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := small.Render(tc.placement, rule, tc.width, tc.height, main, detail)
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("Render =\n%q\nwant\n%q", got, tc.want)
+			}
+		})
 	}
 }

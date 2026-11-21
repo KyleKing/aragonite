@@ -40,12 +40,19 @@ func TestParseJJBookmarkList(t *testing.T) {
 			},
 		},
 		{
-			name: "colocated git remote is ignored",
+			name: "colocated git remote and other remotes are ignored",
 			input: "main\tlocal\n" +
-				"main\torigin\t0\t1\n",
+				"main\torigin\t0\t1\n" +
+				"main\tgit\t5\t5\n" +
+				"main\tfork\t7\t7\n",
 			expected: []vcs.JJBookmark{
 				vcs.NewJJBookmark("main", "main@origin", 0, 1, ""),
 			},
+		},
+		{
+			name:     "a bookmark only on a fork has no upstream",
+			input:    "feature\tfork\t3\t4\n",
+			expected: []vcs.JJBookmark{vcs.NewJJBookmark("feature", "", 0, 0, "")},
 		},
 		{
 			name:     "local bookmark carries head commit id",
@@ -138,18 +145,14 @@ func parseJJStatusCounts(out string) int {
 	return count
 }
 
-func TestJJOperationsVCSType(t *testing.T) {
+func TestOperationsVCSType(t *testing.T) {
 	t.Parallel()
-	ops := vcs.NewJJOperations()
-	if ops.VCSType().String() != "jj" {
-		t.Errorf("expected jj, got %s", ops.VCSType().String())
-	}
-}
 
-func TestGitOperationsVCSType(t *testing.T) {
-	t.Parallel()
-	ops := vcs.NewGitOperations()
-	if ops.VCSType().String() != "git" {
-		t.Errorf("expected git, got %s", ops.VCSType().String())
+	if got := vcs.NewJJOperations().VCSType(); got != vcs.TypeJJ || got.String() != "jj" {
+		t.Errorf("jj operations report %v (%s)", got, got.String())
+	}
+
+	if got := vcs.NewGitOperations().VCSType(); got != vcs.TypeGit || got.String() != "git" {
+		t.Errorf("git operations report %v (%s)", got, got.String())
 	}
 }

@@ -1,6 +1,9 @@
 package github_test
 
 import (
+	"context"
+	"errors"
+	"maps"
 	"strings"
 	"testing"
 
@@ -11,89 +14,119 @@ import (
 
 const mutateRepoPath = "/repo"
 
+// A mutation runs one gh call, answers what gh printed, and drops the cached
+// pull request views only once gh succeeded.
+//
 //nolint:paralleltest // asserts against shared global cache state
-func TestCreatePR(t *testing.T) {
-	cache.ClearAll()
-
-	ctx, calls := stubRunGH([]byte("https://github.com/acme/app/pull/7\n"), nil)
-	github.PRListCache.Set(
-		github.PRListCacheKey(mutateRepoPath, testRemoteID, "origin/main"),
-		cache.NoStamp,
-		[]forge.PullRequest{{Number: 1}},
-	)
-
-	url, err := github.CreatePR(ctx, mutateRepoPath, "feature", "main")
-	if err != nil {
-		t.Fatal(err)
+func TestMutations_RunGHThenInvalidate(t *testing.T) {
+	tests := []struct {
+		runErr error
+		mutate func(ctx context.Context) (string, error)
+		name   string
+		out    string
+		args   string
+		want   string
+	}{
+		{
+			name: "create against a base", out: "Creating pull request\nhttps://github.com/acme/app/pull/7\n",
+			mutate: func(ctx context.Context) (string, error) {
+				return github.CreatePR(ctx, mutateRepoPath, "feature", "main")
+			},
+			args: "pr create --fill --head feature --base main", want: "https://github.com/acme/app/pull/7",
+		},
+		{
+			name: "create without a base", out: "https://github.com/acme/app/pull/8",
+			mutate: func(ctx context.Context) (string, error) {
+				return github.CreatePR(ctx, mutateRepoPath, "feature", "")
+			},
+			args: "pr create --fill --head feature", want: "https://github.com/acme/app/pull/8",
+		},
+		{
+			name: "create fails", runErr: errGHFailed,
+			mutate: func(ctx context.Context) (string, error) {
+				return github.CreatePR(ctx, mutateRepoPath, "feature", "main")
+			},
+			args: "pr create --fill --head feature --base main",
+		},
+		{
+			name: "squash merge",
+			mutate: func(ctx context.Context) (string, error) {
+				return "", github.SquashMergePR(ctx, mutateRepoPath, 42)
+			},
+			args: "pr merge 42 --squash --delete-branch",
+		},
+		{
+			name: "squash merge fails", runErr: errGHFailed,
+			mutate: func(ctx context.Context) (string, error) {
+				return "", github.SquashMergePR(ctx, mutateRepoPath, 42)
+			},
+			args: "pr merge 42 --squash --delete-branch",
+		},
 	}
-	if url != "https://github.com/acme/app/pull/7" {
-		t.Errorf("expected the new PR URL, got %q", url)
-	}
 
-	got := strings.Join((*calls)[0], " ")
-	if got != "pr create --fill --head feature --base main" {
-		t.Errorf("unexpected gh args: %q", got)
-	}
-	if _, ok := github.CachedPRs(mutateRepoPath, testRemoteID, "origin/main"); ok {
-		t.Error("expected the PR list cache to be invalidated")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cache.ClearAll()
+
+			ctx, calls := stubRunGH([]byte(tc.out), tc.runErr)
+			github.PRListCache.Set(
+				github.PRListCacheKey(mutateRepoPath, testRemoteID, "origin/main"),
+				cache.NoStamp,
+				[]forge.PullRequest{{Number: 1}},
+			)
+			github.MergedPRHeadsCache.Set(
+				github.MergedPRHeadsCacheKey(mutateRepoPath, testRemoteID),
+				cache.NoStamp,
+				map[string]string{"feature": "abc123"},
+			)
+
+			got, err := tc.mutate(ctx)
+			if !errors.Is(err, tc.runErr) || (tc.runErr == nil && err != nil) || got != tc.want {
+				t.Fatalf("= %q, %v, want %q, %v", got, err, tc.want, tc.runErr)
+			}
+
+			if len(*calls) != 1 || strings.Join((*calls)[0], " ") != tc.args {
+				t.Errorf("gh calls = %q, want one: %s", *calls, tc.args)
+			}
+
+			_, listHeld := github.CachedPRs(mutateRepoPath, testRemoteID, "origin/main")
+			_, headsHeld := github.CachedMergedPRHeads(mutateRepoPath, testRemoteID)
+
+			if wantHeld := tc.runErr != nil; listHeld != wantHeld || headsHeld != wantHeld {
+				t.Errorf("caches held list=%v heads=%v, want %v", listHeld, headsHeld, wantHeld)
+			}
+		})
 	}
 }
 
+// A mutation changes what every checkout of the remote sees, so every pull
+// request view is dropped and nothing else is.
+//
 //nolint:paralleltest // asserts against shared global cache state
-func TestCreatePRWithoutBase(t *testing.T) {
+func TestInvalidatePRCaches_DropsEveryPullRequestView(t *testing.T) {
 	cache.ClearAll()
 
-	ctx, calls := stubRunGH([]byte("https://github.com/acme/app/pull/8"), nil)
-	if _, err := github.CreatePR(ctx, mutateRepoPath, "feature", ""); err != nil {
-		t.Fatal(err)
+	github.PRCache.Set("k", cache.NoStamp, &forge.PullRequest{Number: 1})
+	github.PRListCache.Set("k", cache.NoStamp, []forge.PullRequest{{Number: 1}})
+	github.PRDetailCache.Set("k", cache.NoStamp, &forge.PRDetail{})
+	github.PRPreviewCache.Set("k", cache.NoStamp, &forge.PRPreview{})
+	github.MergedPRHeadsCache.Set("k", cache.NoStamp, map[string]string{"a": "b"})
+	github.WorkflowCache.Set("k", cache.NoStamp, &forge.WorkflowSummary{Total: 1})
+
+	github.InvalidatePRCaches()
+
+	held := map[string]bool{}
+	_, held["pr"] = github.PRCache.Get("k", cache.NoStamp)
+	_, held["list"] = github.PRListCache.Get("k", cache.NoStamp)
+	_, held["detail"] = github.PRDetailCache.Get("k", cache.NoStamp)
+	_, held["preview"] = github.PRPreviewCache.Get("k", cache.NoStamp)
+	_, held["merged heads"] = github.MergedPRHeadsCache.Get("k", cache.NoStamp)
+	_, held["workflow"] = github.WorkflowCache.Get("k", cache.NoStamp)
+
+	want := map[string]bool{
+		"pr": false, "list": false, "detail": false, "preview": false, "merged heads": false, "workflow": true,
 	}
-
-	got := strings.Join((*calls)[0], " ")
-	if got != "pr create --fill --head feature" {
-		t.Errorf("unexpected gh args: %q", got)
-	}
-}
-
-//nolint:paralleltest // asserts against shared global cache state
-func TestCreatePRError(t *testing.T) {
-	cache.ClearAll()
-
-	ctx, _ := stubRunGH(nil, errGHFailed)
-	if _, err := github.CreatePR(ctx, mutateRepoPath, "feature", "main"); err == nil {
-		t.Error("expected an error when gh fails")
-	}
-}
-
-//nolint:paralleltest // asserts against shared global cache state
-func TestSquashMergePR(t *testing.T) {
-	cache.ClearAll()
-
-	ctx, calls := stubRunGH([]byte(""), nil)
-	github.MergedPRHeadsCache.Set(
-		github.MergedPRHeadsCacheKey(mutateRepoPath, testRemoteID),
-		cache.NoStamp,
-		map[string]string{"feature": "abc123"},
-	)
-
-	if err := github.SquashMergePR(ctx, mutateRepoPath, 42); err != nil {
-		t.Fatal(err)
-	}
-
-	got := strings.Join((*calls)[0], " ")
-	if got != "pr merge 42 --squash --delete-branch" {
-		t.Errorf("unexpected gh args: %q", got)
-	}
-	if _, ok := github.CachedMergedPRHeads(mutateRepoPath, testRemoteID); ok {
-		t.Error("expected the merged-PR head cache to be invalidated")
-	}
-}
-
-//nolint:paralleltest // asserts against shared global cache state
-func TestSquashMergePRError(t *testing.T) {
-	cache.ClearAll()
-
-	ctx, _ := stubRunGH(nil, errGHFailed)
-	if err := github.SquashMergePR(ctx, mutateRepoPath, 42); err == nil {
-		t.Error("expected an error when gh fails")
+	if !maps.Equal(held, want) {
+		t.Errorf("held after invalidation = %v, want %v", held, want)
 	}
 }

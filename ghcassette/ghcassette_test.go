@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -73,6 +74,18 @@ func TestRoundTrip(t *testing.T) {
 	rec := ghcassette.Start(t, cassette)
 	if !rec.Recording() {
 		t.Fatal("expected a recording session")
+	}
+
+	// Recording hands the stub the real gh, resolved from the PATH the process
+	// started with rather than the stub's own directory.
+	realGH, err := exec.LookPath("gh")
+	if err != nil {
+		t.Fatalf("recording needs gh on PATH: %v", err)
+	}
+
+	env := rec.Env(t)
+	if !slices.Contains(env, "GH_CASSETTE_REAL="+realGH) || !slices.Contains(env, "GH_CASSETTE_MODE=record") {
+		t.Errorf("a recording's environment does not name the real gh %s: %q", realGH, env[len(env)-2:])
 	}
 
 	ghPath := fakeGH(t, 3)

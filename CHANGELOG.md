@@ -1,3 +1,16 @@
+## v1.20.0 (2026-11-23)
+
+### Feat
+
+- **icons**: add Nerd Font file and state icons with a unicode fallback
+- **skin**: share diff faces, a file band, and labeled-rule headings
+- **overview**: add a typed overview track for a frame's right edge
+- **diff**: add AlignRun to lay a change run out side by side
+
+### Fix
+
+- **diff**: keep short lines from anchoring the line pairing
+
 ## v1.19.0 (2026-11-15)
 
 ### Feat

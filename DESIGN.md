@@ -28,7 +28,7 @@ flowchart TD
     forge["forge"]
     github["forge/github"]
     display["display"]
-    tui["tui/table, tui/box, tui/region, tui/markdown, tui/theme, tui/frame, tui/handoff, tui/commandbar"]
+    tui["tui/table, tui/box, tui/region, tui/markdown, tui/theme, tui/frame, tui/handoff, tui/commandbar, tui/overview, tui/icons"]
 
     vcs --> cache
     github --> forge & cache & vcs
@@ -64,6 +64,12 @@ from a palette.
 Everything else under `tui/` follows from that. `tui/markdown` takes a `Styles`
 argument naming three roles rather than reaching for a palette, and `tui/table` and
 `tui/region` take rendered strings and measure them. None of them can name a color.
+
+`tui/skin` and `tui/icons` are the deliberate exceptions, and for the same reason: a
+title's face and a Go file's icon are vocabulary the tools have to share, or three
+tools invent three greys and three file glyphs. Each names roles out of a palette it
+is handed and never a literal color. Every icon is one cell in both the Nerd Font set
+(the default) and the unicode set, so the set a reader picks never moves a column.
 
 `display` is the same rule one step further out: it emits plain strings with no
 styling at all, because two tools reading one checkout style it differently even when

@@ -133,6 +133,30 @@ func TestRefinePairsALineAcrossANewIndent(t *testing.T) {
 	}
 }
 
+// A closing brace removed above an edit and added below it matches the other
+// brace better than the edit matches itself, so it must not anchor the pairing
+// and push the edited line off it.
+func TestRefineIgnoresAStrayBrace(t *testing.T) {
+	t.Parallel()
+
+	patch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,3 +1,3 @@\n" +
+		"-\t}\n-\t}\n-\tresult := compute(alpha, first)\n" +
+		"+\tresult := compute(alpha, second)\n+\t}\n+\t}\n"
+
+	d := diff.Parse([]byte(patch))
+	gone := diff.LineRef{Path: "a.go", Kind: diff.KindRemove, Old: 3}
+	came := diff.LineRef{Path: "a.go", Kind: diff.KindAdd, New: 1}
+
+	if got := marked("\tresult := compute(alpha, second)", d.Refine()[came]); got !=
+		"\tresult := compute(alpha, [second])" {
+		t.Errorf("the edited line marked as %q", got)
+	}
+
+	if mate, ok := d.Mates()[gone]; !ok || mate.New != 1 {
+		t.Errorf("the edited line's mate = %+v, %v; want the added line 1", mate, ok)
+	}
+}
+
 func patchOf(before, after string) string {
 	return "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,1 +1,1 @@\n" +
 		"-" + before + "\n+" + after + "\n"

@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -82,12 +83,52 @@ func (d *Diff) pair() pairing {
 	return *d.paired
 }
 
+// blockCap bounds the line pairing, which is quadratic in a block's lines.
+const blockCap = 160_000
+
+// indentKey is a line's text without its indent, or a key nothing matches
+// where that text is too short to mean anything.
+func indentKey(text, side string, at int) string {
+	if unimportant(text) {
+		return side + strconv.Itoa(at) + "\x00"
+	}
+
+	return strings.TrimLeft(text, " \t")
+}
+
+// reindented reports two different lines that say the same thing at another indent.
+func reindented(before, after string) bool {
+	return before != after && !unimportant(before) &&
+		strings.TrimLeft(before, " \t") == strings.TrimLeft(after, " \t")
+}
+
+// unimportant reports a line too short to anchor a pairing on its own: a lone
+// `}`, `)`, `end`, or a blank. Any two of them look alike, so letting one decide
+// a pair pulls the alignment away from the lines that carry the change.
+func unimportant(text string) bool {
+	return len(strings.TrimSpace(text)) < indentFloor
+}
+
+// indentFloor is the shortest trimmed text that anchors a pairing, so a lone
+// brace or `)` does not pair across a block.
+const indentFloor = 4
+
+func refineOne(out pairing, path string, gone, came Line) {
+	before, after, ok := mark(gone.Text, came.Text)
+	if !ok {
+		return
+	}
+
+	out.marks[refOf(path, gone)] = before
+	out.marks[refOf(path, came)] = after
+	out.mate[refOf(path, gone)], out.mate[refOf(path, came)] = came, gone
+}
+
 func refineFile(out pairing, path string, lines []Line) {
 	var gone, came []Line
 
 	flush := func() {
-		gone, came = refineReindented(out, path, gone, came)
-		align(out, path, gone, came)
+		refineBlock(out, path, gone, came)
 
 		gone, came = nil, nil
 	}
@@ -116,129 +157,151 @@ func refineFile(out pairing, path string, lines []Line) {
 	flush()
 }
 
-// refineReindented pairs a block's lines that say the same thing at another indent,
-// so a line pushed under a new `if` does not pair with the `if` by position.
-func refineReindented(out pairing, path string, gone, came []Line) ([]Line, []Line) {
-	if len(gone) == 0 || len(came) == 0 || len(gone)*len(came) > blockCap {
-		return gone, came
-	}
-
-	left, right := make([]string, len(gone)), make([]string, len(came))
-	for i, l := range gone {
-		left[i] = indentKey(l.Text, "-", i)
-	}
-
-	for i, l := range came {
-		right[i] = indentKey(l.Text, "+", i)
-	}
-
-	atLeft, atRight := common(left, right)
-	if len(atLeft) == 0 {
-		return gone, came
-	}
-
-	paired := map[int]bool{}
-
-	for k := range atLeft {
-		g, c := gone[atLeft[k]], came[atRight[k]]
-		refineOne(out, path, g, c)
-		paired[atLeft[k]] = true
-
-		if g.Text != c.Text {
-			out.reindented[refOf(path, g)], out.reindented[refOf(path, c)] = true, true
-		}
-	}
-
-	restGone := make([]Line, 0, len(gone)-len(atLeft))
-
-	for i, l := range gone {
-		if !paired[i] {
-			restGone = append(restGone, l)
-		}
-	}
-
-	clear(paired)
-
-	for _, at := range atRight {
-		paired[at] = true
-	}
-
-	restCame := make([]Line, 0, len(came)-len(atRight))
-
-	for i, l := range came {
-		if !paired[i] {
-			restCame = append(restCame, l)
-		}
-	}
-
-	return restGone, restCame
-}
-
-// blockCap bounds the line pairing, which is quadratic in a block's lines.
-const blockCap = 160_000
-
-// indentKey is a line's text without its indent, or a key nothing matches
-// where that text is too short to mean anything.
-func indentKey(text, side string, at int) string {
-	trimmed := strings.TrimLeft(text, " \t")
-	if len(strings.TrimSpace(trimmed)) < indentFloor {
-		return side + strconv.Itoa(at) + "\x00"
-	}
-
-	return trimmed
-}
-
-// indentFloor is the shortest text a re-indented line is matched on, so a lone
-// brace or `)` does not pair across a block.
-const indentFloor = 4
-
-func refineOne(out pairing, path string, gone, came Line) {
-	before, after, ok := mark(gone.Text, came.Text)
-	if !ok {
-		return
-	}
-
-	out.marks[refOf(path, gone)] = before
-	out.marks[refOf(path, came)] = after
-	out.mate[refOf(path, gone)], out.mate[refOf(path, came)] = came, gone
-}
-
-// align pairs a block's removals with its additions by best match rather than
-// by position, so a prose edit that merged two lines into one still pairs the
-// line it kept instead of showing three whole-line changes. Pairs may not
-// cross: two lines that traded places are a move, which pair() has already
-// taken out of the block.
-func align(out pairing, path string, gone, came []Line) {
+// refineBlock marks every pair alignBlock finds in one change block, and flags
+// a pair saying the same thing at another indent as re-indented.
+func refineBlock(out pairing, path string, gone, came []Line) {
 	if len(gone) == 0 || len(came) == 0 {
 		return
 	}
 
-	if len(gone)*len(came) > blockCap {
-		// The match table is quadratic in the block, which the same cap as the
-		// reindent pairing bounds. Past it the positional pairing is what a
-		// huge generated block gets.
-		for at := range min(len(gone), len(came)) {
-			refineOne(out, path, gone[at], came[at])
-		}
-
-		return
-	}
-
-	for _, pair := range matched(score(gone, came)) {
-		refineOne(out, path, gone[pair[0]], came[pair[1]])
-	}
-}
-
-// score weighs every removal against every addition on their shared tokens
-// over the mean length, and floors out the pairs too unlike to mark.
-func score(gone, came []Line) [][]float64 {
-	left, right := make([]map[string]int, len(gone)), make([]map[string]int, len(came))
+	left, right := make([]string, len(gone)), make([]string, len(came))
 	for i, l := range gone {
-		left[i] = bagOf(l.Text)
+		left[i] = l.Text
 	}
 
 	for i, l := range came {
-		right[i] = bagOf(l.Text)
+		right[i] = l.Text
+	}
+
+	for _, pair := range alignBlock(left, right) {
+		g, c := gone[pair[0]], came[pair[1]]
+		refineOne(out, path, g, c)
+
+		if reindented(g.Text, c.Text) {
+			out.reindented[refOf(path, g)], out.reindented[refOf(path, c)] = true, true
+		}
+	}
+}
+
+// alignBlock pairs a block's removals with its additions, as index pairs in
+// ascending order that never cross. It runs in three tiers, each confined to
+// the stretches the tiers before it left between their pairs:
+//
+//  1. Lines saying the same thing at another indent, so a line pushed under a
+//     new `if` does not pair with the `if` by position.
+//  2. The best match by shared tokens among lines long enough to mean
+//     something, so a prose edit that merged two lines still pairs the line
+//     it kept. Two lines that traded places are a move, which pair() has
+//     already taken out of the block.
+//  3. The same match with the short lines let in, only where an earlier pair
+//     anchors the stretch. A lone `}` matches any other, so allowed to anchor
+//     it would outweigh one real edit and push it off the alignment.
+func alignBlock(gone, came []string) [][2]int {
+	if len(gone) == 0 || len(came) == 0 {
+		return nil
+	}
+
+	if len(gone)*len(came) > blockCap {
+		// The match table is quadratic in the block, so past the cap the
+		// positional pairing is what a huge generated block gets.
+		out := make([][2]int, min(len(gone), len(came)))
+		for at := range out {
+			out[at] = [2]int{at, at}
+		}
+
+		return out
+	}
+
+	pairs := reindentPairs(gone, came)
+	weights := score(gone, came)
+	shortGone, shortCame := shortLines(gone), shortLines(came)
+
+	pairs = between(pairs, len(gone), len(came), func(i, j int) float64 {
+		if shortGone[i] || shortCame[j] {
+			return 0
+		}
+
+		return weights[i][j]
+	})
+
+	if len(pairs) == 0 {
+		return nil
+	}
+
+	return between(pairs, len(gone), len(came), func(i, j int) float64 { return weights[i][j] })
+}
+
+// reindentPairs is the longest run of pairs that match once their indent is
+// set aside, leaving out the short lines that would match anything.
+func reindentPairs(gone, came []string) [][2]int {
+	left, right := make([]string, len(gone)), make([]string, len(came))
+	for i, text := range gone {
+		left[i] = indentKey(text, "-", i)
+	}
+
+	for i, text := range came {
+		right[i] = indentKey(text, "+", i)
+	}
+
+	atLeft, atRight := common(left, right)
+	out := make([][2]int, len(atLeft))
+
+	for k := range atLeft {
+		out[k] = [2]int{atLeft[k], atRight[k]}
+	}
+
+	return out
+}
+
+// shortLines flags each line unimportant reports.
+func shortLines(lines []string) []bool {
+	out := make([]bool, len(lines))
+	for i, text := range lines {
+		out[i] = unimportant(text)
+	}
+
+	return out
+}
+
+// between keeps the anchors and adds the best non-crossing pairs weight
+// offers in each stretch of an n-by-m block they leave open, in ascending order.
+func between(anchors [][2]int, n, m int, weight func(i, j int) float64) [][2]int {
+	out := make([][2]int, 0, len(anchors))
+	i, j := 0, 0
+
+	for k := 0; k <= len(anchors); k++ {
+		anchor := [2]int{n, m}
+		if k < len(anchors) {
+			anchor = anchors[k]
+		}
+
+		for _, pair := range matched(anchor[0]-i, anchor[1]-j, func(di, dj int) float64 {
+			return weight(i+di, j+dj)
+		}) {
+			out = append(out, [2]int{i + pair[0], j + pair[1]})
+		}
+
+		if k < len(anchors) {
+			out = append(out, anchor)
+		}
+
+		i, j = anchor[0]+1, anchor[1]+1
+	}
+
+	return out
+}
+
+// score weighs every removal against every addition on their shared tokens
+// over the mean length, and floors out the pairs too unlike to mark. Two equal
+// lines weigh fully, blank ones included, since they plainly sit opposite.
+func score(gone, came []string) [][]float64 {
+	left, right := make([]map[string]int, len(gone)), make([]map[string]int, len(came))
+	for i, text := range gone {
+		left[i] = bagOf(text)
+	}
+
+	for i, text := range came {
+		right[i] = bagOf(text)
 	}
 
 	out := make([][]float64, len(gone))
@@ -248,10 +311,17 @@ func score(gone, came []Line) [][]float64 {
 		out[i] = cells[i*len(came) : (i+1)*len(came)]
 
 		for j := range came {
-			mean := float64(len(gone[i].Text)+len(came[j].Text)) / halves
+			if gone[i] == came[j] {
+				out[i][j] = 1
+
+				continue
+			}
+
+			mean := float64(len(gone[i])+len(came[j])) / halves
 			if mean > 0 {
 				out[i][j] = float64(shared(left[i], right[j])) / mean
 			}
+
 			if out[i][j] < sameEnough {
 				out[i][j] = 0
 			}
@@ -261,34 +331,39 @@ func score(gone, came []Line) [][]float64 {
 	return out
 }
 
-// matched walks back the best non-crossing set of pairs a score table offers,
-// which is a longest-subsequence alignment scored on lines instead of tokens.
-func matched(score [][]float64) [][2]int {
-	cols := len(score[0]) + 1
-	best := make([]float64, (len(score)+1)*cols)
+// matched walks back the best non-crossing set of pairs an n-by-m weight
+// table offers, in ascending order, which is a longest-subsequence alignment
+// scored on lines instead of tokens. A pair weighing nothing is never kept.
+func matched(n, m int, weight func(i, j int) float64) [][2]int {
+	if n <= 0 || m <= 0 {
+		return nil
+	}
+
+	cols := m + 1
+	best := make([]float64, (n+1)*cols)
 
 	at := func(i, j int) float64 { return best[i*cols+j] }
 	set := func(i, j int, v float64) { best[i*cols+j] = v }
 
-	for i := 1; i <= len(score); i++ {
-		for j := 1; j <= len(score[0]); j++ {
+	for i := 1; i <= n; i++ {
+		for j := 1; j <= m; j++ {
 			set(i, j, max(
 				max(at(i-1, j), at(i, j-1)),
-				at(i-1, j-1)+score[i-1][j-1],
+				at(i-1, j-1)+weight(i-1, j-1),
 			))
 		}
 	}
 
 	var out [][2]int
 
-	for i, j := len(score), len(score[0]); i > 0 && j > 0; {
+	for i, j := n, m; i > 0 && j > 0; {
 		switch at(i, j) {
 		case at(i-1, j):
 			i--
 		case at(i, j-1):
 			j--
 		default:
-			if score[i-1][j-1] > 0 {
+			if weight(i-1, j-1) > 0 {
 				out = append(out, [2]int{i - 1, j - 1})
 			}
 
@@ -296,6 +371,8 @@ func matched(score [][]float64) [][2]int {
 			j--
 		}
 	}
+
+	slices.Reverse(out)
 
 	return out
 }

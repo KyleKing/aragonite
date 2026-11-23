@@ -73,6 +73,10 @@ type Skin struct {
 	Panel lipgloss.Style
 	// Edge is the border of a raised block.
 	Edge lipgloss.Style
+	// FileBand is the background of the row naming a file above its lines: a
+	// step lifted off the frame, so files separate by depth rather than by
+	// another rule. It is reverse video under NO_COLOR.
+	FileBand lipgloss.Style
 
 	Success lipgloss.Style
 	Warning lipgloss.Style
@@ -85,24 +89,26 @@ const (
 	selectionLift = 0.06
 	selectionSat  = 0.35
 	bandShare     = 0.16
+	fileBandShare = 0.85
 	noColorEnv    = "NO_COLOR"
 )
 
 // New builds a skin from a palette and the accent that names this tool. A
 // non-empty NO_COLOR draws Selection and Band in reverse video.
 func New(p theme.Palette, accent color.Color) Skin {
-	return build(p, accent, os.Getenv(noColorEnv) != "")
+	return build(p, accent, noColor())
 }
 
 func build(p theme.Palette, accent color.Color, mono bool) Skin {
 	s := p.Semantic()
 	base := lipgloss.NewStyle()
 
+	fileBand := base.Background(theme.Mix(p.Base, p.Surface0, fileBandShare))
 	selection := base.Background(theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat}))
 	band := base.Background(theme.Mix(p.Base, p.Lavender, bandShare))
 
 	if mono {
-		selection, band = base.Reverse(true), base.Reverse(true)
+		selection, band, fileBand = base.Reverse(true), base.Reverse(true), base.Reverse(true)
 	}
 
 	return Skin{
@@ -125,11 +131,14 @@ func build(p theme.Palette, accent color.Color, mono bool) Skin {
 		Card:        base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
 		Panel:       base.Background(p.Mantle),
 		Edge:        base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
+		FileBand:    fileBand,
 		Success:     base.Foreground(s.Success),
 		Warning:     base.Foreground(s.Warning),
 		Error:       base.Foreground(s.Error).Bold(true),
 	}
 }
+
+func noColor() bool { return os.Getenv(noColorEnv) != "" }
 
 // Detected builds a skin for whichever flavor the terminal's background calls
 // for, which is the call every one of these tools makes on startup.

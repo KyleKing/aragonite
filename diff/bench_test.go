@@ -69,3 +69,25 @@ func BenchmarkRefine(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkAlignRun pairs one edited block the size of a large hand-written
+// change: every other line edited in place, with a closing brace between them.
+func BenchmarkAlignRun(b *testing.B) {
+	const lines = 200
+
+	gone, came := make([]string, lines), make([]string, lines)
+	for l := range lines {
+		gone[l] = fmt.Sprintf("\tvalue%d := compute(ctx, %d)", l, l)
+		came[l] = fmt.Sprintf("\tvalue%d := compute(ctx, %d, opts)", l, l)
+
+		if l%2 == 1 {
+			gone[l], came[l] = "\t}", "\t})"
+		}
+	}
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = diff.AlignRun(gone, came)
+	}
+}

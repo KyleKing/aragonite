@@ -183,6 +183,50 @@ func refineBlock(out pairing, path string, gone, came []Line) {
 	}
 }
 
+// AlignRun lays one change run out as side-by-side rows: gone is the removed
+// lines' text in order and came is the added lines' that follow them. Each row
+// is an index into gone and one into came, or -1 on the side that row leaves
+// blank, and every line appears in exactly one row, in order on both sides.
+//
+// A row holding both indexes is a pair the same alignment Refine, Reindented,
+// and Mates read found: a line re-indented under a new block first, then the
+// best non-crossing match by shared tokens. A short line such as `}`, `)`, or
+// `end` never anchors a pair on its own and pairs only in a stretch an anchored
+// pair bounds, so a stray brace cannot pull the alignment out of position.
+// Unlike Mates, a pair is kept even when its two lines are identical or too
+// unlike to mark word by word, because a row says where a line sits, not what
+// changed in it.
+//
+// The rows between two pairs hold the unpaired removals, then the unpaired
+// additions, each opposite a blank. A caller wanting the denser positional
+// layout can zip such a stretch itself. Past the pairing's size cap the run is
+// paired by position.
+func AlignRun(gone, came []string) [][2]int {
+	rows := make([][2]int, 0, max(len(gone), len(came)))
+	i, j := 0, 0
+
+	for _, pair := range alignBlock(gone, came) {
+		rows = unpaired(rows, i, pair[0], j, pair[1])
+		rows = append(rows, pair)
+		i, j = pair[0]+1, pair[1]+1
+	}
+
+	return unpaired(rows, i, len(gone), j, len(came))
+}
+
+// unpaired appends the rows for gone[i0:i1] and came[j0:j1], none of which paired.
+func unpaired(rows [][2]int, i0, i1, j0, j1 int) [][2]int {
+	for i := i0; i < i1; i++ {
+		rows = append(rows, [2]int{i, -1})
+	}
+
+	for j := j0; j < j1; j++ {
+		rows = append(rows, [2]int{-1, j})
+	}
+
+	return rows
+}
+
 // alignBlock pairs a block's removals with its additions, as index pairs in
 // ascending order that never cross. It runs in three tiers, each confined to
 // the stretches the tiers before it left between their pairs:

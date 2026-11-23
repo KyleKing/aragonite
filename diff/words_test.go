@@ -1,6 +1,7 @@
 package diff_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -154,6 +155,84 @@ func TestRefineIgnoresAStrayBrace(t *testing.T) {
 
 	if mate, ok := d.Mates()[gone]; !ok || mate.New != 1 {
 		t.Errorf("the edited line's mate = %+v, %v; want the added line 1", mate, ok)
+	}
+}
+
+func TestAlignRun(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		gone []string
+		came []string
+		want [][2]int
+	}{
+		{
+			name: "a stray brace does not derail the edit",
+			gone: []string{"\t}", "\t}", "\tresult := compute(alpha, first)"},
+			came: []string{"\tresult := compute(alpha, second)", "\t}", "\t}"},
+			want: [][2]int{{0, -1}, {1, -1}, {2, 0}, {-1, 1}, {-1, 2}},
+		},
+		{
+			name: "a short line pairs between anchored edits",
+			gone: []string{"\tfoo(alpha, beta)", "\t}", "\tbar(gamma, delta)"},
+			came: []string{"\tfoo(alpha, betas)", "\t})", "\tbar(gamma, deltas)"},
+			want: [][2]int{{0, 0}, {1, 1}, {2, 2}},
+		},
+		{
+			name: "a short line pairs beside one anchored edit",
+			gone: []string{"\treturn fetch(ctx, id)", ""},
+			came: []string{"\treturn fetch(ctx, key)", ""},
+			want: [][2]int{{0, 0}, {1, 1}},
+		},
+		{
+			name: "short lines alone anchor nothing",
+			gone: []string{"}"},
+			came: []string{"}"},
+			want: [][2]int{{0, -1}, {-1, 0}},
+		},
+		{
+			name: "a line under a new block pairs with itself",
+			gone: []string{"\tfoo(a)", "\tbar(b)"},
+			came: []string{"\tif ok {", "\t\tfoo(a)", "\t\tbar(b)", "\t}"},
+			want: [][2]int{{-1, 0}, {0, 1}, {1, 2}, {-1, 3}},
+		},
+		{
+			name: "the kept line of a merge pairs past a new one",
+			gone: []string{"alpha beta gamma"},
+			came: []string{"something else entirely", "alpha beta gamma delta"},
+			want: [][2]int{{-1, 0}, {0, 1}},
+		},
+		{
+			name: "a rewrite pairs nothing",
+			gone: []string{"\tcount := len(items)"},
+			came: []string{"\treturn fmt.Sprintf(\"%s/%s\", owner, repo)"},
+			want: [][2]int{{0, -1}, {-1, 0}},
+		},
+		{
+			name: "only additions",
+			came: []string{"one", "two"},
+			want: [][2]int{{-1, 0}, {-1, 1}},
+		},
+		{
+			name: "only removals",
+			gone: []string{"one"},
+			want: [][2]int{{0, -1}},
+		},
+		{
+			name: "nothing",
+			want: [][2]int{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := diff.AlignRun(tc.gone, tc.came); !slices.Equal(got, tc.want) {
+				t.Errorf("AlignRun = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

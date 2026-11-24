@@ -110,3 +110,59 @@ func TestStockRanks(t *testing.T) {
 		t.Error("found draws its own glyph")
 	}
 }
+
+// A bar draws each distinct face once and reuses it, so every cell must still be what its own face
+// renders, including faces that differ only in an attribute and faces a key cannot stand for.
+func TestCellsDrawWhatTheirFacesRender(t *testing.T) {
+	t.Parallel()
+
+	track := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	thumb := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
+	red := lipgloss.Color("#ff0000")
+
+	marks := []overview.Mark{
+		overview.Change(10, red),
+		overview.Change(20, lipgloss.Color("2")),
+		{Row: 30, Glyph: "x", Face: lipgloss.NewStyle().Foreground(red).Bold(true), Rank: 1},
+		{Row: 40, Glyph: "x", Face: lipgloss.NewStyle().Foreground(red).Padding(0, 1), Rank: 1},
+		{Row: 50, Glyph: "x", Face: lipgloss.NewStyle().Foreground(red).Underline(true), Rank: 1},
+		overview.Found(60, red),
+		overview.Change(70, red),
+	}
+
+	bar := overview.New(10, 100, 0, track, thumb).Place(marks...)
+
+	want := make([]string, 0, 1+len(marks))
+	want = append(want, thumb.Render(overview.Thumb))
+
+	for _, m := range marks {
+		want = append(want, m.Face.Render(m.Glyph))
+	}
+
+	for i := range 8 {
+		if got := bar.Cell(i); got != want[i] {
+			t.Errorf("cell %d = %q, want %q", i, got, want[i])
+		}
+	}
+
+	if got, again := bar.Cell(9), bar.Cell(9); got != track.Render(overview.Track) || again != got {
+		t.Errorf("an empty cell drew %q then %q, want the track %q", got, again, track.Render(overview.Track))
+	}
+}
+
+// BenchmarkBarLines is one frame's track: a 44-row bar over a file whose every row changed.
+func BenchmarkBarLines(b *testing.B) {
+	marks := make([]overview.Mark, 0, 2000)
+	for i := range 2000 {
+		marks = append(marks, overview.Change(i, lipgloss.Color([]string{"#a6da95", "#ed8796"}[i%2])))
+	}
+
+	track := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	thumb := lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = overview.New(44, 2000, 500, track, thumb).Place(marks...).Lines()
+	}
+}

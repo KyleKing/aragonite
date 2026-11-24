@@ -10,6 +10,7 @@ package overview
 
 import (
 	"image/color"
+	"reflect"
 
 	"charm.land/lipgloss/v2"
 )
@@ -24,7 +25,10 @@ const (
 
 // Mark is one row worth knowing the position of.
 type Mark struct {
-	Face  lipgloss.Style
+	Face lipgloss.Style
+	// stock is the color a stock constructor drew Face in, set only by them, so
+	// a bar can draw every stock mark of one glyph and color from one render.
+	stock color.Color
 	Glyph string
 	Row   int
 	Rank  int
@@ -33,6 +37,7 @@ type Mark struct {
 // Bar is the track for one frame: what each of its cells draws, top to bottom.
 // A nil Bar means the content fits and no track is drawn.
 type Bar struct {
+	drawn map[drawKey]string
 	track lipgloss.Style
 	thumb lipgloss.Style
 	cells []cell
@@ -40,10 +45,12 @@ type Bar struct {
 }
 
 type cell struct {
-	face  *lipgloss.Style
-	glyph string
-	rank  int
-	thumb bool
+	face   lipgloss.Style
+	stock  color.Color
+	glyph  string
+	rank   int
+	thumb  bool
+	marked bool
 }
 
 // New lays out the track for a frame height rows tall over total rows of
@@ -84,12 +91,11 @@ func (b *Bar) Place(marks ...Mark) *Bar {
 		}
 
 		c := &b.cells[i]
-		if c.thumb || (c.face != nil && c.rank >= m.Rank) {
+		if c.thumb || (c.marked && c.rank >= m.Rank) {
 			continue
 		}
 
-		face := m.Face
-		c.glyph, c.face, c.rank = m.Glyph, &face, m.Rank
+		c.glyph, c.face, c.rank, c.marked, c.stock = m.Glyph, m.Face, m.Rank, true, m.stock
 	}
 
 	return b
@@ -113,22 +119,62 @@ func (b *Bar) Width() int {
 	return 1
 }
 
-// Cell renders the track at row i of the frame.
+// Cell renders the track at row i of the frame. A bar draws the track, the
+// thumb, and each stock mark's glyph and color once, since a frame's cells
+// repeat a handful of them and a lipgloss render costs microseconds. A mark whose
+// Face no longer has its stock color, or that was built by hand, renders afresh.
 func (b *Bar) Cell(i int) string {
 	if b == nil || i < 0 || i >= len(b.cells) {
 		return ""
 	}
 
-	c := b.cells[i]
+	c := &b.cells[i]
 
 	switch {
 	case c.thumb:
-		return b.thumb.Render(Thumb)
-	case c.face != nil:
+		return b.draw(drawKey{glyph: Thumb, part: partThumb}, &b.thumb)
+	case c.marked && keyable(c.stock) && c.face.GetForeground() == c.stock:
+		return b.draw(drawKey{glyph: c.glyph, color: c.stock, part: partMark}, &c.face)
+	case c.marked:
 		return c.face.Render(c.glyph)
 	default:
-		return b.track.Render(Track)
+		return b.draw(drawKey{glyph: Track, part: partTrack}, &b.track)
 	}
+}
+
+func (b *Bar) draw(key drawKey, face *lipgloss.Style) string {
+	if out, seen := b.drawn[key]; seen {
+		return out
+	}
+
+	if b.drawn == nil {
+		b.drawn = map[drawKey]string{}
+	}
+
+	out := face.Render(key.glyph)
+	b.drawn[key] = out
+
+	return out
+}
+
+// drawKey names a drawn cell: the track and the thumb by their part, since the
+// bar holds one face for each, and a stock mark by its glyph and color.
+type drawKey struct {
+	color color.Color
+	glyph string
+	part  uint8
+}
+
+// The parts of a bar a drawKey tells apart.
+const (
+	partTrack uint8 = iota
+	partThumb
+	partMark
+)
+
+// keyable says whether c can key a map, which a color type holding a slice cannot.
+func keyable(c color.Color) bool {
+	return c != nil && reflect.TypeOf(c).Comparable()
 }
 
 // Lines renders every cell, top to bottom.
@@ -164,25 +210,25 @@ const (
 // Change marks a changed line in the color of its kind: the added or the
 // removed face, so the track says which way a hunk leans.
 func Change(row int, c color.Color) Mark {
-	return Mark{Row: row, Glyph: GlyphChange, Face: lipgloss.NewStyle().Foreground(c), Rank: RankChange}
+	return Mark{Row: row, Glyph: GlyphChange, Face: lipgloss.NewStyle().Foreground(c), Rank: RankChange, stock: c}
 }
 
 // Act marks a row waiting on the reader: an open finding, a thread to answer.
 func Act(row int, c color.Color) Mark {
-	return Mark{Row: row, Glyph: GlyphAct, Face: lipgloss.NewStyle().Foreground(c), Rank: RankAct}
+	return Mark{Row: row, Glyph: GlyphAct, Face: lipgloss.NewStyle().Foreground(c), Rank: RankAct, stock: c}
 }
 
 // Draft marks a row carrying something the reader wrote and has not sent.
 func Draft(row int, c color.Color) Mark {
-	return Mark{Row: row, Glyph: GlyphDraft, Face: lipgloss.NewStyle().Foreground(c), Rank: RankDraft}
+	return Mark{Row: row, Glyph: GlyphDraft, Face: lipgloss.NewStyle().Foreground(c), Rank: RankDraft, stock: c}
 }
 
 // Done marks a row already handled: a read hunk, a resolved thread.
 func Done(row int, c color.Color) Mark {
-	return Mark{Row: row, Glyph: GlyphDone, Face: lipgloss.NewStyle().Foreground(c), Rank: RankDone}
+	return Mark{Row: row, Glyph: GlyphDone, Face: lipgloss.NewStyle().Foreground(c), Rank: RankDone, stock: c}
 }
 
 // Found marks a search match.
 func Found(row int, c color.Color) Mark {
-	return Mark{Row: row, Glyph: GlyphFound, Face: lipgloss.NewStyle().Foreground(c), Rank: RankChange}
+	return Mark{Row: row, Glyph: GlyphFound, Face: lipgloss.NewStyle().Foreground(c), Rank: RankChange, stock: c}
 }

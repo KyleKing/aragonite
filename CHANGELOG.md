@@ -1,3 +1,9 @@
+## v1.23.2 (2026-11-24)
+
+### Fix
+
+- **palette**: draw an off entry's reason beside its description
+
 ## v1.23.1 (2026-11-24)
 
 ### Fix

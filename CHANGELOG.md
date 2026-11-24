@@ -1,3 +1,9 @@
+## v1.24.3 (2026-11-24)
+
+### Fix
+
+- **palette**: keep keys whole, give blank right cells to descriptions, and rank an exact name first
+
 ## v1.24.2 (2026-11-24)
 
 ### Fix

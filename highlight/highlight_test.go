@@ -81,3 +81,33 @@ func TestAnUnknownGrammarYieldsNothing(t *testing.T) {
 		t.Errorf("an unknown grammar answered %v", got)
 	}
 }
+
+// BenchmarkLinesOneLine is dominated by resolving the grammar from the file name when that is
+// not remembered, which used to walk every lexer's globs on every call.
+func BenchmarkLinesOneLine(b *testing.B) {
+	src := []string{"func f() int { return 1 }"}
+
+	for b.Loop() {
+		highlight.Lines("svc.go", src)
+	}
+}
+
+func TestLinesAnswersTheSameForARememberedGrammar(t *testing.T) {
+	t.Parallel()
+
+	src := []string{"x := 1 // n"}
+	first, again := highlight.Lines("a/b/remembered.go", src), highlight.Lines("c/remembered.go", src)
+
+	if classed(src[0], first[0]) != classed(src[0], again[0]) {
+		t.Errorf("a remembered grammar lexed differently: %q then %q",
+			classed(src[0], first[0]), classed(src[0], again[0]))
+	}
+
+	if got := highlight.Lines("no-grammar.unknownext", src); got != nil {
+		t.Errorf("a name no grammar answers for lexed as %v", got)
+	}
+
+	if got := highlight.Lines("again/no-grammar.unknownext", src); got != nil {
+		t.Errorf("a remembered miss lexed as %v", got)
+	}
+}

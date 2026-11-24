@@ -7,6 +7,7 @@ package highlight
 import (
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -52,7 +53,7 @@ type Span struct {
 // Lines lexes src as one unit, so multi-line strings and comments carry across lines.
 // The grammar comes from the file name alone, and a name no grammar answers for yields nil.
 func Lines(name string, src []string) [][]Span {
-	return lex(lexers.Match(path.Base(name)), src)
+	return lex(matchName(path.Base(name)), src)
 }
 
 // Tagged lexes src under the grammar a fenced block's language tag names, and yields nil
@@ -62,15 +63,49 @@ func Tagged(lang string, src []string) [][]Span {
 		return nil
 	}
 
-	return lex(lexers.Get(lang), src)
+	return lex(matchTag(lang), src)
 }
 
-func lex(matched chroma.Lexer, src []string) [][]Span {
-	if matched == nil {
+// Resolving a grammar walks every registered lexer's file globs, which costs milliseconds a
+// call, so each answer is kept for the life of the process. A name no grammar answers for is
+// kept too, as a grammar with no lexer, since asking again would walk the globs again.
+var (
+	byName sync.Map // base file name -> *grammar
+	byTag  sync.Map // fence language tag -> *grammar
+)
+
+// grammar is a resolved lexer, held by pointer so a cache answers a concrete type.
+type grammar struct {
+	lexer chroma.Lexer
+}
+
+func matchName(base string) *grammar {
+	return resolved(&byName, base, lexers.Match)
+}
+
+func matchTag(lang string) *grammar {
+	return resolved(&byTag, lang, lexers.Get)
+}
+
+func resolved(seen *sync.Map, key string, find func(string) chroma.Lexer) *grammar {
+	if got, ok := seen.Load(key); ok {
+		if g, isGrammar := got.(*grammar); isGrammar {
+			return g
+		}
+	}
+
+	g := &grammar{lexer: find(key)}
+	seen.Store(key, g)
+
+	return g
+}
+
+func lex(g *grammar, src []string) [][]Span {
+	if g.lexer == nil {
 		return nil
 	}
 
-	lexer := chroma.Coalesce(matched)
+	lexer := chroma.Coalesce(g.lexer)
 
 	joined := strings.Join(src, "\n")
 

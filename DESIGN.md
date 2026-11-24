@@ -118,6 +118,22 @@ reference setup):
   itself. Settle maps text-default emoji to their stand-ins, drops selectors, skin
   tones, and ZWJ tails, spells flags as letters, and draws ◌ for a recent emoji.
   Emoji from Unicode 9 and before, and CJK, are two cells everywhere and stay.
+- **Code is measured, never settled.** A diff's code is drawn as written, so a
+  line may hold any of the classes above. It is cut and padded with the same
+  grapheme widths lipgloss uses, which is also what Bubble Tea's cell buffer
+  places cells by and what tmux 3.4 advances (checked per class: a recent emoji,
+  a VS16 heart, a ZWJ sequence, a skin tone, a flag, a text-default emoji), so
+  the right edge and the scrollbar keep their column. Measuring a recent emoji
+  as one cell, as a Unicode 9 terminal does, would not move them back: the cell
+  buffer still counts two, so the row would overrun the frame and lose its last
+  cell. Outside tmux, in a terminal measuring by older tables, such a row shifts
+  by a cell after the emoji, which only the terminal's own width setting fixes.
+- **The selected row in 16 colors is one even bar** (`skin.Selected`,
+  `skin.Select`, `frame.Lit`). Selection there is reverse video, which turns a
+  colored cell inside the row (a status letter, a `+3`) into a block of its
+  color, so a cell inside the row drops its colors and keeps its weight. A tool
+  draws its selected row through those calls rather than composing a face with
+  `Selection` itself.
 
 `display` is the same rule one step further out: it emits plain strings with no
 styling at all, because two tools reading one checkout style it differently even when
@@ -135,7 +151,11 @@ rules the pieces share:
   and the footer (`HintsAt`), the legend and palette (`LegendAt`, `palette.FromKeymap`), the
   coach (`All` skips a refused action), and the key press itself read it, so none can disagree
 - `?` and `:` are one `palette.Model` in two modes over one entry list. A tool's help overlay is
-  that component in browse mode, not a parallel layer
+  that component in browse mode, not a parallel layer. Its key column is as wide as the widest
+  key a row shows, capped at ten cells: a binding with several keys whose whole label is wider
+  (`ctrl+e/shift+down`) shows its first key, and the rest are listed in the explainer pane's
+  `keys` line and, in the strip, on the selected row, so one long label never cuts every
+  description. A key is never cut mid-key
 - Local state is split by consent. The coach `Ledger` (tip history, recent commands) is always on
   under `$XDG_STATE_HOME` and holds no keystrokes; the synced `keyusage` log stays opt-in, and
   everything that reads it works without it

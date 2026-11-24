@@ -170,23 +170,8 @@ func Render(s skin.Skin, f Frame, width, height int) string {
 
 // Lit pads text to width and draws it on face's background, restarting the
 // background after every reset inside text so styled spans do not punch holes
-// in it.
-func Lit(text string, width int, face lipgloss.Style) string {
-	on, _, _ := strings.Cut(face.Render("x"), "x")
-	if on == "" {
-		return text
-	}
-
-	if over := width - ansi.StringWidth(text); over > 0 {
-		text += strings.Repeat(" ", over)
-	}
-
-	for _, reset := range []string{"\x1b[m", "\x1b[0m"} {
-		text = strings.ReplaceAll(text, reset, reset+on)
-	}
-
-	return on + text + "\x1b[m"
-}
+// in it. It is skin.Lit, so a reverse-video face draws one even bar.
+func Lit(text string, width int, face lipgloss.Style) string { return skin.Lit(text, width, face) }
 
 type span struct{ from, to int }
 

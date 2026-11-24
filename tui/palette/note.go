@@ -15,16 +15,18 @@ import (
 const noteLabel = 7
 
 // Note is what a reader is told about one entry, width cells wide: a labeled rule naming its group,
-// key, and description (so a key under a chord never reads as a root key), its prose, why it is
-// off here, the command it runs, its flags, the keys worth knowing beside it, and the reader's own
-// use of it as of now. It is the explainer pane under the drawer's list, the answer browse mode
-// gives for a key press, and what a tool draws in its own status area for the same question.
+// primary key, and description (so a key under a chord never reads as a root key), its prose, why
+// it is off here, every key that presses it where there is more than one, the command it runs, its
+// flags, the keys worth knowing beside it, and the reader's own use of it as of now. It is the
+// explainer pane under the drawer's list, the answer browse mode gives for a key press, and what a
+// tool draws in its own status area for the same question.
 func Note(s skin.Skin, e Entry, width int, now time.Time) []string {
 	if width < 1 {
 		return nil
 	}
 
-	name := strings.TrimSpace(e.Key + "  " + e.What)
+	keys := KeyLabels(e.Key)
+	name := strings.TrimSpace(keys[0] + "  " + e.What)
 	if e.Group != "" {
 		name = e.Group + " · " + name
 	}
@@ -54,6 +56,10 @@ func Note(s skin.Skin, e Entry, width int, now time.Time) []string {
 
 	if e.Off {
 		fact("off", e.Why, s.Warning)
+	}
+
+	if len(keys) > 1 {
+		fact("keys", strings.Join(keys, "  "), s.Key)
 	}
 
 	fact("runs", e.Cmd, s.Body)

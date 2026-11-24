@@ -202,6 +202,42 @@ func Sequences(label string) []string {
 	return out
 }
 
+// KeyLabels reads a key column label as the keys it names, spelled as a reader reads them:
+// "ctrl+e/shift+down" is ctrl+e and shift+down, "ctrl+d/u" is ctrl+d and ctrl+u (the modifier
+// carries to a bare letter after it), "gg/G" is gg and G, and "/" is itself. Unlike Sequences it
+// keeps "gg" whole, since it is for drawing rather than for matching a press.
+func KeyLabels(label string) []string {
+	if label == "/" || strings.HasSuffix(label, "//") || !strings.Contains(label, "/") {
+		return []string{label}
+	}
+
+	mod := ""
+	out := make([]string, 0, strings.Count(label, "/")+1)
+
+	for i, p := range strings.Split(label, "/") {
+		switch {
+		case p == "":
+			continue
+		case strings.Contains(p, "+") && len(p) > 1:
+			mod = p[:strings.LastIndex(p, "+")+1]
+		case i > 0 && mod != "" && utf8.RuneCountInString(p) == 1:
+			p = mod + p
+		}
+
+		out = append(out, p)
+	}
+
+	if len(out) == 0 {
+		return []string{label}
+	}
+
+	return out
+}
+
+// Primary is the first key a label names, which is what the key column draws for a binding whose
+// whole label would not fit it.
+func Primary(label string) string { return KeyLabels(label)[0] }
+
 // Seen is what the palette reads about past use, satisfied by a coach.Ledger and by
 // keyusage.Usage.Actions alike.
 type Seen interface {

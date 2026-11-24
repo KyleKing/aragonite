@@ -51,7 +51,7 @@ const (
 func row(s skin.Skin, c *Call, width int, selected bool) []string {
 	face := func(st lipgloss.Style) lipgloss.Style {
 		if selected {
-			return st.Inherit(s.Selection)
+			return s.Selected(st)
 		}
 
 		return st

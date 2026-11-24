@@ -24,6 +24,7 @@ const (
 	drawerKeep   = 24
 	borderCells  = 4
 	keyColumnMin = 8
+	keyColumnCap = 10
 	keyShare     = 3
 	rightColumn  = 9
 	rightShare   = 3
@@ -338,21 +339,45 @@ type columns struct {
 
 func (m *Model) columns(width int) columns {
 	c := columns{key: 1}
+	primary := 1
 
 	for i := range m.hits {
-		c.key = max(c.key, lipgloss.Width(m.hits[i].Key))
+		c.key = max(c.key, lipgloss.Width(shownKey(m.hits[i].Key)))
+		primary = max(primary, lipgloss.Width(Primary(m.hits[i].Key)))
 		c.right = max(c.right, lipgloss.Width(m.right(&m.hits[i])))
 		c.cmd = c.cmd || m.hits[i].Cmd != ""
 	}
 
-	// The key column is the widest key's, so no key is cut, unless that would take
-	// more than a third of the row from the descriptions.
-	c.key = min(c.key, max(keyColumnMin, width/keyShare))
+	// The key column is the widest key a row shows, so no key is cut, unless that
+	// would take more than a third of the row from the descriptions. A key is
+	// never cut mid-key, so the column is at least the widest primary key.
+	c.key = max(min(c.key, max(keyColumnMin, width/keyShare)), primary)
 	if c.right > 0 {
 		c.right = min(max(c.right, rightColumn), width/rightShare)
 	}
 
 	return c
+}
+
+// shownKey is the label a row's key column draws: the whole label where it fits the column's cap,
+// and its primary key where it does not ("ctrl+e/shift+down" draws "ctrl+e"), since one long
+// binding would otherwise take the room of every row's description. The alternates are listed
+// in the explainer pane and on the selected row instead.
+func shownKey(label string) string {
+	if lipgloss.Width(label) <= keyColumnCap {
+		return label
+	}
+
+	return Primary(label)
+}
+
+// alternates are the keys a row's key column leaves out of label, empty where it shows them all.
+func alternates(label string) []string {
+	if shownKey(label) == label {
+		return nil
+	}
+
+	return KeyLabels(label)[1:]
 }
 
 // row draws one hit: the mark, the key, the description with the matched letters lifted (and for an
@@ -362,7 +387,7 @@ func (m *Model) columns(width int) columns {
 func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) string {
 	face := func(st lipgloss.Style) lipgloss.Style {
 		if selected {
-			return st.Inherit(m.skin.Selection)
+			return m.skin.Selected(st)
 		}
 
 		return st
@@ -398,8 +423,8 @@ func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) st
 	}
 
 	out := face(m.skin.Accent).Render(mark) +
-		face(keyFace).Render(table.Pad(h.Key, keyw, table.AlignLeft)) + face(textFace).Render("  ") +
-		what(h, max(1, room), face(textFace), face(m.skin.Accent.Bold(true)))
+		face(keyFace).Render(table.Pad(shownKey(h.Key), keyw, table.AlignLeft)) + face(textFace).Render("  ") +
+		what(h, also(h, selected && !drawer), max(1, room), face(textFace), face(m.skin.Accent.Bold(true)))
 
 	if cmdw > 0 {
 		out += face(m.skin.Muted).Render("  " + table.Pad(table.Truncate(h.Cmd, cmdw), cmdw, table.AlignLeft))
@@ -416,12 +441,27 @@ func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) st
 	return out
 }
 
-// what draws a description width cells wide, the runes the query matched in hi, and the alias
-// the query found it by after it.
-func what(h *Hit, width int, base, hi lipgloss.Style) string {
+// also is what the selected row says after its description about the keys its key column left
+// out, for the strip, which has no explainer pane to list them in.
+func also(h *Hit, say bool) string {
+	alt := alternates(h.Key)
+	if !say || len(alt) == 0 {
+		return ""
+	}
+
+	return "also " + strings.Join(alt, " ")
+}
+
+// what draws a description width cells wide, the runes the query matched in hi, the alias the
+// query found it by after it, and then extra.
+func what(h *Hit, extra string, width int, base, hi lipgloss.Style) string {
 	text := h.What
 	if h.Via != "" {
 		text += " ← " + h.Via
+	}
+
+	if extra != "" {
+		text += " · " + extra
 	}
 
 	if h.Off && h.Why != "" {

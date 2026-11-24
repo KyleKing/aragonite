@@ -684,18 +684,84 @@ func TestRank_ExactNameBeatsALongerMatch(t *testing.T) {
 func TestView_KeysWholeAndDescriptionsUseTheRoom(t *testing.T) {
 	t.Parallel()
 
-	for want, entries := range map[string][]palette.Entry{
-		"ctrl+e/ctrl+y": {{Action: "scroll", Key: "ctrl+e/ctrl+y", What: "scroll a line", Group: "Move"}},
-		"cancel the running command or quit": {
-			{Action: "cancel", Key: "ctrl+c", What: "cancel the running command or quit", Group: "General"},
-			{Action: "pane", Key: "tab", What: "next pane", Group: "General", Recent: now.Add(-time.Minute)},
-		},
-	} {
-		m := palette.New(sk(), palette.WithClock(func() time.Time { return now }))
-		m.Open(palette.Browse, entries)
+	m := palette.New(sk(), palette.WithClock(func() time.Time { return now }))
+	m.Open(palette.Browse, []palette.Entry{
+		{Action: "cancel", Key: "ctrl+c", What: "cancel the running command or quit", Group: "General"},
+		{Action: "pane", Key: "tab", What: "next pane", Group: "General", Recent: now.Add(-time.Minute)},
+	})
 
-		if view := drawn(t, m, 100, 30); !strings.Contains(view, want) {
-			t.Errorf("the drawer cut %q:\n%s", want, view)
+	if view := drawn(t, m, 100, 30); !strings.Contains(view, "ctrl+c  cancel the running command or quit") {
+		t.Errorf("the drawer cut a key or its description:\n%s", view)
+	}
+}
+
+// A binding with several keys spells only its first in the key column, so one long
+// label ("ctrl+e/shift+down") never narrows every row's description; the others are
+// listed where the entry is explained, and in the strip on the selected row.
+func TestView_PrimaryKeyInTheColumnAlternatesBesideIt(t *testing.T) {
+	t.Parallel()
+
+	es := []palette.Entry{
+		{Action: "scroll", Key: "ctrl+e/shift+down", What: "scroll a line down", Group: "Move"},
+		{Action: "quit", Key: "q", What: "close, or quit at the root", Group: "General"},
+	}
+
+	tests := []struct {
+		name          string
+		want, absent  []string
+		width, height int
+	}{
+		{
+			name: "drawer", width: 100, height: 30,
+			want: []string{
+				"▌ ctrl+e  scroll a line down", "keys   ctrl+e shift+down", "q       close, or quit at the root",
+			},
+			absent: []string{"ctrl+e/shift+down"},
+		},
+		{
+			name: "strip", width: 80, height: 24,
+			want:   []string{"▌ ctrl+e  scroll a line down · also shift+down", "q       close, or quit at the root"},
+			absent: []string{"ctrl+e/shift+down", "…"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := palette.New(sk(), palette.WithClock(func() time.Time { return now }))
+			m.Open(palette.Browse, es)
+
+			view := drawn(t, m, tc.width, tc.height)
+			for _, w := range tc.want {
+				if !strings.Contains(view, w) {
+					t.Errorf("view is missing %q:\n%s", w, view)
+				}
+			}
+
+			for _, a := range tc.absent {
+				if strings.Contains(view, a) {
+					t.Errorf("view has %q:\n%s", a, view)
+				}
+			}
+		})
+	}
+}
+
+func TestKeyLabels(t *testing.T) {
+	t.Parallel()
+
+	for label, want := range map[string][]string{
+		"ctrl+e/shift+down": {"ctrl+e", "shift+down"},
+		"ctrl+d/u":          {"ctrl+d", "ctrl+u"},
+		"gg/G":              {"gg", "G"},
+		"j/k":               {"j", "k"},
+		"/":                 {"/"},
+		"+/-":               {"+", "-"},
+		"]h":                {"]h"},
+	} {
+		if got := palette.KeyLabels(label); !slices.Equal(got, want) {
+			t.Errorf("KeyLabels(%q) = %q, want %q", label, got, want)
 		}
 	}
 }

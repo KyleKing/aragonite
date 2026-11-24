@@ -1,3 +1,9 @@
+## v1.20.3 (2026-11-24)
+
+### Perf
+
+- **diff**: pair lines for mechanical hunks only when a hunk could be one
+
 ## v1.20.2 (2026-11-24)
 
 ### Perf

@@ -1,3 +1,9 @@
+## v1.22.0 (2026-11-24)
+
+### Feat
+
+- **keys**: add the split columns and conflict viewer tables
+
 ## v1.21.0 (2026-11-24)
 
 ### Feat

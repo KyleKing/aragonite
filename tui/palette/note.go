@@ -14,17 +14,22 @@ import (
 // noteLabel is the width of the label column in a note: "runs", "flags", "also", "you".
 const noteLabel = 7
 
-// Note is what a reader is told about one entry, width cells wide: a labeled rule naming its key
-// and description, its prose, why it is off here, the command it runs, its flags, the keys worth
-// knowing beside it, and the reader's own use of it as of now. It is the explainer pane under the drawer's
-// list, the answer browse mode gives for a key press, and what a tool draws in its own status
-// area for the same question.
+// Note is what a reader is told about one entry, width cells wide: a labeled rule naming its group,
+// key, and description (so a key under a chord never reads as a root key), its prose, why it is
+// off here, the command it runs, its flags, the keys worth knowing beside it, and the reader's own
+// use of it as of now. It is the explainer pane under the drawer's list, the answer browse mode
+// gives for a key press, and what a tool draws in its own status area for the same question.
 func Note(s skin.Skin, e Entry, width int, now time.Time) []string {
 	if width < 1 {
 		return nil
 	}
 
-	out := []string{s.Rule(strings.TrimSpace(e.Key+"  "+e.What), "", width)}
+	name := strings.TrimSpace(e.Key + "  " + e.What)
+	if e.Group != "" {
+		name = e.Group + " · " + name
+	}
+
+	out := []string{s.Rule(name, "", width)}
 
 	for _, p := range e.Prose {
 		for _, l := range Wrap(p, width) {

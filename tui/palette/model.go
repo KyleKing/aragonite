@@ -53,7 +53,10 @@ type RunMsg struct {
 // The palette shows the reason itself.
 type RefusedMsg struct{ Action, Why string }
 
-// ClosedMsg says the palette closed without running anything.
+// ClosedMsg was sent when the palette closed without running anything.
+//
+// Deprecated: Update no longer sends it, since a message arriving after the close could reorder
+// with a key the tool sends next. Ask IsOpen after Update instead.
 type ClosedMsg struct{}
 
 // Model is the palette's state. The zero value is closed; build one with New.
@@ -135,6 +138,9 @@ func (m *Model) IsOpen() bool { return m.open }
 // Mode is the mode it was opened in.
 func (m *Model) Mode() Mode { return m.mode }
 
+// Typing reports whether keys go into the query, which a tool's usage log must not record.
+func (m *Model) Typing() bool { return m.open && m.typing }
+
 // Query is what has been typed.
 func (m *Model) Query() string { return m.query }
 
@@ -205,14 +211,28 @@ func splitFlags(query string) (string, []string) {
 	return query, nil
 }
 
-// Update handles a key press or a paste while open, and ignores everything else. The command it
-// answers carries a RunMsg, a RefusedMsg, or a ClosedMsg.
+// Update handles a key press, a paste, or a wheel notch while open, and ignores everything else.
+// The command it answers carries a RunMsg or a RefusedMsg, and is nil otherwise; a tool that cares
+// whether the palette closed asks IsOpen afterwards, so closing sends nothing that could reorder
+// with a key the tool sends after it.
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	if !m.open {
 		return nil
 	}
 
 	switch msg := msg.(type) {
+	case tea.MouseWheelMsg:
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.cursor -= wheelRows
+		case tea.MouseWheelDown:
+			m.cursor += wheelRows
+		default:
+			return nil
+		}
+
+		m.cursor = max(0, min(m.cursor, len(m.hits)-1))
+		m.noted = false
 	case tea.PasteMsg:
 		if m.typing {
 			m.query += strings.ReplaceAll(msg.Content, "\n", " ")
@@ -228,8 +248,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 // The keys the palette reads by name.
 const (
-	keyEnter = "enter"
-	keyEsc   = "esc"
+	keyEnter    = "enter"
+	keyEsc      = "esc"
+	keyTab      = "tab"
+	keyEnd      = "end"
+	keyHalfUp   = "ctrl+u"
+	keyHalfDown = "ctrl+d"
 )
 
 func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
@@ -253,11 +277,14 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 func (m *Model) closing() tea.Cmd {
 	m.Close()
 
-	return func() tea.Msg { return ClosedMsg{} }
+	return nil
 }
 
-// pageRows is how far a page key moves the cursor.
-const pageRows = 8
+// How far a page key and a wheel notch move the cursor.
+const (
+	pageRows  = 8
+	wheelRows = 3
+)
 
 // move handles the keys that move the cursor, which never type: the arrows and ctrl+n/p
 // everywhere, the page keys, and home and end outside the query.
@@ -271,13 +298,25 @@ func (m *Model) move(k string) bool {
 		m.cursor -= pageRows
 	case "pgdown":
 		m.cursor += pageRows
-	case "home", "end":
+	case keyHalfUp, keyHalfDown:
+		// Half-page keys page the legend as they page the screen behind it, and clear a typed query
+		// in the editing keys below.
+		if m.typing {
+			return false
+		}
+
+		if k == keyHalfUp {
+			m.cursor -= pageRows
+		} else {
+			m.cursor += pageRows
+		}
+	case "home", keyEnd:
 		if m.typing {
 			return false
 		}
 
 		m.cursor = 0
-		if k == "end" {
+		if k == keyEnd {
 			m.cursor = len(m.hits) - 1
 		}
 	default:
@@ -330,12 +369,12 @@ func (m *Model) edit(msg tea.KeyPressMsg) tea.Cmd {
 
 		_, size := utf8.DecodeLastRuneInString(m.query)
 		m.query = m.query[:len(m.query)-size]
-	case "ctrl+u":
+	case keyHalfUp:
 		m.query = ""
 	case "ctrl+w":
 		m.query = strings.TrimRight(m.query, " ")
 		m.query = m.query[:strings.LastIndex(m.query, " ")+1]
-	case "tab":
+	case keyTab:
 		if sel, ok := m.Selected(); ok {
 			m.query = sel.Action
 			m.rank()
@@ -375,9 +414,19 @@ func (m *Model) browse(msg tea.KeyPressMsg) tea.Cmd {
 	}
 
 	seq := append(slices.Clone(m.pending), k)
+	m.pending, m.noted, m.cursor = nil, false, 0
+
+	// A prefix walks before a leaf answers, as the chord itself would: a legend row "ctrl+d/u"
+	// names u as well, and u opening a page must still open it.
+	if len(under(m.entries, seq)) > 0 {
+		m.pending = seq
+		m.rank()
+
+		return nil
+	}
 
 	if e, ok := Describe(m.entries, strings.Join(seq, " ")); ok {
-		m.pending, m.query = nil, ""
+		m.query = ""
 		m.rank()
 		m.focus(e.Action)
 		m.noted = true
@@ -385,27 +434,18 @@ func (m *Model) browse(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
-	m.pending, m.noted, m.cursor = nil, false, 0
-
-	if len(under(m.entries, seq)) > 0 {
-		m.pending = seq
-	} else {
-		m.status = "nothing on " + strings.Join(seq, " ") + " here"
-	}
-
+	m.status = "nothing on " + strings.Join(seq, " ") + " here"
 	m.rank()
 
 	return nil
 }
 
 func (m *Model) back() tea.Cmd {
+	// An explained key is an answer on the page rather than a level of it, so esc after one closes
+	// the legend as it would have before.
 	switch {
 	case len(m.pending) > 0:
 		m.pending = m.pending[:len(m.pending)-1]
-	case m.noted:
-		m.noted = false
-
-		return nil
 	case m.query != "":
 		m.query = ""
 	default:

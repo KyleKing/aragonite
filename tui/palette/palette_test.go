@@ -67,6 +67,8 @@ func press(m *palette.Model, presses ...string) []tea.Msg {
 			msg = tea.KeyPressMsg{Code: tea.KeyBackspace}
 		case "tab":
 			msg = tea.KeyPressMsg{Code: tea.KeyTab}
+		case "ctrl+d":
+			msg = tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl}
 		default:
 			msg.Code, _ = utf8.DecodeRuneInString(k)
 		}
@@ -241,6 +243,44 @@ func TestFromLegend_FlattensChordsAndCarriesProse(t *testing.T) {
 	}
 }
 
+func TestSequences(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string][]string{
+		"j/k":       {"j", "k"},
+		"ctrl+d/u":  {"ctrl+d", "ctrl+u"},
+		"gg/G":      {"g g", "G"},
+		"+/-":       {"+", "-"},
+		"?/esc":     {"?", "esc"},
+		"space":     {"space"},
+		"r/t/x/R":   {"r", "t", "x", "R"},
+		"/":         {"/"},
+		"shift+tab": {"shift+tab"},
+	}
+
+	for label, want := range tests {
+		if got := palette.Sequences(label); !slices.Equal(got, want) {
+			t.Errorf("Sequences(%q) = %q, want %q", label, got, want)
+		}
+	}
+}
+
+func TestBrowse_PrefixWalksBeforeALeafNamingTheSameKey(t *testing.T) {
+	t.Parallel()
+
+	m := palette.New(sk())
+	m.Open(palette.Browse, palette.FromLegend([]keyhint.Hint{
+		{Key: "ctrl+d/u", What: "half a page"},
+		{Key: "u", What: "one of them", Kids: []keyhint.Hint{{Key: "c", What: "a comment"}}},
+	}))
+
+	press(m, "u")
+
+	if _, ok := m.Explained(); ok || len(m.Hits()) != 1 || m.Hits()[0].Action != "u c" {
+		t.Errorf("u explained instead of walking: %+v", m.Hits())
+	}
+}
+
 func hitsOf(es []palette.Entry) []palette.Hit {
 	out := make([]palette.Hit, len(es))
 	for i := range es {
@@ -329,12 +369,8 @@ func TestRun_EditingKeys(t *testing.T) {
 	}
 
 	msgs := press(m, "esc")
-	if m.IsOpen() || len(msgs) != 1 {
+	if m.IsOpen() || len(msgs) != 0 {
 		t.Fatalf("esc: open=%v msgs=%v", m.IsOpen(), msgs)
-	}
-
-	if _, ok := msgs[0].(palette.ClosedMsg); !ok {
-		t.Errorf("esc sent %T", msgs[0])
 	}
 }
 
@@ -405,8 +441,8 @@ func TestBrowse_FilterAndBackOut(t *testing.T) {
 	}
 
 	msgs := press(m, "?")
-	if m.IsOpen() || len(msgs) != 1 {
-		t.Errorf("? did not close: %v", msgs)
+	if m.IsOpen() || len(msgs) != 0 {
+		t.Errorf("? did not close quietly: %v", msgs)
 	}
 }
 
@@ -471,6 +507,42 @@ func drawn(t *testing.T, m *palette.Model, width, height int) string {
 	}
 
 	return ansi.Strip(strings.Join(out, "\n"))
+}
+
+func TestView_RectAndWheel(t *testing.T) {
+	t.Parallel()
+
+	m := open(palette.Browse)
+
+	if r := m.Rect(120, 30); r.X != 120-palette.DrawerWidth(120) || r.Y != 0 || r.H != 30 {
+		t.Errorf("drawer Rect = %+v", r)
+	}
+
+	if r := m.Rect(80, 24); r.X != 0 || r.Y+r.H != 24 || r.W != 80 {
+		t.Errorf("strip Rect = %+v", r)
+	}
+
+	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+
+	if sel, _ := m.Selected(); sel.Action != "resolve" {
+		t.Errorf("a wheel notch selected %s", sel.Action)
+	}
+
+	press(m, "ctrl+d")
+
+	if sel, _ := m.Selected(); sel.Action != "hunk-prev" {
+		t.Errorf("ctrl+d in browse selected %s, want the last row", sel.Action)
+	}
+
+	if m.Typing() {
+		t.Error("browse mode reports typing")
+	}
+
+	press(m, "/")
+
+	if !m.Typing() {
+		t.Error("/ did not start typing")
+	}
 }
 
 func TestView_ClosedDrawsNothing(t *testing.T) {

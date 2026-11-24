@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/kyleking/aragonite/tui/keyhint"
 	"github.com/kyleking/aragonite/tui/keys"
@@ -137,11 +138,11 @@ func legend(out []Entry, page []keyhint.Hint, path []string, group string) []Ent
 }
 
 func legendEntry(h keyhint.Hint, path []string, group string) Entry {
-	parts := strings.Split(h.Key, "/")
-	seqs := make([]string, 0, len(parts))
+	labels := Sequences(h.Key)
+	seqs := make([]string, 0, len(labels))
 
-	for _, part := range parts {
-		seqs = append(seqs, strings.Join(append(slices.Clone(path), part), " "))
+	for _, seq := range labels {
+		seqs = append(seqs, strings.Join(append(slices.Clone(path), seq), " "))
 	}
 
 	return Entry{
@@ -153,6 +154,45 @@ func legendEntry(h keyhint.Hint, path []string, group string) Entry {
 		Off:    h.Off,
 		Why:    h.Why,
 	}
+}
+
+// named are the keys Bubble Tea spells as a word, which a legend label never means letter by
+// letter.
+var named = map[string]bool{
+	keyEsc: true, keyTab: true, "space": true, keyEnter: true, "up": true, "down": true, "left": true,
+	"right": true, "home": true, keyEnd: true, "pgup": true, "pgdown": true, "backspace": true,
+	"delete": true, "insert": true,
+}
+
+// Sequences reads a legend's key label as the sequences it names, spelled as keys.Binding spells
+// them: "j/k" is j or k, "ctrl+d/u" is ctrl+d or ctrl+u (the modifier carries to a bare letter
+// after it), "gg/G" is g then g, or G, and "+/-" is + or -. A named key ("esc", "space") and a
+// modified one stay whole.
+func Sequences(label string) []string {
+	parts := strings.Split(label, "/")
+	if label == "/" || strings.HasSuffix(label, "//") {
+		parts = []string{"/"}
+	}
+
+	mod := ""
+	out := make([]string, 0, len(parts))
+
+	for i, p := range parts {
+		switch {
+		case p == "":
+			continue
+		case strings.Contains(p, "+") && len(p) > 1:
+			mod = p[:strings.LastIndex(p, "+")+1]
+		case i > 0 && mod != "" && utf8.RuneCountInString(p) == 1:
+			p = mod + p
+		case !named[p] && utf8.RuneCountInString(p) > 1 && !strings.Contains(p, " "):
+			p = strings.Join(strings.Split(p, ""), " ")
+		}
+
+		out = append(out, p)
+	}
+
+	return out
 }
 
 // Seen is what the palette reads about past use, satisfied by a coach.Ledger and by

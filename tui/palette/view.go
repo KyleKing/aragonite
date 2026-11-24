@@ -57,6 +57,22 @@ func DrawerWidth(width int) int {
 	return max(min(max(drawerMin, width*drawerShare/percent), drawerMax, width-drawerKeep), min(width, drawerMin))
 }
 
+// Rect is the cells the palette covers in a frame width by height cells, so a click outside it can
+// close it. A closed palette covers nothing.
+func (m *Model) Rect(width, height int) overlay.Rect {
+	if !m.open || width < 1 || height < 1 {
+		return overlay.Rect{}
+	}
+
+	block := m.View(width, height)
+
+	if m.Resolve(width) == Drawer {
+		return overlay.At(block, width-DrawerWidth(width), 0)
+	}
+
+	return overlay.At(block, 0, height-len(block))
+}
+
 // Over draws the palette onto base, a frame width cells wide whose every line is one row: the
 // drawer down the right edge, or the strip over the bottom rows. A closed palette leaves base as
 // it is.
@@ -116,7 +132,7 @@ func (m *Model) footHints() []keyhint.Hint {
 
 	return []keyhint.Hint{
 		{Key: keyEnter, What: "run", Pin: true},
-		{Key: "tab", What: "fill"},
+		{Key: keyTab, What: "fill"},
 		{Key: "ctrl+n/p", What: "move", Priority: 1},
 		{Key: keyEsc, What: "close", Pin: true},
 	}
@@ -135,7 +151,7 @@ func (m *Model) prompt(width int) string {
 			cursorMark
 	}
 
-	return m.skin.Muted.Render(table.Truncate("press a key to see what it does · / to filter", width))
+	return m.skin.Muted.Render(table.Truncate("a key explains itself · / filters", width))
 }
 
 // count is the tally a list's heading carries: how many it shows of how many there are.
@@ -300,8 +316,12 @@ func (m *Model) rows() int {
 	return len(m.sections) + len(m.hits)
 }
 
-// columns are the key and right column widths, shared by every row so the columns line up.
-type columns struct{ key, right int }
+// columns are the key and right column widths, shared by every row so the columns line up, and
+// whether any row has a command for the strip's command column to show.
+type columns struct {
+	key, right int
+	cmd        bool
+}
 
 func (m *Model) columns(width int) columns {
 	c := columns{key: 1, right: rightColumn}
@@ -309,6 +329,7 @@ func (m *Model) columns(width int) columns {
 	for i := range m.hits {
 		c.key = max(c.key, lipgloss.Width(m.hits[i].Key))
 		c.right = max(c.right, lipgloss.Width(m.right(&m.hits[i])))
+		c.cmd = c.cmd || m.hits[i].Cmd != ""
 	}
 
 	c.key = min(c.key, keyColumnMax)
@@ -343,7 +364,7 @@ func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) st
 	room := width - lipgloss.Width(mark) - keyw - halves - rightw - 1
 
 	cmdw := 0
-	if whatw := max(stripWhatMin, room*stripShare/stripOf); !drawer && room-whatw-halves >= stripCmdMin {
+	if whatw := max(stripWhatMin, room*stripShare/stripOf); !drawer && c.cmd && room-whatw-halves >= stripCmdMin {
 		cmdw, room = room-whatw-halves, whatw
 	}
 

@@ -1,3 +1,9 @@
+## v1.27.0 (2026-11-24)
+
+### Feat
+
+- **palette**: SetSkin, so the palette follows a restyle
+
 ## v1.26.2 (2026-11-24)
 
 ### Fix

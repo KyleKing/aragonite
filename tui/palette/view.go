@@ -317,14 +317,15 @@ func (m *Model) rows() int {
 }
 
 // columns are the key and right column widths, shared by every row so the columns line up, and
-// whether any row has a command for the strip's command column to show.
+// whether any row has a command for the strip's command column to show. A list with nothing to
+// say in the right column (no counts, no recent runs) draws none, so its descriptions get the room.
 type columns struct {
 	key, right int
 	cmd        bool
 }
 
 func (m *Model) columns(width int) columns {
-	c := columns{key: 1, right: rightColumn}
+	c := columns{key: 1}
 
 	for i := range m.hits {
 		c.key = max(c.key, lipgloss.Width(m.hits[i].Key))
@@ -333,7 +334,9 @@ func (m *Model) columns(width int) columns {
 	}
 
 	c.key = min(c.key, keyColumnMax)
-	c.right = min(c.right, width/rightShare)
+	if c.right > 0 {
+		c.right = min(max(c.right, rightColumn), width/rightShare)
+	}
 
 	return c
 }
@@ -362,7 +365,11 @@ func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) st
 	}
 
 	keyw, rightw := c.key, c.right
-	room := width - lipgloss.Width(mark) - keyw - halves - rightw - 1
+
+	room := width - lipgloss.Width(mark) - keyw - halves
+	if rightw > 0 {
+		room -= rightw + 1
+	}
 
 	cmdw := 0
 	if whatw := max(stripWhatMin, room*stripShare/stripOf); !drawer && c.cmd && room-whatw-halves >= stripCmdMin {
@@ -377,7 +384,9 @@ func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) st
 		out += face(m.skin.Muted).Render("  " + table.Pad(table.Truncate(h.Cmd, cmdw), cmdw, table.AlignLeft))
 	}
 
-	out += face(m.skin.Muted).Render(" " + table.Pad(table.Truncate(m.right(h), rightw), rightw, table.AlignRight))
+	if rightw > 0 {
+		out += face(m.skin.Muted).Render(" " + table.Pad(table.Truncate(m.right(h), rightw), rightw, table.AlignRight))
+	}
 
 	if pad := width - lipgloss.Width(out); pad > 0 {
 		out += face(lipgloss.NewStyle()).Render(strings.Repeat(" ", pad))

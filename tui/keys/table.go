@@ -81,7 +81,33 @@ const (
 	ActionViewGrammar    = "view-grammar"
 	ActionViewImages     = "view-images"
 	ActionViewCycle      = "view-cycle"
+
+	ActionColumnLeft     = "column-left"
+	ActionColumnRight    = "column-right"
+	ActionMoveLeft       = "move-left"
+	ActionMoveRight      = "move-right"
+	ActionSendTo         = "send-to"
+	ActionDescribe       = "describe"
+	ActionDescribeEditor = "describe-editor"
+
+	ActionTakeSide    = "take-side"
+	ActionTakeBase    = "take-base"
+	ActionTakeAll     = "take-all"
+	ActionEditRegion  = "edit-region"
+	ActionResetRegion = "reset-region"
+	ActionMergeTool   = "merge-tool"
 )
+
+// Groups the split columns and the conflict viewer file their bindings under.
+const (
+	GroupColumns = "Columns"
+	GroupResolve = "Resolve"
+)
+
+// Digits is "1" to "9", the keys that name a column or a conflict side by its number.
+func Digits() []string {
+	return []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}
+}
 
 // Global is what every screen of every tool offers unless the tool leaves a binding out. The
 // motion repeats on n and N apply everywhere but jojo's log, where those keys are verbs.
@@ -150,8 +176,9 @@ func DiffView() []Binding {
 		move(ActionPageUp, "a page up", "", "ctrl+b"),
 		move(ActionScrollDown, "scroll a line down", "", "ctrl+e", "shift+down"),
 		move(ActionScrollUp, "scroll a line up", "", "ctrl+y", "shift+up"),
-		d(ActionSideOld, GroupMove, "old side", "", "h"),
-		d(ActionSideNew, GroupMove, "new side", "", "l"),
+		// In the split columns h and l move between columns, so the sides are every other diff.
+		{Action: ActionSideOld, Keys: []string{"h"}, What: "old side", Group: GroupMove, Contexts: Diff &^ Split},
+		{Action: ActionSideNew, Keys: []string{"l"}, What: "new side", Group: GroupMove, Contexts: Diff &^ Split},
 		{
 			Action: ActionFilter, Keys: []string{"f"}, What: "show only files matching a pattern", Short: "filter",
 			Group: GroupFind, Contexts: Diff | List,
@@ -167,7 +194,11 @@ func DiffView() []Binding {
 		d(ActionWhitespace, GroupFold, "fold whitespace-only changes", "ws", "w"),
 		d(ActionCosmetic, GroupFold, "fold changes with no code effect", "cosmetic", "W"),
 		d(ActionMoreContext, GroupFold, "more context", "", "+"),
-		d(ActionLessContext, GroupFold, "less context", "", "-"),
+		// - is the flag prefix where a mode takes flags, which the split columns do (-p).
+		{
+			Action: ActionLessContext, Keys: []string{"-"}, What: "less context", Group: GroupFold,
+			Contexts: Diff &^ Split,
+		},
 	}
 
 	out = append(out, Motions(Objects())...)
@@ -209,6 +240,42 @@ func ViewOptions() []Binding {
 		v(ActionViewGrammar, "g", "syntax colors", "grammar"),
 		v(ActionViewImages, "i", "images", "images"),
 		v(ActionViewCycle, `\`, "next view preset", "preset"),
+	}
+}
+
+// SplitColumns is the split columns mode: one column per commit the split makes, the selection moved
+// between them, and each described. Moving within a column, selecting, and folding are the diff's
+// own keys, and -p is FlagBindings(VerbSplit).
+func SplitColumns() []Binding {
+	c := func(action, what, short string, keys ...string) Binding {
+		return Binding{Action: action, Keys: keys, What: what, Short: short, Group: GroupColumns, Contexts: Split}
+	}
+
+	return []Binding{
+		c(ActionColumnLeft, "focus the column to the left", "column", "h"),
+		c(ActionColumnRight, "focus the column to the right", "", "l"),
+		c(ActionMoveLeft, "move the selection to the column to the left", "move", "<"),
+		c(ActionMoveRight, "move the selection to the column to the right, making one past the last", "", ">"),
+		c(ActionSendTo, "send the selection to column N", "send", Digits()...),
+		c(ActionDescribe, "describe the focused column", "describe", "d"),
+		c(ActionDescribeEditor, "describe the focused column in $EDITOR", "", "D"),
+	}
+}
+
+// ConflictPicks is the conflict viewer's choices for the region at point. Stepping between regions
+// is the conflict object (]x, [x) and files the file object, so neither costs a key here.
+func ConflictPicks() []Binding {
+	r := func(action, what, short string, keys ...string) Binding {
+		return Binding{Action: action, Keys: keys, What: what, Short: short, Group: GroupResolve, Contexts: Conflict}
+	}
+
+	return []Binding{
+		r(ActionTakeSide, "take side N", "side", Digits()...),
+		r(ActionTakeBase, "take the base", "base", "0"),
+		r(ActionTakeAll, "take every side in order", "all", "a"),
+		r(ActionEditRegion, "edit the region in $EDITOR", "edit", "e"),
+		r(ActionResetRegion, "put the region back to conflicted", "reset", "R"),
+		r(ActionMergeTool, "hand the file to the configured merge tool", "merge tool", "M"),
 	}
 }
 

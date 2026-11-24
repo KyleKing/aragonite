@@ -105,10 +105,16 @@ func FlagBindings(verb string) []Binding {
 	flags := Flags(verb)
 	out := make([]Binding, 0, len(flags))
 
+	// A split's flags apply in its columns as well as in the picker that places the result.
+	ctx := Picker
+	if verb == VerbSplit {
+		ctx |= Split
+	}
+
 	for _, f := range flags {
 		out = append(out, Binding{
 			Action: FlagAction(verb, f.Letter), Keys: []string{"- " + f.Letter},
-			What: f.What + " (" + f.Arg + ")", Short: f.Arg, Group: "Flags", Contexts: Picker,
+			What: f.What + " (" + f.Arg + ")", Short: f.Arg, Group: "Flags", Contexts: ctx,
 		})
 	}
 

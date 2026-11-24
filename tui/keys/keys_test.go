@@ -430,3 +430,59 @@ func BenchmarkMatcherFeed(b *testing.B) {
 		m.Feed(keys.View, "h")
 	}
 }
+
+// The split columns and the conflict viewer sit on top of the diff vocabulary, so their keys must
+// merge with it and with the split's flags, and h, l, and - must mean the columns' keys there.
+func TestColumnsAndConflictsMergeWithTheDiffVocabulary(t *testing.T) {
+	t.Parallel()
+
+	all := slices.Concat(shared(), keys.SplitColumns(), keys.ConflictPicks(), keys.FlagBindings(keys.VerbSplit))
+
+	km, err := keys.Merge(all, nil, nil)
+	if err != nil {
+		t.Fatalf("Merge = %v", err)
+	}
+
+	tests := []struct {
+		want string
+		keys []string
+		ctx  keys.Context
+	}{
+		{keys.ActionColumnLeft, []string{"h"}, keys.Split},
+		{keys.ActionColumnRight, []string{"l"}, keys.Split},
+		{keys.ActionSideOld, []string{"h"}, keys.View},
+		{keys.FlagAction(keys.VerbSplit, "p"), []string{"-", "p"}, keys.Split},
+		{keys.ActionLessContext, []string{"-"}, keys.View},
+		{keys.ActionSendTo, []string{"3"}, keys.Split},
+		{keys.ActionTakeSide, []string{"3"}, keys.Conflict},
+		{keys.ActionTakeBase, []string{"0"}, keys.Conflict},
+		{keys.NextAction(keys.ObjConflict), []string{"]", "x"}, keys.Conflict},
+	}
+
+	for _, tt := range tests {
+		m := keys.NewMatcher(km)
+
+		var got keys.Match
+		for _, k := range tt.keys {
+			got = m.Feed(tt.ctx, k)
+		}
+
+		if got.Action != tt.want {
+			t.Errorf("%v on %v = %q, want %q", tt.keys, tt.ctx, got.Action, tt.want)
+		}
+	}
+
+	for _, b := range slices.Concat(keys.SplitColumns(), keys.ConflictPicks()) {
+		if b.What == "" || b.Group == "" || len(b.Keys) == 0 {
+			t.Errorf("%q needs a description, a group, and a key: %+v", b.Action, b)
+		}
+	}
+}
+
+func TestDigitsReadAsARange(t *testing.T) {
+	t.Parallel()
+
+	if got := (keys.Binding{Keys: keys.Digits()}).Labels(); got != "1–9" {
+		t.Errorf("Labels() = %q, want 1–9", got)
+	}
+}

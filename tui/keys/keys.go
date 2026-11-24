@@ -77,7 +77,12 @@ func (b Binding) Label() string {
 }
 
 // Labels is every sequence of the binding joined by a slash, which is what a legend shows: "j/down".
+// A binding on every digit reads "1–9".
 func (b Binding) Labels() string {
+	if slices.Equal(b.Keys, Digits()) {
+		return "1–9"
+	}
+
 	out := make([]string, 0, len(b.Keys))
 	for _, k := range b.Keys {
 		out = append(out, label(k))

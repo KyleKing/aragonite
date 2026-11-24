@@ -1,3 +1,9 @@
+## v1.31.0 (2026-11-24)
+
+### Feat
+
+- **coach**: a first-run welcome card of starter keys from the tool's keymap
+
 ## v1.30.0 (2026-11-24)
 
 ### Feat

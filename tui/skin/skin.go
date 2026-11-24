@@ -50,6 +50,10 @@ type Skin struct {
 	Selection lipgloss.Style
 	// Key is a keyboard hint's bracketed letter.
 	Key lipgloss.Style
+	// Suggest is a key something is pointing the reader at: the next step a
+	// coach names. It is the accent without weight, and the screens that use it
+	// draw a ▸ beside it so NO_COLOR keeps the meaning.
+	Suggest lipgloss.Style
 	// Tab is a tab strip's unfocused segment: the name and count on a surface
 	// one step above the background.
 	Tab lipgloss.Style
@@ -121,6 +125,7 @@ func build(p theme.Palette, accent color.Color, mono bool) Skin {
 		Cursor:    base.Foreground(accent).Bold(true),
 		Selection: selection,
 		Key:       base.Foreground(s.Primary),
+		Suggest:   base.Foreground(accent),
 		Tab:       base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
 		TabActive: base.Foreground(p.Base).Background(accent).Bold(true).
 			Padding(0, 1),

@@ -28,6 +28,10 @@ type Hint struct {
 	// Count is a figure drawn right-aligned beside the hint by Panel, such as
 	// how many items the key's filter matches. Empty draws none.
 	Count string
+	// Why is the reason a hint marked Off does nothing here, said as what is
+	// missing and the key that supplies it: "@ has no conflict". Help, Column,
+	// and Panel draw it after the description; a footer has no room for it.
+	Why string
 	// Kids is the page of hints a prefix key opens, so a legend can be read a
 	// level at a time rather than listing every chord at once. Page draws the
 	// hint with an ellipsis to say there is more under it; the other
@@ -36,6 +40,9 @@ type Hint struct {
 	// Priority is how long Fit keeps the hint as a line runs out of room: the
 	// lowest goes first, and equal priorities shed the later hint first.
 	Priority int
+	// Fresh is how long the user has gone without the key, 0 to 3 as
+	// keyusage.Usage.Level grades it: 1 underlines it, 2 bolds it, 3 does both.
+	Fresh int
 	// Pin keeps the hint on the line whatever else is shed, for the keys that
 	// must stay reachable: help and quit. Fit sheds a pinned hint only once
 	// every other hint is gone and the pinned ones alone still overflow.
@@ -50,9 +57,19 @@ type Hint struct {
 	// On marks a hint whose effect is applied, drawn in PanelStyles.On by
 	// Panel.
 	On bool
-	// Fresh is how long the user has gone without the key, 0 to 3 as
-	// keyusage.Usage.Level grades it: 1 underlines it, 2 bolds it, 3 does both.
-	Fresh int
+	// Suggest marks a key something is pointing the reader at, such as the
+	// next step a coach names, drawn in Styles.Suggest where that is set.
+	Suggest bool
+}
+
+// said is the description a legend row draws: What, and for a hint that is
+// Off with a reason, the reason after it.
+func (h Hint) said() string {
+	if h.Off && h.Why != "" {
+		return h.What + " · " + h.Why
+	}
+
+	return h.What
 }
 
 // Styles are the faces a hint is drawn with, passed in so the package never
@@ -66,15 +83,27 @@ type Styles struct {
 	Head lipgloss.Style
 	// Off draws a hint marked Off, key and text alike.
 	Off lipgloss.Style
+	// Suggest draws the key of a hint marked Suggest, and Key draws it until
+	// Suggesting is set.
+	Suggest lipgloss.Style
 	// Gap separates two hints on a line, and is the package's Gap where empty.
 	Gap string
 	// Bare draws a hint as its key and then its word, with no brackets, so the
 	// two faces alone tell them apart.
 	Bare bool
+	// Suggesting is whether Suggest is set, since a zero lipgloss.Style cannot
+	// be told from one that sets nothing.
+	Suggesting bool
 }
 
 // keyFace is the face h's key is drawn in.
-func (s Styles) keyFace(h Hint) lipgloss.Style { return brighten(s.Key, h.Fresh) }
+func (s Styles) keyFace(h Hint) lipgloss.Style {
+	if h.Suggest && s.Suggesting {
+		return brighten(s.Suggest, h.Fresh)
+	}
+
+	return brighten(s.Key, h.Fresh)
+}
 
 func brighten(face lipgloss.Style, level int) lipgloss.Style {
 	switch {
@@ -216,6 +245,13 @@ func Help(s Styles, hints []Hint, width int) []string {
 
 			out = append(out, Indent+strings.Repeat(" ", keys+len(Gutter))+
 				face.Render(table.Truncate(h.What, room)))
+
+			continue
+		}
+
+		if h.Off {
+			out = append(out, Indent+s.Off.Render(table.Pad(h.Key, keys, table.AlignRight)+
+				Gutter+table.Truncate(h.said(), room)))
 
 			continue
 		}

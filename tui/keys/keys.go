@@ -256,32 +256,7 @@ func (k *Keymap) Hints(actions ...string) []keyhint.Hint {
 
 // Legend is the help for one screen: a heading per group, in the order groups first appear, then
 // each bound action under it keyed by every sequence that presses it.
-func (k *Keymap) Legend(ctx Context) []keyhint.Hint {
-	var groups []string
-
-	byGroup := map[string][]keyhint.Hint{}
-
-	for _, b := range k.bindings {
-		if len(b.Keys) == 0 || !b.Contexts.Overlaps(ctx) {
-			continue
-		}
-
-		if _, ok := byGroup[b.Group]; !ok {
-			groups = append(groups, b.Group)
-		}
-
-		byGroup[b.Group] = append(byGroup[b.Group], keyhint.Hint{Key: b.Labels(), What: b.What})
-	}
-
-	var out []keyhint.Hint
-
-	for _, g := range groups {
-		out = append(out, keyhint.Hint{Head: true, What: g})
-		out = append(out, byGroup[g]...)
-	}
-
-	return out
-}
+func (k *Keymap) Legend(ctx Context) []keyhint.Hint { return k.LegendAt(ctx, nil) }
 
 // Next is what may follow prefix on a screen, one hint per next key, which is the which-key panel a
 // tool shows while a prefix waits. A key that opens a deeper prefix is described by the group of

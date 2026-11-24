@@ -269,3 +269,45 @@ func TestFreshDrawsKeyApart(t *testing.T) {
 		seen[got] = level
 	}
 }
+
+func TestWhy_DrawnAfterAnOffRow(t *testing.T) {
+	t.Parallel()
+
+	h := keyhint.Hint{Key: "x", What: "resolve", Off: true, Why: "@ has no conflict"}
+
+	for name, lines := range map[string][]string{
+		"Help":   keyhint.Help(plain, []keyhint.Hint{h}, 60),
+		"Column": keyhint.Column(plain, []keyhint.Hint{h}, 60),
+		"Panel":  keyhint.Panel(keyhint.PanelStyles{Styles: plain}, []keyhint.Hint{h}, 60),
+	} {
+		if !strings.Contains(strings.Join(lines, "\n"), "resolve · @ has no conflict") {
+			t.Errorf("%s = %q, want the reason after the description", name, lines)
+		}
+	}
+
+	on := h
+	on.Off = false
+
+	if got := strings.Join(keyhint.Help(plain, []keyhint.Hint{on}, 60), ""); strings.Contains(got, "conflict") {
+		t.Errorf("Help draws Why on a row that is not Off: %q", got)
+	}
+}
+
+func TestSuggest_UsesSuggestFaceOnlyWhenSet(t *testing.T) {
+	t.Parallel()
+
+	s := plain
+	s.Bare = true
+	s.Suggest = lipgloss.NewStyle().Underline(true)
+
+	h := keyhint.Hint{Key: "d", What: "describe", Suggest: true}
+
+	if got := keyhint.One(s, h); strings.Contains(got, "\x1b[4") {
+		t.Errorf("One drew the Suggest face without Suggesting: %q", got)
+	}
+
+	s.Suggesting = true
+	if got := keyhint.One(s, h); got == keyhint.One(plain, keyhint.Hint{Key: "d", What: "describe"}) {
+		t.Errorf("One ignored Suggest: %q", got)
+	}
+}

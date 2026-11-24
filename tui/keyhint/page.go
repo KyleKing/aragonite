@@ -143,7 +143,7 @@ func Column(s Styles, hints []Hint, width int) []string {
 // colRow draws one key's row in a column, the description wrapping under
 // itself when it runs past the room a row leaves it.
 func colRow(s Styles, h Hint, keys, room int) []string {
-	what := h.What
+	what := h.said()
 	if len(h.Kids) > 0 {
 		what += "…"
 	}

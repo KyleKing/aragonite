@@ -61,7 +61,7 @@ func panelWhat(h Hint) string {
 		return h.What + "…"
 	}
 
-	return h.What
+	return h.said()
 }
 
 func panelRow(s PanelStyles, h Hint, keys, whats, counts int) string {

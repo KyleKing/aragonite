@@ -1,3 +1,10 @@
+## v1.30.0 (2026-11-24)
+
+### Feat
+
+- **hermetic**: run a test binary in a home of its own and fail a run that reaches the real one
+- **seen**: migrate marks filed under a prefix of a scope
+
 ## v1.29.0 (2026-11-24)
 
 ### Feat

@@ -85,7 +85,7 @@ const MaxBand = 3
 
 const (
 	bandKey  = 4
-	bandWhat = 12
+	bandWhat = 14
 	bandCmd  = 3
 )
 

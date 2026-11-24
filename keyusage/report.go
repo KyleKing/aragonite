@@ -215,6 +215,8 @@ func Write(w io.Writer, u Usage, km Keymap, stale time.Time) error {
 		p.f("  %s\t%s\t%d\n", r.Ctx, r.Path, r.Count)
 	}
 
+	p.refusals(u.Refusals())
+
 	overloads := u.Overloads(km)
 	p.section(fmt.Sprintf("one key, different meanings (%d)", len(overloads)))
 
@@ -268,3 +270,17 @@ func (p *printer) f(format string, args ...any) {
 }
 
 func (p *printer) section(title string) { p.f("\n%s\n", title) }
+
+// refusals lists the actions pressed where they could not run, and nothing when there are none,
+// so a log from before gating was recorded reads as it always did.
+func (p *printer) refusals(rows []Row) {
+	if len(rows) == 0 {
+		return
+	}
+
+	p.section(fmt.Sprintf("pressed where it could not run (%d)", len(rows)))
+
+	for _, r := range rows {
+		p.f("  %s\t%s\t%d\n", r.Ctx, r.Path, r.Count)
+	}
+}

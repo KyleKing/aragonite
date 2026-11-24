@@ -22,12 +22,15 @@ const (
 
 // Entry is one logged line. S is the context the key was pressed in, such as
 // "review" or "review/help", E is "key" or an event name, and W is the key as
-// tea.KeyPressMsg.String() spells it.
+// tea.KeyPressMsg.String() spells it. A is the action an "act" or "gated" line
+// names, which survives a rebind where a key does not; a reader that predates
+// it skips those lines and still counts every key.
 type Entry struct {
 	T  time.Time `json:"t"`
 	S  string    `json:"s"`
 	E  string    `json:"e"`
 	W  string    `json:"w,omitempty"`
+	A  string    `json:"a,omitempty"`
 	MS int64     `json:"ms,omitempty"`
 }
 

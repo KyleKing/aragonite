@@ -12,6 +12,12 @@ Line movement (`up`, `down`, `j`, `k`) is never recorded or reported. The consum
 
 `Recorder.Invoke(root, os.Args[1:])` logs one line per run under the `cli` context: the subcommand path the tool's `Command` tree recognizes, then each flag's name (`tool pr view --web`). Positional arguments and flag values are never written, because they carry paths, repository names, and tokens. Subcommands are read until the first bare word that is not one. `Commands(root)` turns the same tree into bindings for `Keymap[keyusage.CLI]`, so `<tool> keys` reports unused subcommands and flags beside unused keys, and an undeclared flag shows up as a miss.
 
+## Actions and refusals
+
+`Recorder.Action(ctx, action, key)` writes `{"e":"act","a":"<action>","w":"<key>"}` once an action has run, after its keys were logged with `Key`, and `key` is empty when it ran from a palette. A key is renamed by a rebind and an action is not, so a coach that asks "has this been learned" asks by action (`Usage.ActionStat`, or `Usage.Actions(ctx)` for the `Last`/`Count` view a palette reads). `AnyContext` counts every screen. `Recorder.Gated(ctx, action)` writes `{"e":"gated","a":"<action>"}` for a press the screen refused, and the report lists those under "pressed where it could not run".
+
+Both are new lines beside the key lines rather than a change to them, so a reader that predates them skips the lines and keeps counting every key, and a log written before them answers zero for every action.
+
 ## Context
 
 The same key does different things on different screens, overlays, and cursor targets. In second-look, `r` replies on the queue and gives a ready verdict on a thread, and `u` is a chord on review but jumps to the next unread on the queue. So every line carries `ctx`, and the consumer names where the key landed (`review`, `review/thread`, `review/help`, `queue/inbox`) before dispatching it. Both reading and counting are per context:

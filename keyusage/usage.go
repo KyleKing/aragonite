@@ -32,8 +32,10 @@ type Stat struct {
 // Usage is a log read back against a Keymap. A path is a binding's first key,
 // with a chord's keys joined by a space ("m x").
 type Usage struct {
-	hits   map[string]map[string]Stat
-	misses map[string]map[string]Stat
+	hits    map[string]map[string]Stat
+	misses  map[string]map[string]Stat
+	actions map[string]map[string]Stat
+	gated   map[string]map[string]Stat
 	// Unmapped counts key lines whose context the Keymap does not name.
 	Unmapped map[string]int
 	// Skipped counts lines that did not parse.
@@ -46,6 +48,8 @@ func Load(dir string, km Keymap) (Usage, error) {
 	u := Usage{
 		hits:     map[string]map[string]Stat{},
 		misses:   map[string]map[string]Stat{},
+		actions:  map[string]map[string]Stat{},
+		gated:    map[string]map[string]Stat{},
 		Unmapped: map[string]int{},
 	}
 
@@ -99,6 +103,10 @@ func (u *Usage) readFile(path string, km Keymap) error {
 		if e.E == CLI {
 			u.tallyCLI(e, km)
 
+			continue
+		}
+
+		if u.tallyAction(e) {
 			continue
 		}
 

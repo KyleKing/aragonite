@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kyleking/aragonite/tui/framecheck"
@@ -762,6 +763,24 @@ func TestKeyLabels(t *testing.T) {
 	} {
 		if got := palette.KeyLabels(label); !slices.Equal(got, want) {
 			t.Errorf("KeyLabels(%q) = %q, want %q", label, got, want)
+		}
+	}
+}
+
+// A tool learns its terminal's colors after the palette is built, and restyles:
+// the palette follows, so in 16 colors its selected row is the skin's reverse
+// video rather than the truecolor tint it was built with.
+func TestSetSkin_FollowsARestyle(t *testing.T) {
+	t.Parallel()
+
+	m := open(palette.Browse)
+	p := theme.Macchiato()
+	m.SetSkin(skin.For(p, p.Mauve, colorprofile.ANSI))
+
+	for _, l := range m.View(80, 24) {
+		if strings.Contains(l, "▌") && !strings.Contains(l, "\x1b[7m") && !strings.Contains(l, ";7m") &&
+			!strings.Contains(l, "[7;") {
+			t.Errorf("the selected row is not reverse video after SetSkin: %q", l)
 		}
 	}
 }

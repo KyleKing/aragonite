@@ -90,6 +90,12 @@ func WithClock(now func() time.Time) Option { return func(m *Model) { m.now = no
 // margin sets it from the terminal's own width, since the width it draws in is narrower.
 func (m *Model) SetLayout(l Layout) { m.layout = l }
 
+// SetSkin draws the palette with s from the next frame on, open or not. A tool restyles when the
+// terminal answers what colors it has, which is after the palette was built: without this the
+// palette keeps the skin it started with, a tint where the terminal has 16 colors and reverse
+// video is the selection.
+func (m *Model) SetSkin(s skin.Skin) { m.skin = s }
+
 // New is a closed palette drawn with s.
 func New(s skin.Skin, opts ...Option) *Model {
 	m := &Model{skin: s, now: time.Now}

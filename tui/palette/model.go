@@ -86,6 +86,10 @@ func WithLayout(l Layout) Option { return func(m *Model) { m.layout = l } }
 // WithClock replaces time.Now, which ages recent entries.
 func WithClock(now func() time.Time) Option { return func(m *Model) { m.now = now } }
 
+// SetLayout fixes the layout from now on, Auto choosing by width again. A tool whose frame keeps a
+// margin sets it from the terminal's own width, since the width it draws in is narrower.
+func (m *Model) SetLayout(l Layout) { m.layout = l }
+
 // New is a closed palette drawn with s.
 func New(s skin.Skin, opts ...Option) *Model {
 	m := &Model{skin: s, now: time.Now}

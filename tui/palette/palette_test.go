@@ -564,6 +564,23 @@ func TestView_RectAndWheel(t *testing.T) {
 	}
 }
 
+func TestSetLayout(t *testing.T) {
+	t.Parallel()
+
+	m := open(palette.Run)
+	m.SetLayout(palette.Drawer)
+
+	if got := m.Resolve(90); got != palette.Drawer {
+		t.Errorf("SetLayout(Drawer) resolved %v at 90", got)
+	}
+
+	m.SetLayout(palette.Auto)
+
+	if got := m.Resolve(90); got != palette.Strip {
+		t.Errorf("SetLayout(Auto) resolved %v at 90", got)
+	}
+}
+
 func TestView_ClosedDrawsNothing(t *testing.T) {
 	t.Parallel()
 

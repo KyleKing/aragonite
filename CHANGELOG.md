@@ -1,3 +1,9 @@
+## v1.25.1 (2026-11-24)
+
+### Fix
+
+- **glyph**: settle a colored circle or square to its shape
+
 ## v1.25.0 (2026-11-24)
 
 ### Feat

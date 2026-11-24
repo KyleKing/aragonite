@@ -1,3 +1,10 @@
+## v1.20.1 (2026-11-24)
+
+### Perf
+
+- **pen**: draw a lipgloss style without running its renderer per run
+- **highlight**: lex in the background, resolve grammars once, and lex both sides at once
+
 ## v1.20.0 (2026-11-23)
 
 ### Feat

@@ -1,3 +1,9 @@
+## v1.26.1 (2026-11-24)
+
+### Fix
+
+- **skin**: On, a cell on a tool's own row face under the selection policy
+
 ## v1.26.0 (2026-11-24)
 
 ### Feat

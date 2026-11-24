@@ -1,3 +1,9 @@
+## v1.29.0 (2026-11-24)
+
+### Feat
+
+- **seen**: resolve a jj workspace to its repository store
+
 ## v1.28.0 (2026-11-24)
 
 ### Feat

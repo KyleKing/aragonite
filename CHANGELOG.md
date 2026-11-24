@@ -1,3 +1,9 @@
+## v1.23.3 (2026-11-24)
+
+### Fix
+
+- **palette**: let a tool set the layout after building the palette
+
 ## v1.23.2 (2026-11-24)
 
 ### Fix

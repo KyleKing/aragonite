@@ -1,3 +1,9 @@
+## v1.31.1 (2026-11-24)
+
+### Fix
+
+- **hermetic**: unset git's repository variables and fail a run that changes the real repository
+
 ## v1.31.0 (2026-11-24)
 
 ### Feat

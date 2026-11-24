@@ -77,7 +77,7 @@ func (m *Model) entries() []palette.Entry {
     `ran squash · next time s` so the palette teaches its own way out. `Flags` carries `-u`-style
     words typed after the name, for a verb that opens a picker with them preset
   - `palette.RefusedMsg{Action, Why}`: log `usage.Gated`. The palette already shows the reason
-  - `palette.ClosedMsg`: nothing
+  - Closing sends nothing; ask `m.palette.IsOpen()` after `Update` if the screen cares
 - `palette.Note(skin, entry, width, now)` is the explainer as lines, for a tool that answers "what
   does this key do" in its own status area too
 
@@ -104,10 +104,12 @@ m.coach = coach.New(coach.Config[State]{
 ```
 
 - On every key press: `m.coach.Press(now)` (any key clears a showing tip), and return
-  `m.coach.Wake()` so an `IdleMsg` arrives after two idle seconds
+  `m.coach.WakeAt(now)`, which arms one `IdleMsg` for the earliest moment a tip could show and is
+  nil during the first minute, so tests and short sessions never run a timer
 - On every action that ran: `m.coach.Observe(coach.Event{Action: a, At: now})`
-- On `coach.IdleMsg`: `m.tip, ok = m.coach.Tip(msg.At, busy)` where busy is any text field,
-  picker, or overlay being open
+- On `coach.IdleMsg`: `m.coach.Tip(msg.At, busy)` where busy is any text field, picker, or
+  overlay being open, then `ledger.Save()` (the idle lull is the time to write it), and return
+  `m.coach.WakeAt(msg.At)` to arm the next one
 - Inline layout (default): `coach.Line(skin, next, width)` in the status line while a rule holds,
   and `coach.TipLine(skin, tip, width)` in the footer's leading slot until the next key.
   `coach.Mark(hints, next)` brightens the suggested key in the footer

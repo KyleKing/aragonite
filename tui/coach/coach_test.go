@@ -255,6 +255,61 @@ func TestTip_OffInTheLedger(t *testing.T) {
 	}
 }
 
+func TestRule_KeyWithoutAKeymapAndMotionIsNotARun(t *testing.T) {
+	t.Parallel()
+
+	l := memory(t)
+	c := coach.New(coach.Config[state]{Ledger: l, Start: t0, Rules: []coach.Rule[state]{{
+		ID: "unread", Action: "] u", Key: "]u", What: "next unread", Tone: coach.Next,
+		When: func(state) bool { return true }, Say: func(state) string { return "3 hunks unread" },
+	}}})
+
+	if sg, ok := c.Next(state{}, nil); !ok || sg.Key != "]u" || sg.What != "next unread" {
+		t.Errorf("Next = %+v", sg)
+	}
+
+	c.Observe(coach.Event{At: t0, Action: "j", Motion: true})
+
+	if l.Count("j") != 0 {
+		t.Error("a motion counted as a run")
+	}
+}
+
+func TestWake_ArmsOnlyWhenATipCouldCome(t *testing.T) {
+	t.Parallel()
+
+	lim := coach.DefaultLimits()
+	c := coach.New(coach.Config[state]{Tips: pool(), Start: t0})
+
+	if c.WakeAt(t0.Add(time.Second)) != nil {
+		t.Error("Wake armed during the warmup")
+	}
+
+	at := t0.Add(lim.Warmup + time.Second)
+	c.Press(at)
+
+	if c.WakeAt(at) == nil {
+		t.Fatal("Wake did not arm after the warmup")
+	}
+
+	if c.WakeAt(at.Add(time.Second)) != nil {
+		t.Error("Wake armed twice")
+	}
+
+	if _, ok := c.Tip(at.Add(lim.Idle), false); !ok {
+		t.Fatal("no tip when idle")
+	}
+
+	if c.WakeAt(at.Add(lim.Idle)) != nil {
+		t.Error("Wake armed while a tip shows")
+	}
+
+	empty := coach.New(coach.Config[state]{Start: t0})
+	if empty.WakeAt(at) != nil {
+		t.Error("Wake armed with nothing to teach")
+	}
+}
+
 func TestDetectors(t *testing.T) {
 	t.Parallel()
 

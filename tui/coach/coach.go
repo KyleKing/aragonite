@@ -83,8 +83,11 @@ type Rule[S any] struct {
 	Why    func(S) string
 	ID     string
 	Action string
-	Cmd    string
-	Tone   Tone
+	// Key and What name the key that takes it, for a tool with no keys.Keymap to fill them from.
+	Key  string
+	What string
+	Cmd  string
+	Tone Tone
 	// Priority orders rules of one tone, the highest first.
 	Priority int
 }
@@ -161,6 +164,7 @@ type Coach[S any] struct {
 	start   time.Time
 	lastKey time.Time
 	lastTip time.Time
+	armed   time.Time
 	ledger  *Ledger
 	seen    Seen
 	showing *Suggestion
@@ -210,7 +214,7 @@ func (c *Coach[S]) All(s S, gate keys.Gate) []Suggestion {
 			continue
 		}
 
-		sg := c.keyed(Suggestion{ID: r.ID, Action: r.Action, Cmd: r.Cmd, Tone: r.Tone})
+		sg := c.keyed(Suggestion{ID: r.ID, Action: r.Action, Key: r.Key, What: r.What, Cmd: r.Cmd, Tone: r.Tone})
 		if r.Say != nil {
 			sg.Say = r.Say(s)
 		}
@@ -250,6 +254,9 @@ type Event struct {
 	Action string
 	// Palette marks an action run from the palette rather than its key.
 	Palette bool
+	// Motion marks a movement key (a line down): detectors see it, since a long run of them is
+	// what a Repeat detector watches for, but the ledger does not count it as a command run.
+	Motion bool
 }
 
 // Press records a key press of any kind, which clears a showing tip (any key dismisses one) and
@@ -264,9 +271,12 @@ func (c *Coach[S]) Press(at time.Time) {
 // that see a long way round queue a tip.
 func (c *Coach[S]) Observe(ev Event) {
 	c.Press(ev.At)
-	c.ledger.Ran(ev.Action, ev.At)
 
-	if !ev.Palette {
+	if !ev.Motion {
+		c.ledger.Ran(ev.Action, ev.At)
+	}
+
+	if !ev.Palette && !ev.Motion {
 		c.ledger.Took(ev.Action)
 	}
 
@@ -393,12 +403,39 @@ func (c *Coach[S]) keyed(sg Suggestion) Suggestion {
 	return sg
 }
 
-// IdleMsg arrives when the reader has been idle for the limits' Idle, which is when a tool asks
-// Tip again.
+// IdleMsg arrives when a tip may have become possible, which is when a tool asks Tip again.
 type IdleMsg struct{ At time.Time }
 
-// Wake is the command that sends IdleMsg once the reader has been idle long enough, which a tool
-// returns after each key press.
-func (c *Coach[S]) Wake() tea.Cmd {
-	return tea.Tick(c.lim.Idle, func(t time.Time) tea.Msg { return IdleMsg{At: t} })
+// Wake is WakeAt now.
+func (c *Coach[S]) Wake() tea.Cmd { return c.WakeAt(time.Now()) }
+
+// WakeAt is the command that sends IdleMsg at the earliest moment a tip could show, which a tool
+// returns after each key press and after each IdleMsg that showed nothing. It is nil while one is
+// already on its way, during the session's warmup (so a short session, a test among them, never
+// arms a timer), while a tip is showing, and once no tip can come this session: tips off, the
+// session's allowance spent, or nothing left to teach.
+func (c *Coach[S]) WakeAt(now time.Time) tea.Cmd {
+	switch {
+	case c.armed.After(now), c.showing != nil, now.Sub(c.start) < c.lim.Warmup:
+		return nil
+	case c.ledger.TipsOff(), c.shown >= c.lim.PerSession, len(c.queue)+len(c.pool) == 0:
+		return nil
+	}
+
+	due := c.lastKey.Add(c.lim.Idle)
+	if !c.lastTip.IsZero() {
+		due = latest(due, c.lastTip.Add(c.lim.Every))
+	}
+
+	c.armed = latest(due, now)
+
+	return tea.Tick(c.armed.Sub(now), func(t time.Time) tea.Msg { return IdleMsg{At: t} })
+}
+
+func latest(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+
+	return b
 }

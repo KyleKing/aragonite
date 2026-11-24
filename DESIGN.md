@@ -217,3 +217,11 @@ checkout:
 
 `vcs` covers git and jj against real repositories created in `t.TempDir`, because the
 behavior worth testing is what the binaries actually print.
+
+Every test package's `TestMain` is `hermetic.Main`, and `TestEveryTestPackageIsHermetic` holds the
+module to it. A real jj or git run is only safe in a home of the test's own: jj 0.47 keeps each
+repository's config, and a record of every repository it opens, under `$XDG_CONFIG_HOME/jj/repos`,
+so a fixture that sets repository config writes into whoever ran the tests. The isolation is
+environment variables set before any test starts, because every child process inherits them, and
+the guard is a before/after snapshot of the real directories, because a leak nobody checks for is
+one nobody notices. Consumers use the same package for the same reason.

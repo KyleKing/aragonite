@@ -10,10 +10,13 @@ import (
 	"testing"
 
 	"github.com/kyleking/aragonite/ghcassette"
+	"github.com/kyleking/aragonite/hermetic"
 )
 
+// TestMain runs the tests in a home of their own, failing the run if one reaches the real one,
+// and removes the stub binary afterwards.
 func TestMain(m *testing.M) {
-	code := m.Run()
+	code := hermetic.Run(m)
 
 	ghcassette.RemoveStub()
 	os.Exit(code)

@@ -1,3 +1,9 @@
+## v1.21.0 (2026-11-24)
+
+### Feat
+
+- **keys**: share one key vocabulary across jojo, jj-diff, and second-look
+
 ## v1.20.3 (2026-11-24)
 
 ### Perf

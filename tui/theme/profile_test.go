@@ -118,3 +118,32 @@ func TestProfileHonorsColortermInsideTmux(t *testing.T) {
 		})
 	}
 }
+
+// Every accent of every flavor keeps a hue in 256 colors: none answers a grey,
+// which colorprofile's own match does for Latte's red.
+func TestHueNeverGreysAnAccent(t *testing.T) {
+	t.Parallel()
+
+	for name, p := range map[string]theme.Palette{
+		"latte": theme.Latte(), "macchiato": theme.Macchiato(), "ink": theme.Ink(),
+	} {
+		for accent, c := range map[string]color.Color{
+			"red": p.Red, "green": p.Green, "blue": p.Blue, "yellow": p.Yellow,
+			"peach": p.Peach, "mauve": p.Mauve, "maroon": p.Maroon, "teal": p.Teal,
+		} {
+			got := colorprofile.ANSI256.Convert(theme.Hue(c, colorprofile.ANSI256))
+			if r, g, b, _ := got.RGBA(); r == g && g == b {
+				t.Errorf("%s %s is the grey %v in 256 colors", name, accent, got)
+			}
+		}
+	}
+
+	if got := theme.Hue(theme.Latte().Red, colorprofile.TrueColor); got != theme.Latte().Red {
+		t.Errorf("truecolor changed the red to %v", got)
+	}
+
+	grey := theme.Latte().Overlay2
+	if got := theme.Hue(grey, colorprofile.ANSI256); got != grey {
+		t.Errorf("a grey of its own was moved to %v", got)
+	}
+}

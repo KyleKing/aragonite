@@ -175,3 +175,20 @@ func distance(a, b color.Color) float64 {
 
 	return scale * ca.DistanceCIEDE2000(cb)
 }
+
+// In 256 colors the side of a line is said by its sign alone, so both signs keep
+// their hue there: Latte's red answers a grey through colorprofile's own match.
+func TestDiffSignsKeepTheirHueIn256Colors(t *testing.T) {
+	t.Parallel()
+
+	for name, p := range map[string]theme.Palette{"latte": theme.Latte(), "macchiato": theme.Macchiato()} {
+		d := skin.DiffFor(p, colorprofile.ANSI256)
+
+		for side, face := range map[string]lipgloss.Style{"added": d.AddSign, "removed": d.RemoveSign} {
+			got := colorprofile.ANSI256.Convert(face.GetForeground())
+			if r, g, b, _ := got.RGBA(); r == g && g == b {
+				t.Errorf("%s %s sign is the grey %v", name, side, got)
+			}
+		}
+	}
+}

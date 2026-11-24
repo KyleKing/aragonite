@@ -161,9 +161,9 @@ func build(p theme.Palette, accent color.Color, profile colorprofile.Profile, mo
 		Panel:       base.Background(ground(p.Mantle, theme.Sunk)),
 		Edge:        base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
 		FileBand:    fileBand,
-		Success:     base.Foreground(s.Success),
-		Warning:     base.Foreground(s.Warning),
-		Error:       base.Foreground(s.Error).Bold(true),
+		Success:     base.Foreground(theme.Hue(s.Success, profile)),
+		Warning:     base.Foreground(theme.Hue(s.Warning, profile)),
+		Error:       base.Foreground(theme.Hue(s.Error, profile)).Bold(true),
 	}
 }
 

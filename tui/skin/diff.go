@@ -67,8 +67,8 @@ func DiffFor(p theme.Palette, profile colorprofile.Profile) DiffFaces {
 		RemoveWash: ground(theme.Blend(p.Base, p.Red, washShare), theme.Wash),
 		AddMark:    ground(theme.Blend(p.Base, p.Green, markShare), theme.Emphasis),
 		RemoveMark: ground(theme.Blend(p.Base, p.Red, markShare), theme.Emphasis),
-		AddSign:    base.Foreground(p.Green),
-		RemoveSign: base.Foreground(p.Red),
+		AddSign:    base.Foreground(theme.Hue(p.Green, profile)),
+		RemoveSign: base.Foreground(theme.Hue(p.Red, profile)),
 		mono:       noColor(),
 	}
 }

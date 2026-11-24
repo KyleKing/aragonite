@@ -96,6 +96,11 @@ reference setup):
   `tea.WithColorProfile`, so faces and renderer agree on the depth.
 - **Backgrounds are fitted, never quantized** (`skin.For`, `skin.DiffFor`): tints
   in truecolor, grey-ramp steps in 256, none in 16.
+- **A hue that says something keeps it** (`theme.Hue`). colorprofile's 256-color
+  match lands some saturated colors on the grey ramp (Latte's red answers 241),
+  which in 256 colors would leave a removed line's sign the same grey as its
+  wash. The diff signs and the skin's Success, Warning, and Error go through
+  `theme.Hue`, which answers the nearest non-grey cube entry instead.
 - **Chrome uses width-stable glyphs only** (`tui/glyph`). No Emoji=Yes code point
   (⚠ ▶ ◀ ✔ ✖ ⬆ ⬇ ❤ ⏺: Fira Code has none of them, so WezTerm falls back to an
   emoji font and draws them two cells wide over one), no VS16 or ZWJ sequence,

@@ -166,3 +166,66 @@ func lab(c color.Color) (float64, float64, float64) {
 
 	return cf.Lab()
 }
+
+// cubeLevels are the channel values of xterm's 6x6x6 color cube (16-231).
+var cubeLevels = [6]uint8{0, 95, 135, 175, 215, 255}
+
+const (
+	cubeFirst = 16
+	cubeSide  = 6
+	// A color under chromaFloor of Lab chroma is a grey of its own, and a grey
+	// answer loses nothing.
+	chromaFloor = 0.25
+)
+
+// Hue fits a foreground that carries its meaning by hue, such as a diff's sign
+// or a count, to profile. The nearest match colorprofile makes in 256 colors weighs
+// lightness heavily enough that a saturated mid-dark color can land on the grey
+// ramp (Latte's red, #d20f39, answers 241), which erases the hue the color was
+// chosen for. In 256 colors Hue answers the nearest non-grey entry of the color
+// cube instead whenever that match would be a grey and c is not one; every other
+// case keeps c for the renderer to convert.
+func Hue(c color.Color, profile colorprofile.Profile) color.Color {
+	if profile != colorprofile.ANSI256 || c == nil {
+		return c
+	}
+
+	if _, a, b := lab(c); math.Hypot(a, b) < chromaFloor || !greyIndexed(profile.Convert(c)) {
+		return c
+	}
+
+	return ansi.IndexedColor(nearestCube(c))
+}
+
+// greyIndexed reports whether c, a 256-color answer, is a grey: the ramp or a
+// cube entry with equal channels.
+func greyIndexed(c color.Color) bool {
+	r, g, b, _ := c.RGBA()
+
+	return r == g && g == b
+}
+
+// nearestCube is the cube index, never one of its greys, nearest c in Lab.
+func nearestCube(c color.Color) uint8 {
+	want, _ := colorful.MakeColor(c)
+	best, dist := uint8(cubeFirst), math.Inf(1)
+
+	for r := range uint8(cubeSide) {
+		for g := range uint8(cubeSide) {
+			for b := range uint8(cubeSide) {
+				if r == g && g == b {
+					continue
+				}
+
+				at := color.RGBA{R: cubeLevels[r], G: cubeLevels[g], B: cubeLevels[b], A: math.MaxUint8}
+				got, _ := colorful.MakeColor(at)
+
+				if d := want.DistanceLab(got); d < dist {
+					best, dist = cubeFirst+r*cubeSide*cubeSide+g*cubeSide+b, d
+				}
+			}
+		}
+	}
+
+	return best
+}

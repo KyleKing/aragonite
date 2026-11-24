@@ -61,10 +61,14 @@ func (f Fault) String() string {
 
 type options struct {
 	allow    map[string]bool
+	view     *viewport
 	nerd     bool
 	width    int
 	maxWidth int
 }
+
+// viewport is the rows of a frame that scroll, first and last inclusive.
+type viewport struct{ top, bottom int }
 
 // Option adjusts what Check expects of a frame.
 type Option func(*options)
@@ -87,6 +91,16 @@ func Allow(glyphs ...string) Option {
 	}
 }
 
+// Viewport says rows top through bottom (counted from zero, inclusive) are a
+// scrolled body between fixed rows, a header above and a footer below. A box
+// the scroll has cut across is clipped there rather than broken, so a side
+// running into the viewport's last row ends there. A box edge with none of its
+// own rows inside the viewport is still a fault: a top edge alone on the last
+// row, or a bottom edge alone on the first, draws a lid on nothing.
+func Viewport(top, bottom int) Option {
+	return func(o *options) { o.view = &viewport{top: top, bottom: bottom} }
+}
+
 // Nerd accepts private-use glyphs, for a frame drawn with the Nerd icon set a
 // reader opted into. Each one must still be drawn through icons.Glyph.Prefix,
 // with the blank cell its overflow lands on.
@@ -102,7 +116,7 @@ func Check(frame string, opts ...Option) []Fault {
 
 	g := newGrid(frame)
 
-	return slices.Concat(g.widths(o), g.glyphs(o), g.corners(), g.edges())
+	return slices.Concat(g.widths(o), g.glyphs(o), g.corners(o), g.edges(o))
 }
 
 // TB is the part of testing.TB that Require reports through.
@@ -260,7 +274,7 @@ func (g grid) glyphs(o options) []Fault {
 
 // corners reports every corner or tee with an arm that joins nothing. An arm
 // pointing off the frame is clipped rather than broken.
-func (g grid) corners() []Fault {
+func (g grid) corners(o options) []Fault {
 	var faults []Fault
 
 	for i, r := range g.rows {
@@ -270,12 +284,18 @@ func (g grid) corners() []Fault {
 				continue
 			}
 
-			if loose := g.loose(i, j, arms); loose != "" {
-				faults = append(faults, Fault{
-					Rule: Corner, Row: i, Col: j,
-					Detail: fmt.Sprintf("%s has an arm with nothing to join: %s", c.text, loose),
-				})
+			loose := g.loose(i, j, arms)
+			if loose == "" {
+				continue
 			}
+
+			detail := fmt.Sprintf("%s has an arm with nothing to join: %s", c.text, loose)
+			if v := o.view; v != nil && (i == v.bottom && arms&down != 0 || i == v.top && arms&up != 0) {
+				detail = fmt.Sprintf("%s is a box edge on the viewport's edge with none of its box inside: %s",
+					c.text, loose)
+			}
+
+			faults = append(faults, Fault{Rule: Corner, Row: i, Col: j, Detail: detail})
 		}
 	}
 
@@ -313,8 +333,9 @@ func (g grid) loose(row, col int, arms arm) string {
 
 // edges follows each box's sides down from its top corners and reports a side
 // that text interrupts before it reaches a bottom corner. A side that meets
-// another box's border is covered, and one that reaches the last row is clipped.
-func (g grid) edges() []Fault {
+// another box's border is covered, and one that reaches the last row, or the
+// last row of a Viewport, is clipped.
+func (g grid) edges(o options) []Fault {
 	var faults []Fault
 
 	for i, r := range g.rows {
@@ -323,7 +344,12 @@ func (g grid) edges() []Fault {
 				continue
 			}
 
-			if f, ok := g.trace(i, j); !ok {
+			last := len(g.rows) - 1
+			if v := o.view; v != nil && i >= v.top && i <= v.bottom {
+				last = v.bottom
+			}
+
+			if f, ok := g.trace(i, j, last); !ok {
 				faults = append(faults, f)
 			}
 		}
@@ -332,8 +358,8 @@ func (g grid) edges() []Fault {
 	return faults
 }
 
-func (g grid) trace(row, col int) (Fault, bool) {
-	for i := row + 1; i < len(g.rows); i++ {
+func (g grid) trace(row, col, last int) (Fault, bool) {
+	for i := row + 1; i <= last; i++ {
 		here := g.at(i, col)
 		arms, isBox := joins[here]
 

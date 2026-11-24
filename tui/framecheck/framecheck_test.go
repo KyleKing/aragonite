@@ -2,6 +2,7 @@ package framecheck_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -117,10 +118,38 @@ func checkCases() []checkCase {
 	}
 }
 
+// viewportCases are frames with a scrolled body between a header and a footer.
+func viewportCases() []checkCase {
+	return []checkCase{
+		{
+			name:  "a box the viewport cuts at its bottom is clipped",
+			frame: "head\n╭──╮\n│  │\n│  │\nfoot",
+			opts:  []framecheck.Option{framecheck.Viewport(1, 3)},
+		},
+		{
+			name:  "the same box without a viewport runs into the footer",
+			frame: "head\n╭──╮\n│  │\n│  │\nfoot",
+			want:  []string{"5:1 edge", "5:4 edge"},
+		},
+		{
+			name:  "a top edge alone on the viewport's last row is a lid on nothing",
+			frame: "head\nrow \n╭──╮\nfoot",
+			opts:  []framecheck.Option{framecheck.Viewport(1, 2)},
+			want:  []string{"3:1 corner", "3:4 corner"},
+		},
+		{
+			name:  "a bottom edge alone on the viewport's first row is a lid on nothing",
+			frame: "head\n╰──╯\nrow \nfoot",
+			opts:  []framecheck.Option{framecheck.Viewport(1, 2)},
+			want:  []string{"2:1 corner", "2:4 corner"},
+		},
+	}
+}
+
 func TestCheck(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range checkCases() {
+	for _, tc := range slices.Concat(checkCases(), viewportCases()) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

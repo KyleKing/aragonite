@@ -186,6 +186,12 @@ identical on every platform and on network home directories, and a lock older th
 taken to belong to a process that died and is broken. A save prunes marks for hunks the caller's
 live diff no longer carries, so a file stays the size of one review.
 
+Two tools share marks only if they name the same directory, so the jj repository a directory belongs
+to is answered here (`JJRepo`) rather than by each tool. It walks up to the nearest `.jj` the way jj
+does, follows a secondary workspace's `.jj/repo` pointer to the main store, and resolves symlinks,
+so jojo started at a workspace root and jj-diff started in a subdirectory of another workspace of
+the same repository reach one `RepoKey` without either asking jj.
+
 ## Detection is deterministic
 
 `theme.Detect` reads `CATPPUCCIN_THEME` first and falls back to the terminal

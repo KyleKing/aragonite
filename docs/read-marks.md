@@ -18,6 +18,7 @@ next or previous unread thing, and `U` shows only what is unread.
 | `store.Reload(scope)` | forget the cached set so the next ask rereads the file (after another tool wrote it) |
 | `seen.StateDir(app, parts...)` | `$XDG_STATE_HOME/<app>/<parts...>`, else `~/.local/state/...` |
 | `seen.RepoKey(path)` | `<base>-<12 hex>` naming one repository under a state directory |
+| `seen.JJRepo(dir)` | the jj repository store a workspace (or any directory inside one) belongs to, the path to pass `RepoKey` |
 
 An id is the sha256 of the path, a NUL, and each line as kind byte, text, and newline, which is
 exactly what jojo's `internal/readmark.Hunks` already computes, so swapping it for `seen.Parse`

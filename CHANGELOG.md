@@ -1,3 +1,9 @@
+## v1.24.2 (2026-11-24)
+
+### Fix
+
+- **skin**: sit a file's heading a ramp step under a changed line's wash
+
 ## v1.24.1 (2026-11-24)
 
 ### Fix

@@ -1,3 +1,9 @@
+## v1.23.4 (2026-11-24)
+
+### Fix
+
+- **palette**: draw no right column when no row has a count or a recent run
+
 ## v1.23.3 (2026-11-24)
 
 ### Fix

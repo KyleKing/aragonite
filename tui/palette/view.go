@@ -338,8 +338,9 @@ func (m *Model) columns(width int) columns {
 	return c
 }
 
-// row draws one hit: the mark, the key, the description with the matched letters lifted, and the
-// right column, which is the reason for an entry off here, else how recently or often it ran.
+// row draws one hit: the mark, the key, the description with the matched letters lifted (and for an
+// entry off here, the reason after it), and the right column, which is how recently or often it
+// ran. The reason rides with the description so a long one never narrows every row's column.
 // The strip adds the command column between, since it has the width and no explainer pane.
 func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) string {
 	face := func(st lipgloss.Style) lipgloss.Style {
@@ -393,6 +394,10 @@ func what(h *Hit, width int, base, hi lipgloss.Style) string {
 		text += " ← " + h.Via
 	}
 
+	if h.Off && h.Why != "" {
+		text += " · " + h.Why
+	}
+
 	plain := []rune(table.Truncate(text, width))
 	at := map[int]bool{}
 
@@ -429,7 +434,7 @@ func lit(at map[int]bool, plain []rune, i int) bool {
 func (m *Model) right(h *Hit) string {
 	switch {
 	case h.Off:
-		return h.Why
+		return ""
 	case !h.Recent.IsZero():
 		return Ago(m.now().Sub(h.Recent))
 	case h.Counted && h.Count == 0:

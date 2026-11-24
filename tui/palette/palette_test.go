@@ -509,6 +509,25 @@ func drawn(t *testing.T, m *palette.Model, width, height int) string {
 	return ansi.Strip(strings.Join(out, "\n"))
 }
 
+func TestView_OffReasonRidesWithTheDescription(t *testing.T) {
+	t.Parallel()
+
+	es := entries()
+	es[3].Why = "a reason long enough that a column sized to it would squeeze every other row"
+
+	m := palette.New(sk(), palette.WithClock(func() time.Time { return now }))
+	m.Open(palette.Browse, es)
+
+	view := drawn(t, m, 120, 30)
+	if !strings.Contains(view, "squash, keep message") {
+		t.Errorf("a long reason squeezed the other rows:\n%s", view)
+	}
+
+	if !strings.Contains(view, "resolve · a reason long") {
+		t.Errorf("the reason is not beside the description:\n%s", view)
+	}
+}
+
 func TestView_RectAndWheel(t *testing.T) {
 	t.Parallel()
 

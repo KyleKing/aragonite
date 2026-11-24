@@ -1,3 +1,9 @@
+## v1.24.0 (2026-11-24)
+
+### Feat
+
+- **tui**: fit every background to the color profile, and lint frames for alignment
+
 ## v1.23.5 (2026-11-24)
 
 ### Fix

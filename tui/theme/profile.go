@@ -2,7 +2,9 @@ package theme
 
 import (
 	"image/color"
+	"io"
 	"math"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
@@ -47,6 +49,39 @@ const (
 	cubeWhite  = 231 // #ffffff, past the ramp's light end
 	cubeBlack  = 16  // #000000, past its dark end
 )
+
+// Profile is the color profile a program drawing to output should fit its
+// colors to: colorprofile.Detect, except that a COLORTERM of truecolor or 24bit
+// is honored inside tmux and screen. Detect ignores it there and asks
+// `tmux info` for the Tc or RGB feature instead, which a server with no client
+// attached, or one whose terminal-features never named the outer terminal,
+// does not report, so a laptop with millions of colors drew the 256-color
+// greys. Nothing below 256 colors is lifted: a pipe, NO_COLOR, and a 16-color
+// TERM keep what Detect says.
+//
+// A program hands the same answer to Bubble Tea (tea.WithColorProfile), so
+// the depth the faces were fitted to is the depth the renderer draws at.
+func Profile(output io.Writer, env []string) colorprofile.Profile {
+	p := colorprofile.Detect(output, env)
+	if p == colorprofile.ANSI256 && millionsAsked(env) {
+		return colorprofile.TrueColor
+	}
+
+	return p
+}
+
+func millionsAsked(env []string) bool {
+	for _, kv := range env {
+		name, value, _ := strings.Cut(kv, "=")
+		if name == "COLORTERM" {
+			v := strings.ToLower(value)
+
+			return v == "truecolor" || v == "24bit"
+		}
+	}
+
+	return false
+}
 
 // Ground fits a background to profile. TrueColor keeps c. ANSI256 replaces it
 // with the grey that sits lift steps from base's own grey, toward the light on a

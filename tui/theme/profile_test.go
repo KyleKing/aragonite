@@ -2,6 +2,7 @@ package theme_test
 
 import (
 	"image/color"
+	"io"
 	"testing"
 
 	"charm.land/lipgloss/v2"
@@ -64,5 +65,46 @@ func TestDark(t *testing.T) {
 
 	if !theme.Dark(theme.Ink().Base) || !theme.Dark(theme.Macchiato().Base) || theme.Dark(theme.Latte().Base) {
 		t.Error("Dark() misread a flavor's base")
+	}
+}
+
+// TestProfileHonorsColortermInsideTmux pins the case that drew greys on a
+// truecolor laptop: inside tmux, Detect ignores COLORTERM and asks `tmux info`,
+// which a detached server answers without Tc or RGB. TTY_FORCE stands in for
+// a terminal, since the test writes to none.
+func TestProfileHonorsColortermInsideTmux(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		env  []string
+		want colorprofile.Profile
+	}{
+		{
+			name: "tmux with COLORTERM=truecolor",
+			env:  []string{"TERM=tmux-256color", "COLORTERM=truecolor", "TTY_FORCE=1"},
+			want: colorprofile.TrueColor,
+		},
+		{
+			name: "screen with COLORTERM=24bit",
+			env:  []string{"TERM=screen-256color", "COLORTERM=24bit", "TTY_FORCE=1"},
+			want: colorprofile.TrueColor,
+		},
+		{name: "tmux alone", env: []string{"TERM=tmux-256color", "TTY_FORCE=1"}, want: colorprofile.ANSI256},
+		{
+			name: "NO_COLOR is not lifted",
+			env:  []string{"TERM=xterm", "COLORTERM=truecolor", "NO_COLOR=1", "TTY_FORCE=1"},
+			want: colorprofile.ASCII,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := theme.Profile(io.Discard, tc.env); got != tc.want {
+				t.Errorf("Profile(%v) = %v, want %v", tc.env, got, tc.want)
+			}
+		})
 	}
 }

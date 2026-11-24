@@ -109,8 +109,8 @@ func New(p theme.Palette, accent color.Color) Skin {
 // For builds the skin New does, with every background fitted to profile by
 // theme.Ground: blended tints in truecolor, steps of the grey ramp in 256 colors,
 // and none in 16, where Selection and Band fall back to reverse video as they do
-// under NO_COLOR. Profile is what colorprofile.Detect answers for the output the
-// program draws to, which is the same answer Bubble Tea downsamples by.
+// under NO_COLOR. Profile is what theme.Profile answers for the output the
+// program draws to, which the program also hands Bubble Tea to downsample by.
 func For(p theme.Palette, accent color.Color, profile colorprofile.Profile) Skin {
 	return build(p, accent, profile, noColor())
 }
@@ -173,5 +173,5 @@ func noColor() bool { return os.Getenv(noColorEnv) != "" }
 func Detected(accent func(theme.Palette) color.Color) Skin {
 	p := theme.Detect()
 
-	return For(p, accent(p), colorprofile.Detect(os.Stdout, os.Environ()))
+	return For(p, accent(p), theme.Profile(os.Stdout, os.Environ()))
 }

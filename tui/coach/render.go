@@ -84,7 +84,7 @@ func TipLine(s skin.Skin, sg Suggestion, width int) string {
 const MaxBand = 3
 
 const (
-	bandKey  = 4
+	bandKey  = 4 // the narrowest key column, widened to the widest key it holds
 	bandWhat = 14
 	bandCmd  = 3
 )
@@ -92,6 +92,10 @@ const (
 // BandLines is the band layout, width cells wide: a labeled "next" rule, then a row per next step
 // (its key and word, the state that prompts it, and the command it runs), then the tip if one is
 // showing. It is nil when there is nothing to say, so the band takes no rows.
+//
+// The band is rows of the screen, not a layer over it: hand them to the Panel of
+// a frame.Frame, or take their count off the body's height, so the content above
+// shrinks rather than losing its last rows under the band.
 func BandLines(s skin.Skin, next []Suggestion, tip *Suggestion, width int) []string {
 	next = next[:min(len(next), MaxBand)]
 	if len(next) == 0 && tip == nil {
@@ -100,12 +104,19 @@ func BandLines(s skin.Skin, next []Suggestion, tip *Suggestion, width int) []str
 
 	out := []string{s.Rule("next", "", width)}
 
+	// The key column is as wide as the widest key it holds, so "space" and
+	// "enter" are never cut to "spa…".
+	keyw := bandKey
 	for i := range next {
-		out = append(out, bandRow(s, &next[i], width))
+		keyw = max(keyw, lipgloss.Width(next[i].Key)+1)
+	}
+
+	for i := range next {
+		out = append(out, bandRow(s, &next[i], keyw, width))
 	}
 
 	if tip != nil {
-		lead := " " + s.Suggest.Render(Diamond) + " " + s.Muted.Render(table.Pad("tip", bandKey+bandWhat-1,
+		lead := " " + s.Suggest.Render(Diamond) + " " + s.Muted.Render(table.Pad("tip", keyw+bandWhat-1,
 			table.AlignLeft)) + " "
 		if tip.Key != "" {
 			lead += s.Suggest.Render(tip.Key) + " "
@@ -117,9 +128,9 @@ func BandLines(s skin.Skin, next []Suggestion, tip *Suggestion, width int) []str
 	return out
 }
 
-func bandRow(s skin.Skin, sg *Suggestion, width int) string {
+func bandRow(s skin.Skin, sg *Suggestion, keyw, width int) string {
 	lead := " " + s.Suggest.Render(Pointer) + " " +
-		s.Suggest.Render(table.Pad(sg.Key, bandKey, table.AlignLeft)) +
+		s.Suggest.Render(table.Pad(sg.Key, keyw, table.AlignLeft)) +
 		s.Body.Render(table.Pad(table.Truncate(sg.What, bandWhat), bandWhat, table.AlignLeft))
 
 	say := sg.Say

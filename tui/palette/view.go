@@ -23,7 +23,8 @@ const (
 	percent      = 100
 	drawerKeep   = 24
 	borderCells  = 4
-	keyColumnMax = 8
+	keyColumnMin = 8
+	keyShare     = 3
 	rightColumn  = 9
 	rightShare   = 3
 	stripWhatMin = 22
@@ -190,9 +191,10 @@ func (m *Model) drawer(width, height int) []string {
 		detail, list = nil, room
 	}
 
+	// The explainer opens on its own rule, which is the separator: a blank row
+	// before it would only take a row from the list.
 	rows := []string{m.prompt(inner)}
-	rows = append(rows, m.list(inner, min(m.rows(), max(0, list)), true)...)
-	rows = append(rows, "")
+	rows = append(rows, m.list(inner, min(m.rows(), max(0, list+1)), true)...)
 	rows = append(rows, detail...)
 
 	for len(rows) < height-3 {
@@ -343,7 +345,9 @@ func (m *Model) columns(width int) columns {
 		c.cmd = c.cmd || m.hits[i].Cmd != ""
 	}
 
-	c.key = min(c.key, keyColumnMax)
+	// The key column is the widest key's, so no key is cut, unless that would take
+	// more than a third of the row from the descriptions.
+	c.key = min(c.key, max(keyColumnMin, width/keyShare))
 	if c.right > 0 {
 		c.right = min(max(c.right, rightColumn), width/rightShare)
 	}
@@ -375,6 +379,13 @@ func (m *Model) row(h *Hit, selected bool, width int, c columns, drawer bool) st
 	}
 
 	keyw, rightw := c.key, c.right
+	// The right column is drawn only where this row has something in it; a row
+	// with nothing there gives its description the room, rather than cutting it
+	// to leave blank cells.
+	// The strip keeps it, since its command column must start at one place.
+	if m.right(h) == "" && (drawer || !c.cmd) {
+		rightw = 0
+	}
 
 	room := width - lipgloss.Width(mark) - keyw - halves
 	if rightw > 0 {

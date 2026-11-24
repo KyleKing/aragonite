@@ -28,6 +28,7 @@ const (
 	recentBonus  = 30
 	offPenalty   = 80
 	exactKey     = 400
+	exactName    = 300
 	recentWindow = 7 * 24 * time.Hour
 	// AliasShare is the part of an alias match's score kept, so the entry's own words win a tie.
 	aliasShare = 9
@@ -146,6 +147,12 @@ func score(e *Entry, query string, now time.Time) (Hit, bool) {
 
 	if q == e.Key || slices.Contains(e.Keys, q) {
 		h.Score += exactKey
+	}
+
+	// A query that is the action's whole name, or its whole description, is that
+	// action asked for by name: `:next` is next, not "next pane".
+	if strings.EqualFold(q, e.Action) || strings.EqualFold(q, e.What) {
+		h.Score += exactName
 	}
 
 	if e.Off {

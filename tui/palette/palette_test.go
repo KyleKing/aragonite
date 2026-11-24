@@ -665,3 +665,37 @@ func TestView_JoinsEveryEdgeAtEverySize(t *testing.T) {
 		}
 	}
 }
+
+func TestRank_ExactNameBeatsALongerMatch(t *testing.T) {
+	t.Parallel()
+
+	got := palette.Rank([]palette.Entry{
+		{Action: "next-pane", Key: "tab", What: "next pane", Group: "Move"},
+		{Action: "next", Key: "n", What: "next", Group: "Move"},
+	}, "next", now)
+
+	if len(got) == 0 || len(got[0].Hits) == 0 || got[0].Hits[0].Action != "next" {
+		t.Errorf("Rank(next) put %v first, want next", got)
+	}
+}
+
+// A key is never cut while the drawer has room for it, and a row with nothing in
+// the right column gives that room to its description.
+func TestView_KeysWholeAndDescriptionsUseTheRoom(t *testing.T) {
+	t.Parallel()
+
+	for want, entries := range map[string][]palette.Entry{
+		"ctrl+e/ctrl+y": {{Action: "scroll", Key: "ctrl+e/ctrl+y", What: "scroll a line", Group: "Move"}},
+		"cancel the running command or quit": {
+			{Action: "cancel", Key: "ctrl+c", What: "cancel the running command or quit", Group: "General"},
+			{Action: "pane", Key: "tab", What: "next pane", Group: "General", Recent: now.Add(-time.Minute)},
+		},
+	} {
+		m := palette.New(sk(), palette.WithClock(func() time.Time { return now }))
+		m.Open(palette.Browse, entries)
+
+		if view := drawn(t, m, 100, 30); !strings.Contains(view, want) {
+			t.Errorf("the drawer cut %q:\n%s", want, view)
+		}
+	}
+}

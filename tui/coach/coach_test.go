@@ -551,3 +551,19 @@ func BenchmarkAll(b *testing.B) {
 		c.All(state{conflict: true}, nil)
 	}
 }
+
+func TestBandLines_KeyColumnFitsTheWidestKey(t *testing.T) {
+	t.Parallel()
+
+	next := []coach.Suggestion{
+		{Tone: coach.Next, Key: "space", What: "select", Say: "nothing is selected"},
+		{Tone: coach.Next, Key: "c", What: "confirm", Say: "a selection waits"},
+	}
+	plain := ansi.Strip(strings.Join(coach.BandLines(sk(), next, nil, 100), "\n"))
+
+	for _, want := range []string{"▸ space select", "▸ c     confirm"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("band missing %q:\n%s", want, plain)
+		}
+	}
+}

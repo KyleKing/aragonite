@@ -1,3 +1,9 @@
+## v1.25.2 (2026-11-24)
+
+### Fix
+
+- **theme**: keep a diff sign's hue in 256 colors
+
 ## v1.25.1 (2026-11-24)
 
 ### Fix

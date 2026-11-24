@@ -103,7 +103,8 @@ func TestRecentEmojiSettleToAPlaceholder(t *testing.T) {
 		}
 	}
 
-	if got, want := glyph.Settle(string(rune(0x1FA7A))+" health"), string(rune(0x25CC))+" health"; got != want {
+	if got, want := glyph.Settle(string(rune(0x1FA7A))+" health "+string(rune(0x1F7E0))+" Major"),
+		string(rune(0x25CC))+" health "+string(rune(0x25CF))+" Major"; got != want {
 		t.Errorf("Settle = %q, want %q", got, want)
 	}
 

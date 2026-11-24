@@ -136,7 +136,8 @@ func Each(s string, f func(cluster string, col int, c Class) bool) {
 // selector where there is not; a joined sequence keeps its first emoji; skin
 // tones, tags, and presentation selectors are dropped; a flag becomes its two
 // letters; a private-use glyph becomes U+FFFD; an emoji newer than Unicode 9
-// becomes ◌, since its width depends on the terminal's tables. Wide characters
+// becomes ◌ (a colored circle or square its shape, ● or ■), since its width
+// depends on the terminal's tables. Wide characters
 // from Unicode 9 and before, emoji and CJK, are left alone: every width
 // function and tmux count them as two cells. A terminal reporting grapheme
 // clustering (mode 2027) outside tmux would measure all of this as lipgloss
@@ -183,7 +184,7 @@ func settleCluster(cluster string) string {
 	case Private:
 		return "\uFFFD"
 	case Recent:
-		return placeholder
+		return recentStandIn(cluster)
 	case TextEmoji:
 		if stand, ok := standIns[cluster]; ok {
 			return stand

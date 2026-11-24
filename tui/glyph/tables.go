@@ -1,5 +1,7 @@
 package glyph
 
+import "unicode/utf8"
+
 // textEmoji is every code point below U+3300 that Unicode marks Emoji with a
 // text default (emoji-data.txt: Emoji=Yes, Emoji_Presentation=No), less the
 // ASCII digits, #, and *. Arrows U+2190-2193, the geometric shapes ▸ ◂ ◆ ● ◐,
@@ -23,6 +25,27 @@ var standIns = map[string]string{
 
 // placeholder stands in for an emoji whose width the terminal may not know.
 const placeholder = "\u25CC"
+
+// The Unicode 12 colored circles and squares, which bots use as severity marks
+// (CodeRabbit's 🟠 Major): drawn as the shape, since the shape is what the eye
+// reads first and the word beside it carries the rest.
+const (
+	circlesFirst = 0x1F7E0
+	circlesLast  = 0x1F7E4
+	squaresFirst = 0x1F7E5
+	squaresLast  = 0x1F7EB
+)
+
+func recentStandIn(cluster string) string {
+	switch r, _ := utf8.DecodeRuneInString(cluster); {
+	case r >= circlesFirst && r <= circlesLast:
+		return "\u25CF"
+	case r >= squaresFirst && r <= squaresLast:
+		return "\u25A0"
+	}
+
+	return placeholder
+}
 
 // recentRanges are the emoji blocks Unicode 10 through 15 filled, which a
 // terminal measuring by Unicode 9 (WezTerm's default, and tmux built against an

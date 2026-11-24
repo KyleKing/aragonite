@@ -72,6 +72,10 @@ func TestGroundsAreGreyIn256Colors(t *testing.T) {
 				if d.AddWash == d.AddMark {
 					t.Errorf("a changed line's wash and mark are both %v", d.AddWash)
 				}
+
+				if band := s.FileBand.GetBackground(); band == d.AddWash {
+					t.Errorf("a file's heading and a changed line's wash are both %v", band)
+				}
 			})
 		}
 	}

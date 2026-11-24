@@ -122,7 +122,9 @@ func build(p theme.Palette, accent color.Color, profile colorprofile.Profile, mo
 		return theme.Ground(c, p.Base, lift, profile)
 	}
 
-	fileBand := base.Background(ground(theme.Mix(p.Base, p.Surface0, fileBandShare), theme.Wash))
+	// A file's heading sits a step under a changed line's wash, so in 256 colors,
+	// where both are greys, a heading over an added file still reads apart.
+	fileBand := base.Background(ground(theme.Mix(p.Base, p.Surface0, fileBandShare), theme.Surface))
 	selection := base.Background(ground(
 		theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat}), theme.Cursor,
 	))

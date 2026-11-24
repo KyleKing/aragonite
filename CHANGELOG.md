@@ -1,3 +1,9 @@
+## v1.25.0 (2026-11-24)
+
+### Feat
+
+- **tui**: a glyph width policy, unicode icons by default, and settled content
+
 ## v1.24.3 (2026-11-24)
 
 ### Fix

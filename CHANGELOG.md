@@ -1,3 +1,10 @@
+## v1.23.1 (2026-11-24)
+
+### Fix
+
+- **coach**: arm the idle timer only when a tip could come, and name keys without a keymap
+- **palette**: read a legend's labels as the keys they name, and page like the screen
+
 ## v1.23.0 (2026-11-24)
 
 ### Feat

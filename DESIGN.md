@@ -75,6 +75,25 @@ is handed and never a literal color. Every icon is one cell in both the Nerd Fon
 styling at all, because two tools reading one checkout style it differently even when
 they agree on the words.
 
+## Discoverability
+
+`tui/keys`, `tui/palette`, `tui/coach`, `tui/empty`, `trail`, and `fuzzy` are the one place the
+family answers "what can I do here, what next, and what did that run". They were designed
+together for three consumers at once (jojo, jj-diff, second-look) rather than extracted from one,
+so [docs/discoverability.md](docs/discoverability.md) carries the wiring each tool does and the
+rules the pieces share:
+
+- Every surface reads one source of truth per screen. A `keys.Gate` decides what is off and why,
+  and the footer (`HintsAt`), the legend and palette (`LegendAt`, `palette.FromKeymap`), the
+  coach (`All` skips a refused action), and the key press itself read it, so none can disagree
+- `?` and `:` are one `palette.Model` in two modes over one entry list. A tool's help overlay is
+  that component in browse mode, not a parallel layer
+- Local state is split by consent. The coach `Ledger` (tip history, recent commands) is always on
+  under `$XDG_STATE_HOME` and holds no keystrokes; the synced `keyusage` log stays opt-in, and
+  everything that reads it works without it
+- `fuzzy` and `trail` hold no styles in their data halves, so a tool that wants only the scorer or
+  the log pays nothing for the views
+
 ## Detection is deterministic
 
 `theme.Detect` reads `CATPPUCCIN_THEME` first and falls back to the terminal

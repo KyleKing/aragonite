@@ -1,3 +1,9 @@
+## v1.24.1 (2026-11-24)
+
+### Fix
+
+- **theme**: honor COLORTERM=truecolor inside tmux when detecting the profile
+
 ## v1.24.0 (2026-11-24)
 
 ### Feat

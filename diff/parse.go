@@ -93,6 +93,13 @@ func (d *Diff) WhitespaceOnly(path string, hunk int) bool {
 		}
 	}
 
+	return sameWords(added, removed)
+}
+
+// sameWords reports whether two sides of a hunk, already squeezed, say the same
+// things in any order once blank lines are dropped. Two empty sides are no
+// change at all, which is not a whitespace change.
+func sameWords(added, removed []string) bool {
 	if len(added) == 0 && len(removed) == 0 {
 		return false
 	}
@@ -176,8 +183,25 @@ func withoutBlanks(lines []string) []string {
 	return out
 }
 
+// squeeze drops every space, tab, and carriage return. It runs once per changed
+// line, so it walks bytes rather than building a strings.Replacer on every call,
+// which cost more than the replacing.
 func squeeze(s string) string {
-	return strings.NewReplacer(" ", "", "\t", "", "\r", "").Replace(s)
+	if !strings.ContainsAny(s, " \t\r") {
+		return s
+	}
+
+	out := make([]byte, 0, len(s))
+
+	for i := range len(s) {
+		switch c := s[i]; c {
+		case ' ', '\t', '\r':
+		default:
+			out = append(out, c)
+		}
+	}
+
+	return string(out)
 }
 
 // Touches reports whether the change adds a line within lo through hi of the

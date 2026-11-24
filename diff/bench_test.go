@@ -91,3 +91,24 @@ func BenchmarkAlignRun(b *testing.B) {
 		_ = diff.AlignRun(gone, came)
 	}
 }
+
+// BenchmarkMechanicalHunks is what opening a diff pays to fold its reindent-only
+// and whitespace-only hunks, over a file of many small hunks.
+func BenchmarkMechanicalHunks(b *testing.B) {
+	var patch strings.Builder
+
+	patch.WriteString("diff --git a/m.go b/m.go\n--- a/m.go\n+++ b/m.go\n")
+
+	for h := range 200 {
+		fmt.Fprintf(&patch, "@@ -%d,4 +%d,4 @@\n ctx\n-\tx%d := 1\n+\t\tx%d := 1\n-\ty%d := %d\n+\ty%d := %d\n ctx\n",
+			h*10+1, h*10+1, h, h, h, h, h, h+1)
+	}
+
+	d := diff.Parse([]byte(patch.String()))
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = d.MechanicalHunks()
+	}
+}

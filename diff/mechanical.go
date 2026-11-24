@@ -9,7 +9,12 @@ type HunkRef struct {
 // MechanicalHunks returns the hunks one reason covers whole, "reindent only" or
 // "whitespace only". A hunk with any real edit or moved line stays out.
 func (d *Diff) MechanicalHunks() map[HunkRef]string {
-	type tally struct{ n, indent int }
+	// One pass gathers every hunk's tally and its squeezed sides, so judging a
+	// hunk whitespace-only does not walk the whole file again per hunk.
+	type tally struct {
+		added, removed []string
+		n, indent      int
+	}
 
 	tallies := map[HunkRef]*tally{}
 	reindented := d.Reindented()
@@ -35,6 +40,12 @@ func (d *Diff) MechanicalHunks() map[HunkRef]string {
 			if reindented[refOf(p, l)] {
 				t.indent++
 			}
+
+			if l.Kind == KindAdd {
+				t.added = append(t.added, squeeze(l.Text))
+			} else {
+				t.removed = append(t.removed, squeeze(l.Text))
+			}
 		}
 	}
 
@@ -44,7 +55,7 @@ func (d *Diff) MechanicalHunks() map[HunkRef]string {
 		switch {
 		case t.indent == t.n:
 			out[at] = "reindent only"
-		case d.WhitespaceOnly(at.Path, at.Hunk):
+		case sameWords(t.added, t.removed):
 			out[at] = "whitespace only"
 		}
 	}

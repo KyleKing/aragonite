@@ -1,0 +1,59 @@
+[[hunk]]
+hash = '43d443e048a29c838fd0f7edea5ac3e94ad77028b7ac7db61ba431d707c9ac9b'
+path = 'tui/coach/coach_test.go'
+
+[[hunk]]
+hash = '130e1ec476bc0d8190e34a83fc4f07c83077aa5a76b5406ef340a326b39e5266'
+path = 'tui/coach/render.go'
+
+[[hunk]]
+hash = '5c2243055e7a2e79bc5060bcea69015d84511a7d1ab88a5f6e967155bdfc6d47'
+path = 'tui/coach/render.go'
+
+[[hunk]]
+hash = '2ef135f9c16e2867dbe7a171c8d3e7841df7bb0a30563f9ff068a8bf039c43a5'
+path = 'tui/coach/render.go'
+
+[[hunk]]
+hash = '4c11596b6426b3016ecab82daa774e590db0226922d07439d8a72f5a14bafc70'
+path = 'tui/coach/render.go'
+
+[[hunk]]
+hash = '0e01d6ca91996a8e8a6a1cafa4e1ee2af43e1cbc5d5135d73c34bc46c4fd0156'
+path = 'tui/palette/palette_test.go'
+
+[[hunk]]
+hash = '9165e441f60e83e219487de8a76df0ecd38418ea42f8884b95b9b5f8419a452a'
+path = 'tui/palette/rank.go'
+
+[[hunk]]
+hash = '0b1cabb78cb1c0e14fa13afa5d38ca1118cd912dd8378fe2f9a645312236a544'
+path = 'tui/palette/rank.go'
+
+[[hunk]]
+hash = '5ec53903f427bedad0cafb35464af64afc9f711da303125931e8d411dd716eb6'
+path = 'tui/palette/view.go'
+
+[[hunk]]
+hash = '5ae94f92f3c95c4bc8dea4b94a9fe98673fbcfb5a70bdb01b8a5bc597373654f'
+path = 'tui/palette/view.go'
+
+[[hunk]]
+hash = '3ac3015cd65624f76405ed0ae2b762f8d66a7d25803fb63563193d2aa0ed6a89'
+path = 'tui/palette/view.go'
+
+[[hunk]]
+hash = '344f779395fabc5f52e44aebedea36c6d1e17f6f7b3bfd9da1a7f31e02e030b4'
+path = 'tui/palette/view.go'
+
+[[hunk]]
+hash = '01a00255b372de9aa17e69e564bf65259b0f029b68006918523d75f429af8782'
+path = '.doneram.pkl'
+
+[[hunk]]
+hash = 'e9bed2ca85012bf411d0d6135f538cd3e06ab2ef0f01765e1be900a4e0bc7468'
+path = '.github/dependabot.yml'
+
+[[hunk]]
+hash = '5944ba0866705e5ea056a5cbc66237267364eb9262d2f440afc5cb3279ae40d7'
+path = '.github/workflows/freshness.yml'

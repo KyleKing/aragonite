@@ -162,6 +162,30 @@ rules the pieces share:
 - `fuzzy` and `trail` hold no styles in their data halves, so a tool that wants only the scorer or
   the log pays nothing for the views
 
+## Read marks are content-addressed
+
+`seen` names a hunk by its path and its lines (kind byte and text, never line numbers), so a mark
+is a statement about text a reader saw rather than about a commit. That one choice is what lets a
+mark survive a force-push in second-look and a rebase in jojo: a hunk whose text is unchanged has
+the same id under the new head, and one whose text changed is a different hunk and reads as unread,
+which is the answer wanted. Nothing is ever moved between heads, so there is no range-diff or blame
+step to get wrong.
+
+The id format is frozen. second-look wrote marks with it before the package existed, and
+`seen/testdata` holds a file its v0.57.3 wrote over a patch of this repository, which the tests
+read back id for id and re-write byte for byte. Changing the hash means every reader's marks read
+as unread.
+
+Where marks live is the caller's choice of directory and scope, because the right key differs:
+second-look keeps one file per pull request beside its review, and jojo one per change id under
+`$XDG_STATE_HOME`. The store is safe for two processes because a reader may have jojo and jj-diff
+(or two second-look screens) open on one repository at once. A `Set` remembers what this process
+changed since it loaded, and `Save` takes a lock file, rereads the disk, applies only those
+changes, and renames a temporary file into place. A lock file rather than `flock` keeps that
+identical on every platform and on network home directories, and a lock older than ten seconds is
+taken to belong to a process that died and is broken. A save prunes marks for hunks the caller's
+live diff no longer carries, so a file stays the size of one review.
+
 ## Detection is deterministic
 
 `theme.Detect` reads `CATPPUCCIN_THEME` first and falls back to the terminal

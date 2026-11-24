@@ -19,6 +19,7 @@ next or previous unread thing, and `U` shows only what is unread.
 | `seen.StateDir(app, parts...)` | `$XDG_STATE_HOME/<app>/<parts...>`, else `~/.local/state/...` |
 | `seen.RepoKey(path)` | `<base>-<12 hex>` naming one repository under a state directory |
 | `seen.JJRepo(dir)` | the jj repository store a workspace (or any directory inside one) belongs to, the path to pass `RepoKey` |
+| `seen.Migrate(dir, full)` / `store.Migrate(scope)` | moves the one scope file named by a proper prefix of `full` into `full`'s file (merging if one appeared), under the save lock; for marks filed under a shortened id |
 
 An id is the sha256 of the path, a NUL, and each line as kind byte, text, and newline, which is
 exactly what jojo's `internal/readmark.Hunks` already computes, so swapping it for `seen.Parse`
@@ -126,10 +127,13 @@ false; change one character of it and assert true.
 
 jj-diff shows the same marks, read-only, on the revision it views (`-r`, browse and `-i`). It
 opens the directory jojo uses, `seen.StateDir("jojo", "seen", seen.RepoKey(repoStore))` with
-`repoStore` from `seen.JJRepo`, and takes the scope from the revision's change id in the form jojo
-files it under: its log template's `change_id.shortest(8)`, not the full id
-(`jj log -r <rev> --no-graph -T 'change_id.shortest(8)'`). A read hunk's heading is dimmed behind a
-check, a file read whole carries one in the file list, and `]u` / `[u` step between unread hunks.
-`␣` already means select in jj-diff's editing modes (keymap §2.6), so it stays read-only and marking
-happens in jojo. Run as a diff editor (`--tool jj-diff`) it sees two directories and no change id,
-so it has nothing to scope marks by and shows none.
+`repoStore` from `seen.JJRepo`, and takes the scope from the revision's full change id
+(`jj log -r <rev> --no-graph -T change_id`), the form jojo files it under since v0.20.0. Both tools
+call `store.Migrate(changeID)` before reading a scope, which moves marks an older jojo filed under
+`change_id.shortest(8)` into the full id's file: that prefix grows once another change comes to
+share it, so a file named by it is lost to a reader that recomputes the prefix. A read hunk's heading
+is dimmed behind a read glyph, a file read whole carries one in the file list, `]u` / `[u` step
+between unread hunks, and `U` shows only unread hunks. `␣` already means select in jj-diff's editing
+modes (keymap §2.6), so it stays read-only and marking happens in jojo. Run as a diff editor
+(`--tool jj-diff`) it sees two directories and no change id, so it has nothing to scope marks by and
+shows none.

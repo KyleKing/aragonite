@@ -1,3 +1,10 @@
+## v1.20.2 (2026-11-24)
+
+### Perf
+
+- **diff**: fold mechanical hunks in one pass without building a Replacer per line
+- **overview**: draw the track, the thumb, and each stock mark once per bar
+
 ## v1.20.1 (2026-11-24)
 
 ### Perf

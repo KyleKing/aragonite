@@ -9,6 +9,8 @@
 // It renders in two layouts. Inline (the default) puts the one next step in a status line and a
 // tip in the footer's leading slot until the next key. Band is opt-in: a labeled "next" band above
 // the footer naming each suggestion, why, and the command it runs.
+//
+// Welcome is the first-run card, shown once per reader and reopened by `:welcome`.
 package coach
 
 import (

@@ -2,7 +2,7 @@
 // and two or three keys out. An empty list with no explanation reads as broken, and a reader who
 // does not know the next key is stuck; the card answers both in the place they are looking.
 //
-// The same card is a tool's first-run welcome: the handful of keys that unlock the rest.
+// A tool's first-run welcome is coach.Welcome, which draws in the same shape over the screen.
 package empty
 
 import (

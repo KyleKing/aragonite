@@ -30,10 +30,12 @@ type Ledger struct {
 }
 
 type ledgerData struct {
-	First   time.Time          `json:"first"`
-	Tips    map[string]tipMark `json:"tips"`
-	Ran     map[string]ranMark `json:"ran"`
-	TipsOff bool               `json:"tips_off,omitempty"`
+	First time.Time          `json:"first"`
+	Tips  map[string]tipMark `json:"tips"`
+	Ran   map[string]ranMark `json:"ran"`
+	// Welcomed is when the reader dismissed the first-run welcome card.
+	Welcomed time.Time `json:"welcomed,omitzero"`
+	TipsOff  bool      `json:"tips_off,omitempty"`
 }
 
 type tipMark struct {
@@ -130,6 +132,29 @@ func (l *Ledger) FirstRun() bool {
 	defer l.mu.Unlock()
 
 	return l.fresh
+}
+
+// Welcomed reports whether the reader has dismissed the welcome card. A nil ledger answers as
+// though it had, since it could not remember the dismissal.
+func (l *Ledger) Welcomed() bool {
+	if l == nil {
+		return true
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return !l.data.Welcomed.IsZero()
+}
+
+// MarkWelcomed records that the welcome card was dismissed at, once, so it never shows unasked
+// again.
+func (l *Ledger) MarkWelcomed(at time.Time) {
+	l.update(func(d *ledgerData) {
+		if d.Welcomed.IsZero() {
+			d.Welcomed = at
+		}
+	})
 }
 
 // Began records when the reader first ran the tool, once.

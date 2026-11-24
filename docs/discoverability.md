@@ -137,9 +137,33 @@ tool already has. Then:
 ## 5. Empty states and first run
 
 Where a list is empty, draw `empty.Card(skin, empty.Empty{Title, Why, Hints}, width, height)` in
-place of the body. Name what is empty, why, and two or three keys out. `ledger.FirstRun()` is true
-the first session a tool runs; show a welcome card with the five keys that unlock the rest, and
-dismiss it on any key.
+place of the body. Name what is empty, why, and two or three keys out.
+
+A tool's first launch shows `coach.Welcome`, a card of the five or so keys that start a reader off
+plus a line each on `?` and `:`:
+
+```go
+m.welcome = &coach.Welcome{
+    Title:    "Welcome to jj-diff",
+    Lead:     "Read a change hunk by hunk, and move what you select into another change.",
+    Starters: coach.StartersFrom(km, keys.ActionRead, "squash", "split", keys.NextAction(keys.ObjHunk)),
+}
+m.welcome.HelpKeysFrom(km)   // ? and : follow a rebind too
+m.welcome.OpenIfDue(ledger)  // the ledger's first session, not yet dismissed
+```
+
+- Starters come from the keymap, so a rebind changes the card. A tool with no keymap fills
+  `Starters` with `keyhint.Hint` values from its own table
+- On a key press, before anything else: `if !m.welcome.Key(ledger, msg.String(), now) { return }`.
+  Any key dismisses the card and still acts, so it never costs a keystroke; Esc only dismisses.
+  Dismissing records `welcomed` in the ledger, so it shows once per reader (`Save()` on quit as
+  ever). A ledger from before the card (an existing reader) is not greeted
+- Draw it last: `lines = m.welcome.Over(skin, lines, width, height)`. Below 60x16 `Over` draws
+  nothing and the tool puts `m.welcome.Line(skin, width)` in its footer's leading slot instead
+- Append `coach.WelcomeEntry()` to the palette-only commands and open it on
+  `RunMsg{Action: coach.WelcomeAction}`, so `:welcome` shows it again
+- A test harness that drives the binary seeds `{"welcomed": "..."}` into the state directory's
+  `coach.json`, or every pty test opens behind the card
 
 ## 6. Usage logging (opt-in)
 

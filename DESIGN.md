@@ -159,6 +159,10 @@ rules the pieces share:
 - Local state is split by consent. The coach `Ledger` (tip history, recent commands) is always on
   under `$XDG_STATE_HOME` and holds no keystrokes; the synced `keyusage` log stays opt-in, and
   everything that reads it works without it
+- The first-run welcome is a card, not a tour. A tour gates the screen behind steps a reader
+  must click through; the card lists the five keys that start a reader off and the two (`?`,
+  `:`) that find the rest, and any key both dismisses it and acts, so it costs no keystroke.
+  It lives in `tui/coach` because the ledger is what remembers it was seen
 - `fuzzy` and `trail` hold no styles in their data halves, so a tool that wants only the scorer or
   the log pays nothing for the views
 

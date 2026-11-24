@@ -1,0 +1,16 @@
+row 00 · row 00 · row 00 · row 00 · row 00 · row 00 · row 00
+row 01 · row 01 · row 01 · row 01 · row 01 · row 01 · row 01
+ro╭─ Welcome to jj-diff ─────────────────────────────────╮02
+ro│ Read a change hunk by hunk, and move what you select │03
+ro│ into another change.                                 │04
+ro│                                                      │05
+ro│ space  mark the hunk read                            │06
+ro│ ]h     next hunk                                     │07
+ro│ U      only what is unread                           │08
+ro│ /      search                                        │09
+ro│                                                      │10
+ro│ ?      every key, and why one is off here            │11
+ro│ :      find and run any command by name              │12
+ro╰─ any key to start · esc closes ──────────────────────╯13
+row 14 · row 14 · row 14 · row 14 · row 14 · row 14 · row 14
+row 15 · row 15 · row 15 · row 15 · row 15 · row 15 · row 15

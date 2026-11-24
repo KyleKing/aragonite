@@ -82,7 +82,11 @@ func (m *Model) entries() []palette.Entry {
   does this key do" in its own status area too
 
 A tool whose legend is a `[]keyhint.Hint` tree rather than a keymap uses `palette.FromLegend(tree)`.
-Each entry's `Action` is then its key sequence (`"] h"`), which the tool replays.
+Each entry's `Action` is then its key sequence (`"] h"`), which the tool replays. Labels read as the
+keys they name (`palette.Sequences`: `ctrl+d/u` is ctrl+d or ctrl+u, `gg/G` is g then g, or G), and
+a prefix row marked Off marks its whole page Off with its reason. A tool that draws inside a margin
+calls `m.palette.SetLayout(...)` on resize from the terminal's own width, since `Auto` judges the
+width it is handed. second-look's `internal/tui/discover.go` is the worked example of all of it.
 
 ## 3. The coach: next step and tips
 

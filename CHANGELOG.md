@@ -1,3 +1,10 @@
+## v1.23.5 (2026-11-24)
+
+### Fix
+
+- **coach**: give the band's word column room for a two-word action
+- **palette**: mark a chord's objects off when the chord itself is
+
 ## v1.23.4 (2026-11-24)
 
 ### Fix

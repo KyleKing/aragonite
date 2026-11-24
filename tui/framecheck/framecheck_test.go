@@ -82,8 +82,23 @@ func checkCases() []checkCase {
 			want:  []string{"1:1 glyph"},
 		},
 		{
-			name:  "an emoji asked for is two cells and fine",
-			frame: "❤️ ok",
+			name:  "a VS16 emoji is two cells or one depending on the terminal",
+			frame: "\u2764\ufe0f ok",
+			want:  []string{"1:1 glyph"},
+		},
+		{
+			name:  "a wide emoji is two cells everywhere",
+			frame: "\U0001F680 ok",
+		},
+		{
+			name:  "a Nerd icon outside the Nerd set",
+			frame: "\ue627 main.go",
+			want:  []string{"1:1 glyph"},
+		},
+		{
+			name:  "a Nerd icon in the Nerd set",
+			frame: "\ue627 main.go",
+			opts:  []framecheck.Option{framecheck.Nerd()},
 		},
 		{
 			name:  "an allowed glyph",

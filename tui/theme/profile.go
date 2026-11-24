@@ -56,14 +56,23 @@ const (
 // `tmux info` for the Tc or RGB feature instead, which a server with no client
 // attached, or one whose terminal-features never named the outer terminal,
 // does not report, so a laptop with millions of colors drew the 256-color
-// greys. Nothing below 256 colors is lifted: a pipe, NO_COLOR, and a 16-color
-// TERM keep what Detect says.
+// greys. Inside tmux or screen a 16-color answer is lifted too, since TERM there
+// is tmux's own (screen by default) rather than the terminal's. Outside them,
+// and for a pipe or NO_COLOR, Detect's answer stands.
 //
 // A program hands the same answer to Bubble Tea (tea.WithColorProfile), so
 // the depth the faces were fitted to is the depth the renderer draws at.
 func Profile(output io.Writer, env []string) colorprofile.Profile {
 	p := colorprofile.Detect(output, env)
-	if p == colorprofile.ANSI256 && millionsAsked(env) {
+
+	switch {
+	case p == colorprofile.TrueColor || p <= colorprofile.ASCII || !millionsAsked(env):
+		return p
+	case p == colorprofile.ANSI256, multiplexed(env):
+		// Inside tmux TERM is tmux's own (screen, unless default-terminal says
+		// otherwise), which reads as 16 colors, while COLORTERM is the outer
+		// terminal's, inherited. tmux passes RGB through when the outer
+		// terminal's entry carries it (terminal-overrides ",xterm-256color:RGB").
 		return colorprofile.TrueColor
 	}
 
@@ -71,16 +80,25 @@ func Profile(output io.Writer, env []string) colorprofile.Profile {
 }
 
 func millionsAsked(env []string) bool {
-	for _, kv := range env {
-		name, value, _ := strings.Cut(kv, "=")
-		if name == "COLORTERM" {
-			v := strings.ToLower(value)
+	v := strings.ToLower(lookup(env, "COLORTERM"))
 
-			return v == "truecolor" || v == "24bit"
+	return v == "truecolor" || v == "24bit"
+}
+
+func multiplexed(env []string) bool {
+	term := lookup(env, "TERM")
+
+	return lookup(env, "TMUX") != "" || strings.HasPrefix(term, "tmux") || strings.HasPrefix(term, "screen")
+}
+
+func lookup(env []string, key string) string {
+	for _, kv := range env {
+		if name, value, _ := strings.Cut(kv, "="); name == key {
+			return value
 		}
 	}
 
-	return false
+	return ""
 }
 
 // Ground fits a background to profile. TrueColor keeps c. ANSI256 replaces it

@@ -80,6 +80,40 @@ line is on moves to the sign and the line number, which keep it at every depth.
 `skin.For` and `skin.DiffFor` take the profile `colorprofile.Detect` answers, the
 same answer Bubble Tea downsamples by, so the two never disagree about the depth.
 
+## Terminal compatibility
+
+The rules a screen holds to so it lines up and colors the same in the terminals
+these tools are used in (WezTerm with a Nerd Font Mono, inside tmux, is the
+reference setup):
+
+- **Color depth comes from `theme.Profile`, and Bubble Tea is told it.** Inside
+  tmux, TERM is tmux's own (`screen` unless `default-terminal` says otherwise)
+  while COLORTERM is the outer terminal's, and `colorprofile.Detect` ignores
+  COLORTERM there and asks `tmux info`, which a server with no client attached
+  answers without RGB. `theme.Profile` honors `COLORTERM=truecolor` inside tmux;
+  tmux passes RGB through when the outer entry carries it
+  (`terminal-overrides ",xterm-256color:RGB"`). A tool hands the same answer to
+  `tea.WithColorProfile`, so faces and renderer agree on the depth.
+- **Backgrounds are fitted, never quantized** (`skin.For`, `skin.DiffFor`): tints
+  in truecolor, grey-ramp steps in 256, none in 16.
+- **Chrome uses width-stable glyphs only** (`tui/glyph`). No Emoji=Yes code point
+  (⚠ ▶ ◀ ✔ ✖ ⬆ ⬇ ❤ ⏺: Fira Code has none of them, so WezTerm falls back to an
+  emoji font and draws them two cells wide over one), no VS16 or ZWJ sequence,
+  no wide glyph, and no private-use glyph outside `tui/icons`' Nerd set.
+  `framecheck.Source` enforces it per module, and framecheck's Glyph rule per
+  frame. The stand-ins: ▶ ▸, ◀ ◂, ⚠ ▲, ✔ ✓, ✖ ✗ or ✘, ☑ ☒, ⬇ ↓, ❤ ♡.
+- **Icons default to unicode.** Nerd icons are opt-in (`ARAGONITE_ICONS=nerd`, or a
+  tool's `icons = "nerd"`). A Nerd Font Mono draws them in one cell; a proportional
+  one or a fallback draws two, so every Nerd icon is drawn as icon and space and
+  the overflow lands on the blank.
+- **Content is settled before it is measured** (`glyph.Settle`). WezTerm measures
+  by Unicode 9 tables by default and tmux by its libc's, so an emoji newer than
+  Unicode 9 (🩺 🟠) is one cell there and two to lipgloss, and a VS16 heart is one
+  or two depending on grapheme clustering (mode 2027), which tmux answers for
+  itself. Settle maps text-default emoji to their stand-ins, drops selectors, skin
+  tones, and ZWJ tails, spells flags as letters, and draws ◌ for a recent emoji.
+  Emoji from Unicode 9 and before, and CJK, are two cells everywhere and stay.
+
 `display` is the same rule one step further out: it emits plain strings with no
 styling at all, because two tools reading one checkout style it differently even when
 they agree on the words.

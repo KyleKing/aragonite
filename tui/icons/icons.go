@@ -1,10 +1,18 @@
 // Package icons names the glyphs these tools draw beside files, folders,
-// threads, and states, in one of two sets: Nerd Font icons, which are the
-// default, and plain unicode for a terminal without a patched font.
+// threads, and states, in one of three sets: plain unicode, the default; none
+// at all; and Nerd Font icons, which a reader opts into.
 //
-// Every glyph is one cell in both sets, so switching never moves a column.
+// Unicode is the default because it is the only set whose width every
+// terminal agrees on. A Nerd Font icon is a private-use code point: one cell to
+// every width function and to tmux, and drawn two cells wide by a
+// proportional ("Propo") Nerd Font or a fallback font, which overlaps whatever
+// follows it. So a Nerd icon is only ever drawn through Prefix, as the icon and
+// a space in a fixed two-cell slot, where the overflow lands on the blank.
+//
 // Unicode draws no file glyph at all and keeps the geometric state marks, so a
-// file list reads the same in both sets and only loses its filetype color.
+// file list reads the same in every set and only loses its filetype color.
+// Every mark in it is width-stable: no Emoji=Yes code point (✔ ⚠ ▶ ⬇), only
+// geometric shapes and dingbats every monospace font draws in one cell.
 package icons
 
 import (
@@ -20,27 +28,33 @@ import (
 type Mode int
 
 const (
-	// Nerd draws Nerd Font icons. It needs a patched font, and is the default.
+	// Nerd draws Nerd Font icons. It needs a patched font, and a reader asks
+	// for it.
 	Nerd Mode = iota
-	// Unicode draws only glyphs every monospace font carries.
+	// Unicode draws only glyphs every monospace font carries, and is the
+	// default.
 	Unicode
+	// None draws no icon at all; a screen says the same thing in words.
+	None
 )
 
 // EnvOverride names the variable that picks a set regardless of the tool's
-// own setting: "unicode" (or "off", "none") or "nerd".
+// own setting: "unicode" (or "plain"), "none" (or "off"), or "nerd".
 const EnvOverride = "ARAGONITE_ICONS"
 
 // Parse reads a setting's spelling of a mode. Anything it does not recognize
-// is Nerd, the default, and reports false.
+// is Unicode, the default, and reports false.
 func Parse(s string) (Mode, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "nerd", "":
-		return Nerd, true
-	case "unicode", "off", "none", "plain":
+	case "unicode", "plain", "":
 		return Unicode, true
+	case "none", "off":
+		return None, true
+	case "nerd":
+		return Nerd, true
 	}
 
-	return Nerd, false
+	return Unicode, false
 }
 
 // Resolve picks a mode from the environment override, then a tool's
@@ -65,7 +79,9 @@ type Glyph struct {
 }
 
 // Prefix is the glyph followed by a space, or nothing when the set draws
-// none, so a caller can put it in front of a name unconditionally.
+// none, so a caller can put it in front of a name unconditionally. It is the
+// only way a Nerd icon should be drawn: the space is the cell a wide-drawn
+// icon overflows into, so nothing after it moves.
 func (g Glyph) Prefix() string {
 	if g.Text == "" {
 		return ""
@@ -87,11 +103,14 @@ func New(m Mode, p theme.Palette) Set { return Set{mode: m, p: p} }
 func (s Set) Mode() Mode { return s.mode }
 
 func (s Set) pick(nerd, plain string, c color.Color) Glyph {
-	if s.mode == Unicode {
+	switch s.mode {
+	case Nerd:
+		return Glyph{Text: nerd, Color: c}
+	case None:
+		return Glyph{}
+	default:
 		return Glyph{Text: plain, Color: c}
 	}
-
-	return Glyph{Text: nerd, Color: c}
 }
 
 // Folder marks a directory.
@@ -121,9 +140,9 @@ func (s Set) Alert() Glyph { return s.pick("", "!", s.p.Peach) }
 // Lock marks a lockfile or something protected.
 func (s Set) Lock() Glyph { return s.pick("", "", s.p.Overlay1) }
 
-// File marks a file by its name: a filetype icon in Nerd, nothing in Unicode.
+// File marks a file by its name: a filetype icon in Nerd, nothing otherwise.
 func (s Set) File(name string) Glyph {
-	if s.mode == Unicode {
+	if s.mode != Nerd {
 		return Glyph{}
 	}
 

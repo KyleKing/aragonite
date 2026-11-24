@@ -1,7 +1,5 @@
 package framecheck
 
-import "strings"
-
 // arm is a set of directions a box-drawing glyph reaches the edge of its cell in.
 type arm uint8
 
@@ -60,23 +58,3 @@ var joins = func() map[string]arm {
 
 	return m
 }()
-
-// emojiText is every code point below U+3300 that Unicode marks Emoji with a
-// text default: one cell to every width function, and two in a terminal whose
-// font for it is an emoji font, which is common for exactly these. Arrows
-// U+2190-2193, the geometric shapes ▸ ◂ ◆ ● ◐, and box drawing are not in it.
-const emojiText = "‼⁉™ℹ↔↕↖↗↘↙↩↪⌨⏏⏭⏮⏯⏱⏲⏸⏹⏺Ⓜ▪▫▶◀◻◼" +
-	"☀☁☂☃☄☎☑☘☝☠☢☣☦☪☮☯☸☹☺♀♂♟♠♣♥♦♨♻♾⚒⚔⚕⚖⚗⚙⚛⚜⚠⚧⚰⚱⛈⛏⛑⛓⛩⛰⛱⛴⛷⛸⛹" +
-	"✂✈✉✌✍✏✒✔✖✝✡✳✴❄❇❣❤➡⤴⤵⬅⬆⬇〰〽㊗㊙"
-
-// emojiCapable reports a cluster that is a text-default emoji drawn without a
-// presentation selector. One followed by VS16 asks for the emoji, which every
-// width function here counts as two cells, and VS15 pins it to text.
-func emojiCapable(cluster string) bool {
-	r := []rune(cluster)
-	if len(r) == 0 || len(r) > 1 {
-		return false
-	}
-
-	return strings.ContainsRune(emojiText, r[0])
-}

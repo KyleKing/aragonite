@@ -13,9 +13,10 @@
 //     box drawn one column off, or one missing its right edge, looks
 //   - Edge: a box's side broken partway down by text, the trace of a row that
 //     measured itself a cell narrower or wider than its neighbors
-//   - Glyph: a glyph that measures one cell here but that terminals with an emoji
-//     font draw two cells wide (⚠, ▶, ✖), which shifts everything after it on
-//     the row without any width function knowing
+//   - Glyph: a glyph whose width terminals disagree on (glyph.Of): a text-default
+//     emoji (⚠ ▶ ✖), a VS16 or ZWJ sequence, or a Nerd Font private-use icon,
+//     any of which shifts or overlaps everything after it on the row without
+//     any width function knowing. Content passes through glyph.Settle first
 //
 // A box that is covered by another (an overlay over a pane) is not broken: a side
 // that runs into another box's border ends there.
@@ -30,6 +31,8 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/rivo/uniseg"
+
+	"github.com/kyleking/aragonite/tui/glyph"
 )
 
 // Rule names which check a Fault broke.
@@ -58,6 +61,7 @@ func (f Fault) String() string {
 
 type options struct {
 	allow    map[string]bool
+	nerd     bool
 	width    int
 	maxWidth int
 }
@@ -82,6 +86,11 @@ func Allow(glyphs ...string) Option {
 		}
 	}
 }
+
+// Nerd accepts private-use glyphs, for a frame drawn with the Nerd icon set a
+// reader opted into. Each one must still be drawn through icons.Glyph.Prefix,
+// with the blank cell its overflow lands on.
+func Nerd() Option { return func(o *options) { o.nerd = true } }
 
 // Check returns every fault in frame, which may carry ANSI escapes. A frame
 // with none returns nil.
@@ -231,15 +240,18 @@ func (g grid) glyphs(o options) []Fault {
 
 	for i, r := range g.rows {
 		for j, c := range r {
-			if c.wide || o.allow[c.text] || !emojiCapable(c.text) {
+			if c.wide || o.allow[c.text] {
 				continue
 			}
 
-			faults = append(faults, Fault{
-				Rule: Glyph, Row: i, Col: j,
-				Detail: fmt.Sprintf("%q (U+%04X) is one cell here and two in a terminal "+
-					"that draws it from an emoji font", c.text, first(c.text)),
-			})
+			switch class := glyph.Of(c.text); {
+			case class == glyph.Stable, class == glyph.Wide, class == glyph.Private && o.nerd:
+			default:
+				faults = append(faults, Fault{
+					Rule: Glyph, Row: i, Col: j,
+					Detail: fmt.Sprintf("%q (U+%04X) is %s", c.text, first(c.text), class),
+				})
+			}
 		}
 	}
 

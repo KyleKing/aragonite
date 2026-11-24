@@ -92,6 +92,16 @@ func TestProfileHonorsColortermInsideTmux(t *testing.T) {
 		},
 		{name: "tmux alone", env: []string{"TERM=tmux-256color", "TTY_FORCE=1"}, want: colorprofile.ANSI256},
 		{
+			name: "tmux with no default-terminal and COLORTERM=truecolor",
+			env:  []string{"TERM=screen", "TMUX=/tmp/tmux-1/default,1,0", "COLORTERM=truecolor", "TTY_FORCE=1"},
+			want: colorprofile.TrueColor,
+		},
+		{
+			name: "a 16-color TERM outside tmux keeps 16",
+			env:  []string{"TERM=xterm-16color", "COLORTERM=", "TTY_FORCE=1"},
+			want: colorprofile.ANSI,
+		},
+		{
 			name: "NO_COLOR is not lifted",
 			env:  []string{"TERM=xterm", "COLORTERM=truecolor", "NO_COLOR=1", "TTY_FORCE=1"},
 			want: colorprofile.ASCII,

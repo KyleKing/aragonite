@@ -1,3 +1,9 @@
+## v1.26.2 (2026-11-24)
+
+### Fix
+
+- **palette**: explain a key as its column shows it
+
 ## v1.26.1 (2026-11-24)
 
 ### Fix

@@ -1,3 +1,10 @@
+## v1.26.0 (2026-11-24)
+
+### Feat
+
+- **tui**: a capped palette key column and a clean 16-color selected row
+- **framecheck**: a Viewport option for a scrolled body between fixed rows
+
 ## v1.25.2 (2026-11-24)
 
 ### Fix

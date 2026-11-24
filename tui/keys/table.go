@@ -254,8 +254,8 @@ func SplitColumns() []Binding {
 	return []Binding{
 		c(ActionColumnLeft, "focus the column to the left", "column", "h"),
 		c(ActionColumnRight, "focus the column to the right", "", "l"),
-		c(ActionMoveLeft, "move the selection to the column to the left", "move", "<"),
-		c(ActionMoveRight, "move the selection to the column to the right, making one past the last", "", ">"),
+		c(ActionMoveLeft, "move the selection one column left", "move", "<"),
+		c(ActionMoveRight, "move the selection one column right, or to a new one", "", ">"),
 		c(ActionSendTo, "send the selection to column N", "send", Digits()...),
 		c(ActionDescribe, "describe the focused column", "describe", "d"),
 		c(ActionDescribeEditor, "describe the focused column in $EDITOR", "", "D"),

@@ -1,3 +1,9 @@
+## v1.28.0 (2026-11-24)
+
+### Feat
+
+- **seen**: read marks shared across tools
+
 ## v1.27.1 (2026-11-24)
 
 ### Fix

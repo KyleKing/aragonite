@@ -1,3 +1,15 @@
+## v1.23.0 (2026-11-24)
+
+### Feat
+
+- **empty**: say what is empty, why, and the keys out
+- **coach**: suggest the next step and tip unused keys, rarely
+- **trail**: log each external command a tool runs, copyable as a shell line
+- **palette**: one palette for `:` and the `?` legend, with an explainer pane
+- **keyusage**: log the action that ran and the presses a screen refused
+- **keys**: gate an action with the reason it cannot run here
+- **fuzzy**: score a query against text as a ranked subsequence
+
 ## v1.22.1 (2026-11-24)
 
 ### Fix

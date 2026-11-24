@@ -122,12 +122,14 @@ saved marks. A save from either side merges, so neither loses the other's marks 
 a hunk, rewrite the change so the hunk shifts lines but keeps its text, and assert `Unread` is still
 false; change one character of it and assert true.
 
-## jj-diff, later
+## jj-diff
 
-jj-diff views one revision (`-r`), so it could show the same marks: open the store at the same
-directory jojo uses (`seen.StateDir("jojo", "seen", seen.RepoKey(repoStore))`), take the scope from
-the revision's change id (`jj log -r <rev> --no-graph -T change_id`), and draw a read glyph or a
-dimmed heading on hunks `Unread` answers false for. `]u` / `[u` and `U` then work as in jojo's dock.
-`␣` already means select in jj-diff's editing modes (keymap §2.6), so marking would need a viewing
-mode where `␣` is free, or stay read-only there. Run as a diff editor (`--tool jj-diff`) it sees two
-directories and no change id, so it has nothing to scope marks by and should show none.
+jj-diff shows the same marks, read-only, on the revision it views (`-r`, browse and `-i`). It
+opens the directory jojo uses, `seen.StateDir("jojo", "seen", seen.RepoKey(repoStore))` with
+`repoStore` from `seen.JJRepo`, and takes the scope from the revision's change id in the form jojo
+files it under: its log template's `change_id.shortest(8)`, not the full id
+(`jj log -r <rev> --no-graph -T 'change_id.shortest(8)'`). A read hunk's heading is dimmed behind a
+check, a file read whole carries one in the file list, and `]u` / `[u` step between unread hunks.
+`␣` already means select in jj-diff's editing modes (keymap §2.6), so it stays read-only and marking
+happens in jojo. Run as a diff editor (`--tool jj-diff`) it sees two directories and no change id,
+so it has nothing to scope marks by and shows none.

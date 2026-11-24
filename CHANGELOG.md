@@ -1,3 +1,9 @@
+## v1.22.1 (2026-11-24)
+
+### Fix
+
+- **keys**: word the column moves short enough for an 80-column legend
+
 ## v1.22.0 (2026-11-24)
 
 ### Feat

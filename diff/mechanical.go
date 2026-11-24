@@ -9,15 +9,42 @@ type HunkRef struct {
 // MechanicalHunks returns the hunks one reason covers whole, "reindent only" or
 // "whitespace only". A hunk with any real edit or moved line stays out.
 func (d *Diff) MechanicalHunks() map[HunkRef]string {
-	// One pass gathers every hunk's tally and its squeezed sides, so judging a
-	// hunk whitespace-only does not walk the whole file again per hunk.
-	type tally struct {
-		added, removed []string
-		n, indent      int
+	// A reindented line's mate says the same thing in the same hunk, so a
+	// reindent-only hunk is whitespace-only too. Only those need the pairing,
+	// which is the expensive read, and a diff with none skips it.
+	out := map[HunkRef]string{}
+
+	var reindented map[LineRef]bool
+
+	for at, h := range d.changedHunks() {
+		if !sameWords(h.added, h.removed) {
+			continue
+		}
+
+		if reindented == nil {
+			reindented = d.Reindented()
+		}
+
+		out[at] = "whitespace only"
+
+		if allReindented(reindented, at.Path, h.lines) {
+			out[at] = "reindent only"
+		}
 	}
 
-	tallies := map[HunkRef]*tally{}
-	reindented := d.Reindented()
+	return out
+}
+
+// changedHunk is one hunk's changed lines and each side squeezed of its spaces.
+type changedHunk struct {
+	added, removed []string
+	lines          []Line
+}
+
+// changedHunks gathers every hunk's changed lines in one pass, so judging a hunk
+// does not walk the whole file again per hunk.
+func (d *Diff) changedHunks() map[HunkRef]*changedHunk {
+	out := map[HunkRef]*changedHunk{}
 
 	for i := range d.Files {
 		p := pathOf(&d.Files[i])
@@ -28,37 +55,32 @@ func (d *Diff) MechanicalHunks() map[HunkRef]string {
 			}
 
 			at := HunkRef{p, l.Hunk}
-			t := tallies[at]
+			h := out[at]
 
-			if t == nil {
-				t = &tally{}
-				tallies[at] = t
+			if h == nil {
+				h = &changedHunk{}
+				out[at] = h
 			}
 
-			t.n++
-
-			if reindented[refOf(p, l)] {
-				t.indent++
-			}
+			h.lines = append(h.lines, l)
 
 			if l.Kind == KindAdd {
-				t.added = append(t.added, squeeze(l.Text))
+				h.added = append(h.added, squeeze(l.Text))
 			} else {
-				t.removed = append(t.removed, squeeze(l.Text))
+				h.removed = append(h.removed, squeeze(l.Text))
 			}
-		}
-	}
-
-	out := map[HunkRef]string{}
-
-	for at, t := range tallies {
-		switch {
-		case t.indent == t.n:
-			out[at] = "reindent only"
-		case sameWords(t.added, t.removed):
-			out[at] = "whitespace only"
 		}
 	}
 
 	return out
+}
+
+func allReindented(reindented map[LineRef]bool, path string, lines []Line) bool {
+	for _, l := range lines {
+		if !reindented[refOf(path, l)] {
+			return false
+		}
+	}
+
+	return true
 }

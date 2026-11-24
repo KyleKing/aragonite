@@ -57,10 +57,15 @@ func TestSelected_SixteenColorsIsOneEvenBar(t *testing.T) {
 
 			s := skin.For(p, p.Mauve, tc.profile)
 			cell := s.Selected(green).Render("+3")
+			on := skin.On(s.Band, green).Render("+3")
 			row := s.Select(green.Render("M")+" file.go "+green.Render("+3"), 20)
 
 			if got := hasColor(cell); got != tc.wantColor {
 				t.Errorf("Selected cell %q carries a color: %v, want %v", cell, got, tc.wantColor)
+			}
+
+			if got := hasColor(on); got != tc.wantColor {
+				t.Errorf("On(Band) cell %q carries a color: %v, want %v", on, got, tc.wantColor)
 			}
 
 			if !tc.wantColor && hasColor(row) {

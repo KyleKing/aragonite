@@ -56,3 +56,15 @@ func Lit(text string, width int, face lipgloss.Style) string {
 
 	return on + text + "\x1b[m"
 }
+
+// On is st drawn on face, the background a row is drawn on: face's background
+// with st's colors over it, or where face is reverse video, st's weights alone,
+// for the reason Selected drops a cell's colors. A tool whose row faces are its
+// own (a band, a tint) composes a cell with On rather than face.Inherit(st).
+func On(face, st lipgloss.Style) lipgloss.Style {
+	if face.GetReverse() {
+		return face.Inherit(st.UnsetForeground().UnsetBackground())
+	}
+
+	return face.Inherit(st)
+}

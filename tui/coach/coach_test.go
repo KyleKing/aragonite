@@ -1,6 +1,7 @@
 package coach_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kyleking/aragonite/tui/coach"
+	"github.com/kyleking/aragonite/tui/framecheck"
 	"github.com/kyleking/aragonite/tui/keyhint"
 	"github.com/kyleking/aragonite/tui/keys"
 	"github.com/kyleking/aragonite/tui/skin"
@@ -488,10 +490,9 @@ func TestRender(t *testing.T) {
 		}
 	}
 
-	for i, l := range band {
-		if w := ansi.StringWidth(l); w > 100 {
-			t.Errorf("band row %d is %d wide", i, w)
-		}
+	for _, width := range []int{40, 60, 80, 100, 160} {
+		band := coach.BandLines(sk(), []coach.Suggestion{next}, &tip, width)
+		framecheck.Require(t, fmt.Sprintf("band at %d", width), strings.Join(band, "\n"), framecheck.MaxWidth(width))
 	}
 
 	if coach.BandLines(sk(), nil, nil, 100) != nil {

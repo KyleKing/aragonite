@@ -205,7 +205,9 @@ func (m *Model) drawer(width, height int) []string {
 }
 
 func box(s skin.Skin, title string, rows []string, inner int) []string {
-	head := "╭─ " + table.Truncate(title, inner-1) + " "
+	// The title leaves a dash before the corner, so the corner never ends on a
+	// space.
+	head := "╭─ " + table.Truncate(title, inner-halves) + " "
 	out := make([]string, 0, len(rows)+halves)
 	out = append(out, s.Edge.Render(head+strings.Repeat("─", max(0, inner+3-lipgloss.Width(head)))+"╮"))
 
@@ -233,7 +235,8 @@ func (m *Model) strip(width, height int) []string {
 		list = max(0, height-halves)
 	}
 
-	out := []string{m.skin.Rule(m.title(), m.count(), width)}
+	out := make([]string, 0, 1+list+len(note)+1)
+	out = append(out, m.skin.Rule(m.title(), m.count(), width))
 	out = append(out, m.list(width, list, false)...)
 	out = append(out, note...)
 
@@ -245,8 +248,15 @@ func (m *Model) strip(width, height int) []string {
 	}
 
 	left = ansi.Truncate(left, width-lipgloss.Width(foot)-1, "")
+	out = append(out, left+strings.Repeat(" ", max(1, width-lipgloss.Width(left)-lipgloss.Width(foot)))+foot)
 
-	return append(out, left+strings.Repeat(" ", max(1, width-lipgloss.Width(left)-lipgloss.Width(foot)))+foot)
+	// The strip replaces whole rows of the frame, so every row is the frame's
+	// width: a short one would leave the screen under it showing.
+	for i, l := range out {
+		out[i] = l + strings.Repeat(" ", max(0, width-lipgloss.Width(l)))
+	}
+
+	return out
 }
 
 // line is one drawn row of the list: a section's rule, or a hit by its index in m.hits.

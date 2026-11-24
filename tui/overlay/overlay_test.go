@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/kyleking/aragonite/tui/framecheck"
 	"github.com/kyleking/aragonite/tui/keyhint"
 	"github.com/kyleking/aragonite/tui/overlay"
 )
@@ -226,5 +227,38 @@ func assertWidths(t *testing.T, lines []string, width int) {
 		if w := ansi.StringWidth(line); w != width {
 			t.Errorf("row %d is %d cells wide, want %d", i, w, width)
 		}
+	}
+}
+
+func TestBoxEdgesJoinTheirCorners(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		title  string
+		lines  []string
+		height int
+		at     int
+	}{
+		{name: "title narrower than the lines", title: "keys", lines: []string{"a long line of text", "b"}, height: 2},
+		{
+			name: "title wider than the lines", title: "a title wider than any line",
+			lines: []string{"ab", "c"}, height: 2,
+		},
+		{name: "more below", title: "keys", lines: []string{"a", "b", "c", "d"}, height: 2},
+		{
+			name: "more above and below in a narrow box", title: "k",
+			lines: []string{"a", "b", "c", "d"}, height: 2, at: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			box := overlay.Box(overlay.Styles{}, tc.title, tc.lines, tc.height, tc.at)
+			w := lipgloss.Width(box[0])
+			framecheck.Require(t, tc.name, strings.Join(box, "\n"), framecheck.Width(w))
+		})
 	}
 }

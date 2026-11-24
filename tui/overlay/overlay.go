@@ -36,6 +36,10 @@ const ElisionMarker = "…"
 
 const halves = 2
 
+// boxSides is the cells a Box adds to its widest line: a border and a space on
+// each side.
+const boxSides = 4
+
 // Center draws content inside s.Frame, centered on a frame width by height
 // cells. Content taller or wider than the room inside the frame is clipped,
 // so an overlay that sizes itself passes through untouched and one that does
@@ -117,7 +121,6 @@ func Box(s Styles, title string, lines []string, height, at int) []string {
 	for _, l := range lines {
 		width = max(width, lipgloss.Width(l))
 	}
-	width = max(width, lipgloss.Width(title))
 
 	at = max(0, min(at, len(lines)-height))
 
@@ -137,17 +140,27 @@ func Box(s Styles, title string, lines []string, height, at int) []string {
 		return ""
 	}
 
+	// Each edge is a corner, a run of rule, and the other corner; a title or a
+	// mark sits in the run and always leaves a dash on either side of it, so
+	// a corner never ends on a space. The box widens to keep that true.
 	top := "╭─ " + title + mark(at > 0) + " "
-	bot := "╰" + mark(at+len(visible) < len(lines))
-	out := []string{
-		s.Frame.Render(top + strings.Repeat("─", max(0, width+3-lipgloss.Width(top))) + "╮"),
+	bot := "╰"
+	if more := mark(at+len(visible) < len(lines)); more != "" {
+		bot = "╰─" + more + " "
 	}
+
+	width = max(width, lipgloss.Width(top)+2-boxSides, lipgloss.Width(bot)+2-boxSides)
+	edge := func(head, corner string) string {
+		return s.Frame.Render(head + strings.Repeat("─", max(0, width+boxSides-1-lipgloss.Width(head))) + corner)
+	}
+
+	out := []string{edge(top, "╮")}
 
 	for _, l := range visible {
 		out = append(out, s.Frame.Render("│ ")+l+strings.Repeat(" ", width-lipgloss.Width(l))+s.Frame.Render(" │"))
 	}
 
-	return append(out, s.Frame.Render(bot+strings.Repeat("─", max(0, width+3-lipgloss.Width(bot)))+"╯"))
+	return append(out, edge(bot, "╯"))
 }
 
 // Blit draws box over base at cell (x, y), cutting the cells it covers out of

@@ -106,7 +106,7 @@ func TestRenderMarkdownBlocks(t *testing.T) {
 		{
 			name: "task boxes survive as boxes",
 			body: "- [x] done\n- [ ] todo",
-			want: []string{"☑ done", "☐ todo"},
+			want: []string{"☒ done", "☐ todo"},
 		},
 		{
 			name:    "links keep the label and drop the target",

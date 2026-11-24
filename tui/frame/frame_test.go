@@ -1,6 +1,7 @@
 package frame_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kyleking/aragonite/tui/frame"
+	"github.com/kyleking/aragonite/tui/framecheck"
 	"github.com/kyleking/aragonite/tui/keyhint"
 	"github.com/kyleking/aragonite/tui/skin"
 	"github.com/kyleking/aragonite/tui/theme"
@@ -48,7 +50,7 @@ func TestRender(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			lines := render(tc.width, tc.height)
+			lines := render(t, tc.width, tc.height)
 			checkShape(t, lines, tc.width, tc.height)
 			checkFooter(t, lines[len(lines)-1], tc.keys, tc.goneKeys)
 		})
@@ -93,10 +95,16 @@ func checkFooter(t *testing.T, foot string, keys, gone []string) {
 	}
 }
 
-func render(width, height int) []string {
-	s := skin.New(theme.Macchiato(), theme.Macchiato().Blue)
+// render draws the sample frame, holding it to framecheck: the body is the
+// caller's and may be ragged, so no row may only run past the width.
+func render(t *testing.T, width, height int) []string {
+	t.Helper()
 
-	return strings.Split(ansi.Strip(frame.Render(s, sample(), width, height)), "\n")
+	s := skin.New(theme.Macchiato(), theme.Macchiato().Blue)
+	out := frame.Render(s, sample(), width, height)
+	framecheck.Require(t, fmt.Sprintf("frame at %dx%d", width, height), out, framecheck.MaxWidth(width))
+
+	return strings.Split(ansi.Strip(out), "\n")
 }
 
 func stripSample() frame.Frame {

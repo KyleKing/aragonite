@@ -71,6 +71,15 @@ tools invent three greys and three file glyphs. Each names roles out of a palett
 is handed and never a literal color. Every icon is one cell in both the Nerd Font set
 (the default) and the unicode set, so the set a reader picks never moves a column.
 
+A background is fitted to the terminal before it is drawn, never left to the
+renderer's nearest match. The 256-color cube's darkest non-grey entries are fully
+saturated (22, 52, 17), so a quiet wash quantizes to a block of green, red, or navy.
+`theme.Ground` maps each background role to a step on the grey ramp by how far it
+sits from the frame, and in 16 colors to nothing; the color that says which side a
+line is on moves to the sign and the line number, which keep it at every depth.
+`skin.For` and `skin.DiffFor` take the profile `colorprofile.Detect` answers, the
+same answer Bubble Tea downsamples by, so the two never disagree about the depth.
+
 `display` is the same rule one step further out: it emits plain strings with no
 styling at all, because two tools reading one checkout style it differently even when
 they agree on the words.

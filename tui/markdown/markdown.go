@@ -287,7 +287,9 @@ func (p *parser) listItem(indent, text string) []segment {
 	if match := taskRe.FindStringSubmatch(strings.TrimSpace(text)); match != nil {
 		marker = "☐ "
 		if match[1] != " " {
-			marker = "☑ "
+			// ☒ rather than ☑: U+2611 is a text-default emoji that a terminal
+			// with an emoji font draws two cells wide over a one-cell slot.
+			marker = "☒ "
 		}
 		text = match[2]
 	}

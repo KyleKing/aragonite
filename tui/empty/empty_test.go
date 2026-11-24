@@ -1,12 +1,14 @@
 package empty_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kyleking/aragonite/tui/empty"
+	"github.com/kyleking/aragonite/tui/framecheck"
 	"github.com/kyleking/aragonite/tui/keyhint"
 	"github.com/kyleking/aragonite/tui/skin"
 	"github.com/kyleking/aragonite/tui/theme"
@@ -33,11 +35,7 @@ func TestCard_CentersAndKeepsTheFrame(t *testing.T) {
 			t.Fatalf("%dx%d: %d lines", w, h, len(out))
 		}
 
-		for i, l := range out {
-			if got := ansi.StringWidth(l); got != w {
-				t.Errorf("%dx%d line %d is %d wide", w, h, i, got)
-			}
-		}
+		framecheck.Require(t, fmt.Sprintf("card at %dx%d", w, h), strings.Join(out, "\n"), framecheck.Width(w))
 
 		plain := ansi.Strip(strings.Join(out, "\n"))
 		if !strings.Contains(plain, "No changes") {

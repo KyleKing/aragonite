@@ -82,11 +82,11 @@ func TestFileBandIsReverseUnderNoColor(t *testing.T) {
 	t.Parallel()
 
 	p := theme.Macchiato()
-	if !skin.Build(p, p.Mauve, true).FileBand.GetReverse() {
+	if !skin.BuildMono(p, p.Mauve, true).FileBand.GetReverse() {
 		t.Error("want reverse video")
 	}
 
-	if skin.Build(p, p.Mauve, false).FileBand.GetReverse() {
+	if skin.BuildMono(p, p.Mauve, false).FileBand.GetReverse() {
 		t.Error("color draws a tint, not reverse")
 	}
 }

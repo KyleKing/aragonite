@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/kyleking/aragonite/tui/framecheck"
 	"github.com/kyleking/aragonite/tui/keyhint"
 )
 
@@ -233,6 +234,7 @@ func TestPanel_AlignsKeysAndCountsAndFitsTheWidth(t *testing.T) {
 			t.Parallel()
 
 			got := keyhint.Panel(s, hints, tc.width)
+			framecheck.Require(t, tc.name, strings.Join(got, "\n"), framecheck.MaxWidth(max(tc.width, 0)))
 			if tc.want == nil {
 				for _, l := range got {
 					if w := lipgloss.Width(l); w > tc.width {

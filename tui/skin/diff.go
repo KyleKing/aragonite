@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 
 	"github.com/kyleking/aragonite/tui/theme"
 )
@@ -25,36 +26,47 @@ type DiffFaces struct {
 	mono bool
 }
 
-// The two depths a changed line is drawn at. A 256-color terminal gets deeper
-// values, since the cube carries almost no dark tints: held back there, added
-// and removed both quantize into the grey ramp and the mark says nothing.
+// The two depths a changed line is drawn at in truecolor, as shares of its
+// side's color laid over the background: a wash quiet enough to read syntax
+// colors through, and a mark about twice as deep for the runs that differ.
+// Catppuccin's editor themes wash at 0.18 and GitHub at 0.15; deeper than this
+// the wash competes with the syntax colors drawn on it, and a mark deeper than
+// 0.25 drops Latte's text under 4.5:1 on the red.
 const (
-	trueMarkLift, trueMarkSat = 0.28, 0.70
-	trueWashLift, trueWashSat = 0.10, 0.42
-	cubeMarkLift              = 0.34
-	cubeWashLift              = 0.12
-	cubeSat                   = 1.0
+	washShare = 0.12
+	markShare = 0.25
 )
 
 // Diff builds the diff faces for a palette. Millions says whether the
 // terminal mixes its own colors (truecolor) rather than quantizing into the
-// 256-color cube; a non-empty NO_COLOR draws signs as + and −.
+// 256-color cube; a non-empty NO_COLOR draws signs as + and −. DiffFor takes
+// the profile itself, and is what a tool that has detected one calls.
 func Diff(p theme.Palette, millions bool) DiffFaces {
-	mark := theme.Depth{Lift: cubeMarkLift, Sat: cubeSat}
-	wash := theme.Depth{Lift: cubeWashLift, Sat: cubeSat}
-
 	if millions {
-		mark = theme.Depth{Lift: trueMarkLift, Sat: trueMarkSat}
-		wash = theme.Depth{Lift: trueWashLift, Sat: trueWashSat}
+		return DiffFor(p, colorprofile.TrueColor)
+	}
+
+	return DiffFor(p, colorprofile.ANSI256)
+}
+
+// DiffFor builds the diff faces fitted to profile by theme.Ground. In
+// truecolor a changed line is its side's color laid over the background. In 256 colors both
+// sides wash in one grey a step above the frame and mark in a deeper one, since
+// the cube's dark greens and reds (22, 52) are saturated blocks, and the side is
+// said by the sign and the line number, which keep their color. In 16 colors
+// there is no wash or mark at all.
+func DiffFor(p theme.Palette, profile colorprofile.Profile) DiffFaces {
+	ground := func(c color.Color, lift theme.Lift) color.Color {
+		return theme.Ground(c, p.Base, lift, profile)
 	}
 
 	base := lipgloss.NewStyle()
 
 	return DiffFaces{
-		AddWash:    theme.Tint(p.Base, p.Green, wash),
-		RemoveWash: theme.Tint(p.Base, p.Red, wash),
-		AddMark:    theme.Tint(p.Base, p.Green, mark),
-		RemoveMark: theme.Tint(p.Base, p.Red, mark),
+		AddWash:    ground(theme.Blend(p.Base, p.Green, washShare), theme.Wash),
+		RemoveWash: ground(theme.Blend(p.Base, p.Red, washShare), theme.Wash),
+		AddMark:    ground(theme.Blend(p.Base, p.Green, markShare), theme.Emphasis),
+		RemoveMark: ground(theme.Blend(p.Base, p.Red, markShare), theme.Emphasis),
 		AddSign:    base.Foreground(p.Green),
 		RemoveSign: base.Foreground(p.Red),
 		mono:       noColor(),

@@ -60,7 +60,7 @@ func TestSelectionIsATintInColorAndReverseVideoWithout(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := skin.Build(ink, ink.Lavender, tc.mono)
+			s := skin.BuildMono(ink, ink.Lavender, tc.mono)
 			for name, face := range map[string]lipgloss.Style{"selection": s.Selection, "band": s.Band} {
 				if got := face.GetReverse(); got != tc.reverse {
 					t.Errorf("%s reverse is %v, want %v", name, got, tc.reverse)

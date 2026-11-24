@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/kyleking/aragonite/tui/card"
+	"github.com/kyleking/aragonite/tui/framecheck"
 )
 
 func TestRenderRowsAreExactWidthAndOneRowPerLinePlusEdges(t *testing.T) {
@@ -48,11 +49,7 @@ func TestRenderRowsAreExactWidthAndOneRowPerLinePlusEdges(t *testing.T) {
 				t.Fatalf("got %d rows for %d body lines, want %d", len(rows), len(tc.c.Body), len(tc.c.Body)+2)
 			}
 
-			for i, row := range rows {
-				if got := lipgloss.Width(row); got != tc.width {
-					t.Errorf("row %d is %d cells wide, want %d: %q", i, got, tc.width, row)
-				}
-			}
+			framecheck.Require(t, tc.name, strings.Join(rows, "\n"), framecheck.Width(tc.width))
 		})
 	}
 }

@@ -1,6 +1,7 @@
 package palette_test
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/kyleking/aragonite/tui/framecheck"
 	"github.com/kyleking/aragonite/tui/keyhint"
 	"github.com/kyleking/aragonite/tui/keys"
 	"github.com/kyleking/aragonite/tui/palette"
@@ -507,11 +509,7 @@ func drawn(t *testing.T, m *palette.Model, width, height int) string {
 		t.Fatalf("Over changed the height to %d", len(out))
 	}
 
-	for i, l := range out {
-		if w := ansi.StringWidth(l); w != width {
-			t.Errorf("line %d is %d wide: %q", i, w, ansi.Strip(l))
-		}
-	}
+	framecheck.Require(t, "palette over a frame", strings.Join(out, "\n"), framecheck.Width(width))
 
 	return ansi.Strip(strings.Join(out, "\n"))
 }
@@ -639,5 +637,31 @@ func BenchmarkView(b *testing.B) {
 
 	for b.Loop() {
 		m.View(120, 40)
+	}
+}
+
+// TestView_JoinsEveryEdgeAtEverySize draws each layout at the widths and heights a
+// terminal is actually opened at, browsing, typing, and explaining a key, and holds
+// every frame to framecheck: a drawer whose title runs into its corner, or a strip
+// one cell short, is the fault a golden of one size never shows.
+func TestView_JoinsEveryEdgeAtEverySize(t *testing.T) {
+	t.Parallel()
+
+	states := map[string][]string{
+		"browse":  nil,
+		"typed":   {"s", "p"},
+		"no hits": {"z", "z", "z"},
+	}
+
+	for name, presses := range states {
+		for _, size := range [][2]int{{40, 12}, {60, 16}, {80, 24}, {100, 30}, {120, 40}, {200, 60}} {
+			t.Run(fmt.Sprintf("%s/%dx%d", name, size[0], size[1]), func(t *testing.T) {
+				t.Parallel()
+
+				m := open(palette.Run)
+				press(m, presses...)
+				drawn(t, m, size[0], size[1])
+			})
+		}
 	}
 }

@@ -30,6 +30,18 @@ func Tint(base, accent color.Color, d Depth) color.Color {
 	return colorful.Hsl(hue, sat*d.Sat, dark+(middleGrey-dark)*d.Lift).Clamped()
 }
 
+// Blend lays accent over base at alpha share, the way a translucent color is
+// composited (in sRGB, as a terminal or a browser would draw it), so 0 is base
+// and 1 is accent. A diff's wash and mark are this, at the shares catppuccin's
+// and GitHub's diff highlights use: a pale accent over a dark base stays dark,
+// where a Lab Mix would lift it toward the accent's lightness.
+func Blend(base, accent color.Color, share float64) color.Color {
+	from, _ := colorful.MakeColor(base)
+	to, _ := colorful.MakeColor(accent)
+
+	return from.BlendRgb(to, share).Clamped()
+}
+
 // Mix returns the blend t of the way from a to b in CIE Lab, so 0 is a and 1 is b.
 func Mix(a, b color.Color, t float64) color.Color {
 	from, _ := colorful.MakeColor(a)

@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 
 	"github.com/kyleking/aragonite/tui/theme"
 )
@@ -89,30 +90,50 @@ type Skin struct {
 
 const (
 	cardShare     = 0.75
-	edgeShare     = 0.35
+	edgeShare     = 0.7
 	selectionLift = 0.06
 	selectionSat  = 0.35
 	bandShare     = 0.16
+	badgeShare    = 0.5
 	fileBandShare = 0.85
 	noColorEnv    = "NO_COLOR"
 )
 
-// New builds a skin from a palette and the accent that names this tool. A
-// non-empty NO_COLOR draws Selection and Band in reverse video.
+// New builds a skin from a palette and the accent that names this tool, for a
+// terminal that mixes its own colors. A non-empty NO_COLOR draws Selection and
+// Band in reverse video.
 func New(p theme.Palette, accent color.Color) Skin {
-	return build(p, accent, noColor())
+	return build(p, accent, colorprofile.TrueColor, noColor())
 }
 
-func build(p theme.Palette, accent color.Color, mono bool) Skin {
+// For builds the skin New does, with every background fitted to profile by
+// theme.Ground: blended tints in truecolor, steps of the grey ramp in 256 colors,
+// and none in 16, where Selection and Band fall back to reverse video as they do
+// under NO_COLOR. Profile is what colorprofile.Detect answers for the output the
+// program draws to, which is the same answer Bubble Tea downsamples by.
+func For(p theme.Palette, accent color.Color, profile colorprofile.Profile) Skin {
+	return build(p, accent, profile, noColor())
+}
+
+func build(p theme.Palette, accent color.Color, profile colorprofile.Profile, mono bool) Skin {
 	s := p.Semantic()
 	base := lipgloss.NewStyle()
+	ground := func(c color.Color, lift theme.Lift) color.Color {
+		return theme.Ground(c, p.Base, lift, profile)
+	}
 
-	fileBand := base.Background(theme.Mix(p.Base, p.Surface0, fileBandShare))
-	selection := base.Background(theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat}))
-	band := base.Background(theme.Mix(p.Base, p.Lavender, bandShare))
+	fileBand := base.Background(ground(theme.Mix(p.Base, p.Surface0, fileBandShare), theme.Wash))
+	selection := base.Background(ground(
+		theme.Tint(p.Base, accent, theme.Depth{Lift: selectionLift, Sat: selectionSat}), theme.Cursor,
+	))
+	band := base.Background(ground(theme.Mix(p.Base, p.Lavender, bandShare), theme.Cursor))
+
+	if mono || profile <= colorprofile.ANSI && profile != colorprofile.Unknown {
+		selection, band = base.Reverse(true), base.Reverse(true)
+	}
 
 	if mono {
-		selection, band, fileBand = base.Reverse(true), base.Reverse(true), base.Reverse(true)
+		fileBand = base.Reverse(true)
 	}
 
 	return Skin{
@@ -126,15 +147,16 @@ func build(p theme.Palette, accent color.Color, mono bool) Skin {
 		Selection: selection,
 		Key:       base.Foreground(s.Primary),
 		Suggest:   base.Foreground(accent),
-		Tab:       base.Foreground(p.Overlay1).Background(p.Surface0).Padding(0, 1),
+		Tab:       base.Foreground(p.Overlay1).Background(ground(p.Surface0, theme.Wash)).Padding(0, 1),
 		TabActive: base.Foreground(p.Base).Background(accent).Bold(true).
 			Padding(0, 1),
-		Badge:       base.Foreground(s.Text).Background(p.Surface1).Bold(true).Padding(0, 1),
+		Badge: base.Foreground(s.Text).Bold(true).Padding(0, 1).
+			Background(ground(theme.Mix(p.Surface0, p.Surface1, badgeShare), theme.Emphasis)),
 		BadgeActive: base.Foreground(p.Base).Background(accent).Bold(true).Padding(0, 1),
 		Hairline:    base.Foreground(p.Surface2),
 		Band:        band,
-		Card:        base.Background(theme.Mix(p.Base, p.Surface0, cardShare)),
-		Panel:       base.Background(p.Mantle),
+		Card:        base.Background(ground(theme.Mix(p.Base, p.Surface0, cardShare), theme.Surface)),
+		Panel:       base.Background(ground(p.Mantle, theme.Sunk)),
 		Edge:        base.Foreground(theme.Mix(p.Surface2, p.Overlay0, edgeShare)),
 		FileBand:    fileBand,
 		Success:     base.Foreground(s.Success),
@@ -146,9 +168,10 @@ func build(p theme.Palette, accent color.Color, mono bool) Skin {
 func noColor() bool { return os.Getenv(noColorEnv) != "" }
 
 // Detected builds a skin for whichever flavor the terminal's background calls
-// for, which is the call every one of these tools makes on startup.
+// for, fitted to the color profile stdout supports, which is the call every one
+// of these tools makes on startup.
 func Detected(accent func(theme.Palette) color.Color) Skin {
 	p := theme.Detect()
 
-	return New(p, accent(p))
+	return For(p, accent(p), colorprofile.Detect(os.Stdout, os.Environ()))
 }

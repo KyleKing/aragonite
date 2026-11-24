@@ -105,7 +105,8 @@ func FromKeymap(k *keys.Keymap, ctx keys.Context, gate keys.Gate, about map[stri
 // FromLegend flattens a legend tree, the shape keyhint.At walks, into entries: a heading names
 // the group of the rows under it, a row with Kids is a prefix whose page is walked with its key
 // in front, and a row with no key is prose the group's entries carry into the explainer pane. A
-// row keyed "j/k" answers either half. Each entry's Action is its key sequence, which a tool with
+// prefix marked Off marks its whole page Off with its reason, since none of its keys can complete
+// here. A row keyed "j/k" answers either half. Each entry's Action is its key sequence, which a tool with
 // no action names replays.
 func FromLegend(tree []keyhint.Hint) []Entry {
 	return legend(nil, tree, nil, "")
@@ -122,7 +123,13 @@ func legend(out []Entry, page []keyhint.Hint, path []string, group string) []Ent
 		case h.Key == "":
 			prose[group] = append(prose[group], h.What)
 		case len(h.Kids) > 0:
+			from := len(out)
 			out = legend(out, h.Kids, append(slices.Clone(path), h.Key), h.What)
+
+			// A chord that is off here takes its objects with it, and they say its reason.
+			for i := from; h.Off && i < len(out); i++ {
+				out[i].Off, out[i].Why = true, h.Why
+			}
 		default:
 			out = append(out, legendEntry(h, path, group))
 		}

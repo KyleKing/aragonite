@@ -212,12 +212,15 @@ func TestFromLegend_FlattensChordsAndCarriesProse(t *testing.T) {
 			{Key: "h", What: "next hunk"},
 			{Key: "u", What: "next unread", Off: true, Why: "nothing unread"},
 		}},
+		{Key: "m", What: "a state", Off: true, Why: "no comment here", Kids: []keyhint.Hint{
+			{Key: "r", What: "ready"},
+		}},
 		{Head: true, What: "Write"},
 		{Key: "e", What: "edit"},
 	}
 
 	got := palette.FromLegend(tree)
-	if a := actions(hitsOf(got)); !slices.Equal(a, []string{"j", "] h", "] u", "e"}) {
+	if a := actions(hitsOf(got)); !slices.Equal(a, []string{"j", "] h", "] u", "m r", "e"}) {
 		t.Fatalf("actions = %v", a)
 	}
 
@@ -232,6 +235,10 @@ func TestFromLegend_FlattensChordsAndCarriesProse(t *testing.T) {
 
 	if !got[2].Off || got[2].Why != "nothing unread" {
 		t.Errorf("]u = %+v", got[2])
+	}
+
+	if !got[3].Off || got[3].Why != "no comment here" {
+		t.Errorf("mr under an off chord = %+v", got[3])
 	}
 
 	if e, ok := palette.Describe(got, "k"); !ok || e.Action != "j" {

@@ -229,3 +229,14 @@ so a fixture that sets repository config writes into whoever ran the tests. The 
 environment variables set before any test starts, because every child process inherits them, and
 the guard is a before/after snapshot of the real directories, because a leak nobody checks for is
 one nobody notices. Consumers use the same package for the same reason.
+
+The same holds for the repository the tests live in. git runs its hooks with `GIT_DIR` (and,
+in a linked work tree, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, and the rest of
+`git rev-parse --local-env-vars`) set, and hk runs `go test` from the pre-push hook, so every
+fixture `git init`, `git add`, and `git commit` in a temp directory followed those variables into
+the repository being pushed: it staged stale files into the real index and wrote `core.worktree`
+into the real `.git/config`. `Isolate` unsets them, and `Run` snapshots the repository that git
+would open from the test's directory, with and without the inherited variables, and fails a run
+that changed its config, HEAD, branches, tags, stash, or staged entries. The index is compared as
+`git ls-files --stage` rather than as a file, since `git status` rewrites its stat data, and
+remote-tracking refs are left out, since a fetch elsewhere moves them.

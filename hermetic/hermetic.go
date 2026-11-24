@@ -14,6 +14,7 @@
 package hermetic
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,12 +63,13 @@ func Guard(paths ...string) Option {
 }
 
 // Main is a package's TestMain: it runs the tests in a home of their own and exits with their
-// code, or with a failure when one of them reached the real home.
+// code, or with a failure when one of them reached the real home or the real repository.
 func Main(m Runner, opts ...Option) { os.Exit(Run(m, opts...)) }
 
 // Run isolates the process, runs m, and answers its exit code, which it turns into a failure when
-// a guarded path of the real home changed and the change is this run's. A TestMain with cleanup of
-// its own calls Run and exits after the cleanup.
+// a guarded path of the real home changed and the change is this run's, or when a repository of
+// RealRepos changed its config, HEAD, branches, tags, stash, or staged entries. A TestMain with
+// cleanup of its own calls Run and exits after the cleanup.
 func Run(m Runner, opts ...Option) int {
 	var s settings
 	for _, opt := range opts {
@@ -92,6 +94,7 @@ func Run(m Runner, opts ...Option) int {
 
 	guarded := append(owner.Guarded(s.apps...), s.extra...)
 	before := Take(guarded...)
+	repos := takeRepos(context.Background())
 
 	if err := Isolate(root, owner); err != nil {
 		fmt.Fprintln(os.Stderr, "hermetic:", err)
@@ -105,10 +108,42 @@ func Run(m Runner, opts ...Option) int {
 		fmt.Fprintf(os.Stderr, "hermetic: the tests changed the real home, which they must never touch:\n  %s\n",
 			strings.Join(leaks, "\n  "))
 
-		return 1
+		code = 1
+	}
+
+	if !repos.unchanged(context.Background()) {
+		code = 1
 	}
 
 	return code
+}
+
+// repoSnapshot is each of RealRepos with the state it was in before the run.
+type repoSnapshot map[Repo]RepoState
+
+func takeRepos(ctx context.Context) repoSnapshot {
+	s := repoSnapshot{}
+	for _, r := range RealRepos(ctx) {
+		s[r] = r.State(ctx)
+	}
+
+	return s
+}
+
+// unchanged reports whether every repository reads as it did, naming each that does not.
+func (s repoSnapshot) unchanged(ctx context.Context) bool {
+	ok := true
+
+	for r, before := range s {
+		if parts := before.Changed(r.State(ctx)); len(parts) > 0 {
+			fmt.Fprintf(os.Stderr, "hermetic: the tests changed the real repository %s, which they must never "+
+				"touch: %s\n", r.GitDir, strings.Join(parts, ", "))
+
+			ok = false
+		}
+	}
+
+	return ok
 }
 
 // Paths are the real account's directories a test could reach through the environment.
@@ -176,9 +211,10 @@ func envOr(key, fallback string) string {
 
 // Isolate points the process at a home under root: HOME and every XDG directory, jj's and git's
 // user config, gh's config, and the temp directory, so every t.TempDir and every repository a test
-// makes is under root too. It names the committer for jj and git and sets RootEnv to root. Go's own
-// caches stay where owner's are, since a cold build cache would rebuild the standard library for
-// every test that builds a binary.
+// makes is under root too. It unsets GitRepoEnv, which a git hook running the tests sets, so a
+// fixture's git finds the repository it is run in rather than the one being committed. It names
+// the committer for jj and git and sets RootEnv to root. Go's own caches stay where owner's are,
+// since a cold build cache would rebuild the standard library for every test that builds a binary.
 func Isolate(root string, owner Paths) error {
 	home := filepath.Join(root, "home")
 	tmp := filepath.Join(root, "tmp")
@@ -219,5 +255,5 @@ func Isolate(root string, owner Paths) error {
 		}
 	}
 
-	return nil
+	return unsetRepoEnv()
 }

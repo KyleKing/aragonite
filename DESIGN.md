@@ -161,7 +161,10 @@ rules the pieces share:
   everything that reads it works without it
 - The first-run welcome is a card, not a tour. A tour gates the screen behind steps a reader
   must click through; the card lists the five keys that start a reader off and the two (`?`,
-  `:`) that find the rest, and any key both dismisses it and acts, so it costs no keystroke.
+  `:`) that find the rest. Any key dismisses it and does nothing else, because a first keystroke
+  over a screen nobody has read yet is a guess, and in jojo the guess `a` abandoned a change. The
+  card costs one keystroke for that. `?` and `:` are the exceptions: they dismiss it and open the
+  legend or palette the card points at.
   It lives in `tui/coach` because the ledger is what remembers it was seen
 - `fuzzy` and `trail` hold no styles in their data halves, so a tool that wants only the scorer or
   the log pays nothing for the views

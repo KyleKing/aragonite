@@ -37,8 +37,10 @@ const (
 
 // Welcome is the card a tool shows on its first launch: a sentence on what the tool is for, the
 // handful of keys that start a reader off, and where the rest are (`?` lists every key, `:` runs
-// any command by name). Any key dismisses it and still does what it does, so the card never costs
-// a keystroke, except Esc, which only dismisses. Dismissing records it in the ledger, so it shows
+// any command by name). Any key dismisses it and does nothing else, because a first keystroke is
+// often a guess and a guess like `a` (abandon) must not land on a screen the reader has not read
+// yet. The two exceptions are the help and palette keys, which the card itself names: they
+// dismiss it and open the legend or the palette. Dismissing records it in the ledger, so it shows
 // once per reader; the `:welcome` palette command opens it again.
 //
 // The tool owns where it draws: Over centers the card over the screen's lines where the terminal
@@ -114,8 +116,10 @@ func (w *Welcome) Dismiss(l *Ledger, at time.Time) {
 	l.MarkWelcomed(at)
 }
 
-// Key answers a key press while the card is up: it dismisses the card, and reports whether
-// the key should still act, which every key but Esc does. With the card down every key passes.
+// Key answers a key press while the card is up: it dismisses the card, and reports whether the
+// key should still act. Only the help and palette keys (Help and Palette, "?" and ":" when empty)
+// act, so they open what the card points at; every other key only dismisses, which keeps a
+// destructive first guess from running. With the card down every key passes.
 func (w *Welcome) Key(l *Ledger, key string, at time.Time) bool {
 	if !w.Showing() {
 		return true
@@ -123,7 +127,9 @@ func (w *Welcome) Key(l *Ledger, key string, at time.Time) bool {
 
 	w.Dismiss(l, at)
 
-	return key != "esc"
+	help, pal := w.keys()
+
+	return key == help || key == pal
 }
 
 // WelcomeEntry is the palette entry for `:welcome`, which a tool appends to its palette-only
@@ -154,7 +160,7 @@ func (w *Welcome) starters() []keyhint.Hint {
 }
 
 // Block is the card alone, as wide as width allows up to 64 cells less a margin: the title on the
-// top edge, the lead, a row per starter key, the two lines on `?` and `:`, and "any key to start"
+// top edge, the lead, a row per starter key, the two lines on `?` and `:`, and "any key closes"
 // on the bottom edge.
 func (w *Welcome) Block(s skin.Skin, width int) []string {
 	cw := max(1, min(welcomeMaxWidth, width-welcomeMargin))
@@ -193,7 +199,7 @@ func (w *Welcome) Block(s skin.Skin, width int) []string {
 
 	c := card.Card{
 		Title: s.Title.Render(w.Title),
-		Foot:  s.Muted.Render("any key to start · esc closes"),
+		Foot:  s.Muted.Render("any key closes"),
 		Body:  body,
 	}
 
@@ -216,8 +222,8 @@ func (w *Welcome) Over(s skin.Skin, base []string, width, height int) []string {
 }
 
 // Line is the card as one footer line, width cells wide at most, for a terminal too small for the
-// card: "◇ welcome  ? keys  : commands  ]h next hunk  …  any key". It is empty when the card is
-// down.
+// card: "◇ welcome  ? keys  : commands  ]h next hunk  …  any key closes". It is empty when the
+// card is down.
 func (w *Welcome) Line(s skin.Skin, width int) string {
 	if !w.Showing() || width < 1 {
 		return ""
@@ -225,7 +231,7 @@ func (w *Welcome) Line(s skin.Skin, width int) string {
 
 	help, pal := w.keys()
 	lead := s.Suggest.Render(Diamond+" welcome") + "  "
-	tail := "  " + s.Muted.Render("any key")
+	tail := "  " + s.Muted.Render("any key closes")
 	hints := append([]keyhint.Hint{
 		{Key: help, What: "keys", Pin: true},
 		{Key: pal, What: "commands", Pin: true},

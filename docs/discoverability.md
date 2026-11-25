@@ -155,7 +155,8 @@ m.welcome.OpenIfDue(ledger)  // the ledger's first session, not yet dismissed
 - Starters come from the keymap, so a rebind changes the card. A tool with no keymap fills
   `Starters` with `keyhint.Hint` values from its own table
 - On a key press, before anything else: `if !m.welcome.Key(ledger, msg.String(), now) { return }`.
-  Any key dismisses the card and still acts, so it never costs a keystroke; Esc only dismisses.
+  Any key only dismisses the card, so a first guess (`a`, `S`) never runs over a screen the
+  reader has not read; the help and palette keys dismiss it and open the legend or palette.
   Dismissing records `welcomed` in the ledger, so it shows once per reader (`Save()` on quit as
   ever). A ledger from before the card (an existing reader) is not greeted
 - Draw it last: `lines = m.welcome.Over(skin, lines, width, height)`. Below 60x16 `Over` draws

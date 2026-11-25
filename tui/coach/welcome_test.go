@@ -123,13 +123,13 @@ func TestWelcome_StartersFollowRebinds(t *testing.T) {
 	}
 }
 
-func TestWelcome_AnyKeyDismissesAndStillActsButEsc(t *testing.T) {
+func TestWelcome_OnlyHelpAndPaletteKeysActWhileDismissing(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
 		key  string
 		pass bool
-	}{{"j", true}, {"?", true}, {":", true}, {"q", true}, {"esc", false}} {
+	}{{"j", false}, {"a", false}, {"S", false}, {"enter", false}, {"q", false}, {"esc", false}, {"?", true}, {":", true}} {
 		l, err := coach.LedgerAt("")
 		if err != nil {
 			t.Fatal(err)
@@ -260,5 +260,26 @@ func welcomeGolden(t *testing.T, name, got string) {
 
 	if got != string(want) {
 		t.Errorf("%s differs from its golden (go test ./tui/coach -update):\n%s", name, got)
+	}
+}
+
+func TestWelcome_ReboundHelpKeyActsAndTheOldOneDoesNot(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		key  string
+		pass bool
+	}{{"F1", true}, {"?", false}, {":", true}} {
+		l, err := coach.LedgerAt("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		wc := sampleWelcome(t, map[string]string{keys.ActionHelp: "F1"})
+		wc.Open()
+
+		if pass := wc.Key(l, tc.key, t0); pass != tc.pass {
+			t.Errorf("%s: pass %v, want %v", tc.key, pass, tc.pass)
+		}
 	}
 }

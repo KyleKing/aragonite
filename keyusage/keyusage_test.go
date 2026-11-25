@@ -2,6 +2,7 @@ package keyusage_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -206,8 +207,21 @@ func TestInvocations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if strings.Contains(string(raw), "secret") || strings.Contains(string(raw), "123") {
-		t.Fatalf("a positional argument or flag value was recorded:\n%s", raw)
+	// The timestamp is left out of the search: its nanoseconds hold "123"
+	// often enough to fail the run on a value nobody recorded.
+	for line := range strings.Lines(string(raw)) {
+		var rec map[string]string
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("reading %q: %v", line, err)
+		}
+
+		delete(rec, "t")
+
+		for _, v := range rec {
+			if strings.Contains(v, "secret") || strings.Contains(v, "123") {
+				t.Fatalf("a positional argument or flag value was recorded:\n%s", raw)
+			}
+		}
 	}
 
 	km := keyusage.Keymap{keyusage.CLI: keyusage.Commands(root)}

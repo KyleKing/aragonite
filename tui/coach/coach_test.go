@@ -439,6 +439,61 @@ func TestLedger_RoundTripsThroughDisk(t *testing.T) {
 	}
 }
 
+// TestLedger_ConcurrentSavesEachSucceed pins two sessions of a tool exiting together: each saves
+// its own ledger to the one path, and neither may fail. A fixed temporary name made the second
+// rename find the file the first had already moved, which exited the tool 1.
+func TestLedger_ConcurrentSavesEachSucceed(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "app", "coach.json")
+
+	const sessions = 16
+
+	ledgers := make([]*coach.Ledger, sessions)
+
+	for i := range ledgers {
+		l, err := coach.LedgerAt(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		l.Ran(fmt.Sprintf("action%d", i), t0)
+		ledgers[i] = l
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, sessions)
+
+	for _, l := range ledgers {
+		go func() {
+			<-start
+			errs <- l.Save()
+		}()
+	}
+
+	close(start)
+
+	for range sessions {
+		if err := <-errs; err != nil {
+			t.Errorf("a concurrent save failed: %v", err)
+		}
+	}
+
+	back, err := coach.LedgerAt(path)
+	if err != nil || back.FirstRun() {
+		t.Fatalf("the ledger after concurrent saves did not read back whole: %v first=%v", err, back.FirstRun())
+	}
+
+	if got := back.Recent(sessions); len(got) != 1 {
+		t.Errorf("the ledger holds %v, want one session's save whole", got)
+	}
+
+	left, err := filepath.Glob(filepath.Join(filepath.Dir(path), "*.tmp"))
+	if err != nil || len(left) != 0 {
+		t.Errorf("temporary files left behind: %v %v", left, err)
+	}
+}
+
 func TestLedger_NilIsInert(t *testing.T) {
 	t.Parallel()
 

@@ -321,7 +321,9 @@ func (l *Ledger) update(f func(*ledgerData)) {
 }
 
 // Save writes the ledger if anything changed, through a temporary file renamed into place so a
-// crash mid-write never leaves half a file. An in-memory ledger saves nothing.
+// crash mid-write never leaves half a file. Each save has a temporary file of its own, so two
+// sessions of a tool exiting together each replace the ledger whole and neither fails; the last
+// rename wins. An in-memory ledger saves nothing.
 func (l *Ledger) Save() error {
 	if l == nil || l.path == "" {
 		return nil
@@ -343,16 +345,46 @@ func (l *Ledger) Save() error {
 		return fmt.Errorf("creating the state directory: %w", err)
 	}
 
-	tmp := l.path + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), filePerm); err != nil {
-		return fmt.Errorf("writing the coach ledger: %w", err)
-	}
-
-	if err := os.Rename(tmp, l.path); err != nil {
-		return fmt.Errorf("replacing the coach ledger: %w", err)
+	if err := replace(l.path, append(raw, '\n')); err != nil {
+		return err
 	}
 
 	l.dirty = false
+
+	return nil
+}
+
+// replace writes raw to path through a temporary file of its own in the same directory, renamed into
+// place. A fixed temporary name raced: two sessions saving at once wrote the one file, and the
+// second rename found it already gone.
+func replace(path string, raw []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("writing the coach ledger: %w", err)
+	}
+
+	name := tmp.Name()
+
+	_, err = tmp.Write(raw)
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+
+	if err == nil {
+		err = os.Chmod(name, filePerm)
+	}
+
+	if err != nil {
+		_ = os.Remove(name) //nolint:errcheck // the write already failed; a stray temp file is harmless
+
+		return fmt.Errorf("writing the coach ledger: %w", err)
+	}
+
+	if err := os.Rename(name, path); err != nil {
+		_ = os.Remove(name) //nolint:errcheck // the rename already failed; a stray temp file is harmless
+
+		return fmt.Errorf("replacing the coach ledger: %w", err)
+	}
 
 	return nil
 }

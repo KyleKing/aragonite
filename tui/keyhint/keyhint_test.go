@@ -313,3 +313,138 @@ func TestSuggest_UsesSuggestFaceOnlyWhenSet(t *testing.T) {
 		t.Errorf("One ignored Suggest: %q", got)
 	}
 }
+
+// footerHints is a footer's worth of hints, more than 80 cells hold.
+func footerHints() []keyhint.Hint {
+	return []keyhint.Hint{
+		{Key: "?", What: "help", Pin: true},
+		{Key: ":", What: "commands", Pin: true},
+		{Key: "d", What: "describe", Priority: 5},
+		{Key: "n", What: "new", Priority: 5},
+		{Key: "s", What: "squash", Priority: 4},
+		{Key: "S", What: "split", Priority: 3},
+		{Key: "r", What: "rebase", Priority: 4},
+		{Key: "a", What: "abandon", Priority: 2},
+		{Key: "e", What: "edit", Priority: 3},
+		{Key: "b", What: "bookmark", Priority: 2},
+		{Key: "u", What: "undo", Priority: 1},
+		{Key: "p", What: "push", Priority: 1, Off: true},
+		{Key: "f", What: "fetch", Priority: 1},
+		{Key: "/", What: "search"},
+	}
+}
+
+func colored() keyhint.Styles {
+	return keyhint.Styles{
+		Key:  lipgloss.NewStyle().Foreground(lipgloss.Color("#8aadf4")).Bold(true),
+		Text: lipgloss.NewStyle().Foreground(lipgloss.Color("#a5adcb")),
+		Off:  lipgloss.NewStyle().Foreground(lipgloss.Color("#6e738d")),
+	}
+}
+
+// BenchmarkFit is a footer shed to 80 cells, which a tool draws per frame.
+func BenchmarkFit(b *testing.B) {
+	s, hints := colored(), footerHints()
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = keyhint.Fit(s, hints, 80)
+	}
+}
+
+func TestFit_MatchesSheddingOneAtATime(t *testing.T) {
+	t.Parallel()
+
+	s, hints := colored(), footerHints()
+	for width := range 140 {
+		got := keyhint.Fit(s, hints, width)
+
+		kept := slices.Clone(hints)
+		want := ""
+		if width > 0 {
+			want = ansi.Truncate(slowFit(s, kept, width), width, "")
+		}
+
+		if got != want {
+			t.Fatalf("width %d:\n got %q\nwant %q", width, ansi.Strip(got), ansi.Strip(want))
+		}
+	}
+}
+
+// slowFit is the definition Fit keeps: render the whole line, shed the hint
+// Fit would shed, and measure again.
+func slowFit(s keyhint.Styles, hints []keyhint.Hint, width int) string {
+	for {
+		line := keyhint.Line(s, hints)
+		if len(hints) <= 1 || lipgloss.Width(line) <= width {
+			return line
+		}
+
+		hints = slices.Delete(hints, victim(hints), victim(hints)+1)
+	}
+}
+
+// victim restates Fit's shedding order: off before on, then the lowest
+// priority, then the later of two equals, and a pinned hint last of all.
+func victim(hints []keyhint.Hint) int {
+	v := 0
+
+	for i, h := range hints {
+		cur := hints[v]
+		if cur.Pin != h.Pin {
+			if cur.Pin {
+				v = i
+			}
+
+			continue
+		}
+
+		if (h.Off && !cur.Off) || (h.Off == cur.Off && h.Priority <= cur.Priority) {
+			v = i
+		}
+	}
+
+	return v
+}
+
+func TestMemo_DrawsOncePerKey(t *testing.T) {
+	t.Parallel()
+
+	var (
+		m     keyhint.Memo[[2]int]
+		draws int
+	)
+
+	draw := func() string { draws++; return "line" }
+
+	for _, k := range [][2]int{{1, 80}, {1, 80}, {2, 80}, {2, 80}, {1, 80}} {
+		if got := m.Line(k, draw); got != "line" {
+			t.Fatalf("Line = %q", got)
+		}
+	}
+
+	if draws != 3 {
+		t.Errorf("drew %d times, want 3 (one per change of key)", draws)
+	}
+
+	m.Reset()
+	m.Line([2]int{1, 80}, draw)
+
+	if draws != 4 {
+		t.Errorf("Reset did not empty the memo: %d draws", draws)
+	}
+}
+
+// BenchmarkMemo is a footer redrawn with its key unchanged.
+func BenchmarkMemo(b *testing.B) {
+	s, hints := colored(), footerHints()
+
+	var m keyhint.Memo[int]
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = m.Line(1, func() string { return keyhint.Fit(s, hints, 80) })
+	}
+}

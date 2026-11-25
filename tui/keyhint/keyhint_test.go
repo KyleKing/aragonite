@@ -1,11 +1,14 @@
 package keyhint_test
 
 import (
+	"bytes"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kyleking/aragonite/tui/framecheck"
@@ -446,5 +449,137 @@ func BenchmarkMemo(b *testing.B) {
 
 	for b.Loop() {
 		_ = m.Line(1, func() string { return keyhint.Fit(s, hints, 80) })
+	}
+}
+
+// holes reports each unstyled cell that sits between two styled ones in s, as
+// a terminal would draw it: a hint drawn on a band shows such a cell as a gap
+// in the band.
+func holes(s string) []int {
+	var (
+		styled  bool
+		cells   []bool
+		inSeq   bool
+		seq     strings.Builder
+		escaped bool
+	)
+
+	for _, r := range s {
+		switch {
+		case escaped:
+			escaped = false
+			inSeq = r == '['
+
+			seq.Reset()
+		case inSeq:
+			if r < 0x40 || r > 0x7e {
+				seq.WriteRune(r)
+
+				continue
+			}
+
+			inSeq = false
+
+			if r == 'm' {
+				p := seq.String()
+				styled = p != "" && p != "0"
+			}
+		case r == '\x1b':
+			escaped = true
+		default:
+			cells = append(cells, styled)
+		}
+	}
+
+	first, last := slices.Index(cells, true), -1
+	for i, on := range cells {
+		if on {
+			last = i
+		}
+	}
+
+	var out []int
+
+	for i := first + 1; i < last && first >= 0; i++ {
+		if !cells[i] {
+			out = append(out, i)
+		}
+	}
+
+	return out
+}
+
+// A hint drawn on a band (a background in its faces, or reverse video where
+// the profile has no color) is one run: the cell between its key and its word
+// carries the band like the rest, in every profile a terminal may downsample
+// it to.
+func TestHint_NoHoleBetweenKeyAndWordOnABand(t *testing.T) {
+	t.Parallel()
+
+	band := lipgloss.Color("#363a4f")
+	colored := keyhint.Styles{
+		Key:  lipgloss.NewStyle().Background(band).Foreground(lipgloss.Color("#8aadf4")).Bold(true),
+		Text: lipgloss.NewStyle().Background(band).Foreground(lipgloss.Color("#cad3f5")),
+	}
+	reversed := keyhint.Styles{
+		Key:  lipgloss.NewStyle().Reverse(true).Bold(true),
+		Text: lipgloss.NewStyle().Reverse(true),
+	}
+
+	hints := []keyhint.Hint{
+		{Key: "enter", What: "review"},
+		{Key: "C", What: "check out", Fresh: 3},
+		{Key: "tab", What: "switch"},
+		{Key: "x", What: "go"},
+	}
+
+	profiles := []struct {
+		name    string
+		styles  keyhint.Styles
+		profile colorprofile.Profile
+	}{
+		{"truecolor", colored, colorprofile.TrueColor},
+		{"256 colors", colored, colorprofile.ANSI256},
+		{"16 colors", colored, colorprofile.ANSI},
+		{"16 colors reversed", reversed, colorprofile.ANSI},
+		{"NO_COLOR reversed", reversed, colorprofile.Ascii},
+	}
+
+	for _, p := range profiles {
+		for _, bare := range []bool{true, false} {
+			for _, h := range hints {
+				t.Run(fmt.Sprintf("%s/bare=%t/%s", p.name, bare, h.Key), func(t *testing.T) {
+					t.Parallel()
+
+					s := p.styles
+					s.Bare = bare
+
+					var b bytes.Buffer
+
+					w := &colorprofile.Writer{Forward: &b, Profile: p.profile}
+					if _, err := w.WriteString(keyhint.One(s, h)); err != nil {
+						t.Fatal(err)
+					}
+
+					if got := holes(b.String()); len(got) > 0 {
+						t.Errorf("cells %v of %q are unstyled between styled runs: %q",
+							got, ansi.Strip(b.String()), b.String())
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestBare_AKeyWithNoWordIsTheKeyAlone(t *testing.T) {
+	t.Parallel()
+
+	s := plain
+	s.Bare = true
+
+	for _, h := range []keyhint.Hint{{Key: "q"}, {Key: "q", Off: true}} {
+		if got := keyhint.One(s, h); got != "q" {
+			t.Errorf("One(%+v) = %q, want the key alone", h, got)
+		}
 	}
 }

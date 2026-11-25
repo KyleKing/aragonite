@@ -89,7 +89,9 @@ type Styles struct {
 	// Gap separates two hints on a line, and is the package's Gap where empty.
 	Gap string
 	// Bare draws a hint as its key and then its word, with no brackets, so the
-	// two faces alone tell them apart.
+	// two faces alone tell them apart. The space between them is drawn in Text,
+	// so a background set there fills it. The Gap between hints is the
+	// caller's to fill.
 	Bare bool
 	// Suggesting is whether Suggest is set, since a zero lipgloss.Style cannot
 	// be told from one that sets nothing.
@@ -163,7 +165,7 @@ func One(s Styles, h Hint) string {
 
 	at := index(h.Key, h.What)
 	if at < 0 {
-		return s.keyFace(h).Render(mark) + " " + s.Text.Render(h.What)
+		return s.keyFace(h).Render(mark) + s.Text.Render(" "+h.What)
 	}
 
 	// The letter matched in the word is not the key's own byte for a shifted or
@@ -175,12 +177,24 @@ func One(s Styles, h Hint) string {
 		s.Text.Render(h.What[at+size:])
 }
 
+// bare draws a hint as its key and then its word. The cell between them is
+// drawn in Styles.Text with the word, never left unstyled, so a hint on a
+// band or fill (a background in Text) reads as one run with no hole after the
+// key. A hint with no word is its key alone.
 func bare(s Styles, h Hint) string {
 	if h.Off {
+		if h.What == "" {
+			return s.Off.Render(h.Key)
+		}
+
 		return s.Off.Render(h.Key + " " + h.What)
 	}
 
-	return s.keyFace(h).Render(h.Key) + " " + s.Text.Render(h.What)
+	if h.What == "" {
+		return s.keyFace(h).Render(h.Key)
+	}
+
+	return s.keyFace(h).Render(h.Key) + s.Text.Render(" "+h.What)
 }
 
 // index is where the key sits in the word, or -1 where it does not. A word

@@ -140,3 +140,30 @@ func (s *Set) Files(live []Ref) []FileCount {
 
 	return out
 }
+
+// Include adds every hunk o has read to s as already saved rather than as a change of this
+// process, so Save never writes them to s's file. It is how a tool lays another tool's marks over
+// its own: second-look's own file stays its own, and a hunk jojo marked reads as read. A hunk this
+// process has changed in s since its last save keeps the state it was given. A nil o adds nothing.
+func (s *Set) Include(o *Set) {
+	if o == nil || o == s {
+		return
+	}
+
+	o.mu.Lock()
+	ids := make([]ID, 0, len(o.ids))
+
+	for id := range o.ids {
+		ids = append(ids, id)
+	}
+	o.mu.Unlock()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, id := range ids {
+		if _, pending := s.changed[id]; !pending {
+			s.ids[id] = true
+		}
+	}
+}

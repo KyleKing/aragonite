@@ -8,6 +8,29 @@ import (
 	"strings"
 )
 
+// JJApp is the state directory every tool keeps a jj repository's read marks under, named for
+// jojo, where marks are made. jojo and jj-diff scope it by change id.
+const JJApp = "jojo"
+
+// OpenJJ is the read-mark store for the jj repository dir is in, whichever workspace or
+// subdirectory dir is: $XDG_STATE_HOME/jojo/seen/<RepoKey(JJRepo(dir))>. Every tool reading a jj
+// repository's marks opens it this way, which is the one thing that lets jojo, jj-diff, and
+// second-look agree on a directory; its scopes are jj change ids. A directory in no jj workspace
+// is ErrNoJJ.
+func OpenJJ(dir string) (*Store, error) {
+	repo, err := JJRepo(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	state, err := StateDir(JJApp, "seen", RepoKey(repo))
+	if err != nil {
+		return nil, err
+	}
+
+	return Open(state), nil
+}
+
 // ErrNoJJ is returned by JJRepo for a directory that is in no jj workspace.
 var ErrNoJJ = errors.New("not in a jj workspace")
 

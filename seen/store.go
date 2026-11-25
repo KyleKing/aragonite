@@ -151,6 +151,25 @@ func (st *Store) Mark(scope string, read bool, live []Ref, ids ...ID) error {
 	return st.Save(scope, live)
 }
 
+// Union is every hunk read in any of scopes, as a fresh Set with nothing pending: what a review
+// spanning several changes (second-look over `trunk()..@`) reads, where each change's marks are a
+// scope of their own. Marking through it changes no scope; mark through Set or Mark for that. A
+// scope whose file cannot be read is an error, as for Set, and repeated scopes count once.
+func (st *Store) Union(scopes ...string) (*Set, error) {
+	out := New()
+
+	for _, scope := range scopes {
+		s, err := st.Set(scope)
+		if err != nil {
+			return nil, err
+		}
+
+		out.Include(s)
+	}
+
+	return out, nil
+}
+
 // Reload drops a scope's Set so the next ask reads the file again, which is how a long-running
 // screen picks up marks another process saved without saving anything itself. Marks made through
 // the dropped Set and not yet saved are lost.

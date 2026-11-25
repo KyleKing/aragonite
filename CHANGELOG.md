@@ -1,3 +1,19 @@
+## v1.32.0 (2026-11-25)
+
+### Feat
+
+- **seen**: OpenJJ, Store.Union, and Set.Include for marks shared across tools
+- **framecheck**: Graph lets a revision graph's lines join its node glyphs
+
+### Fix
+
+- **coach**: a key that dismisses the welcome card no longer also acts
+
+### Perf
+
+- **skin**: benchmark the per-row and per-frame faces, and say to share one Skin
+- **keyhint**: Fit draws each hint once, and Memo keeps an unchanged footer
+
 ## v1.31.1 (2026-11-24)
 
 ### Fix

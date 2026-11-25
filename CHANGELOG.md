@@ -1,3 +1,9 @@
+## v1.33.0 (2026-11-25)
+
+### Feat
+
+- **keys**: reserved family keys, the space tick, moved-key notices, and the review verbs
+
 ## v1.32.0 (2026-11-25)
 
 ### Feat

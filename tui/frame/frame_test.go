@@ -218,3 +218,15 @@ func TestFooterKeepsPinnedHintsAndCutsTheStatusAtAWord(t *testing.T) {
 		}
 	}
 }
+
+// BenchmarkRender is one whole frame at 120x40, which a tool draws per key.
+func BenchmarkRender(b *testing.B) {
+	s := skin.New(theme.Macchiato(), theme.Macchiato().Blue)
+	f := stripSample()
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = frame.Render(s, f, 120, 40)
+	}
+}

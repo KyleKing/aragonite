@@ -74,3 +74,28 @@ func TestSelectionIsATintInColorAndReverseVideoWithout(t *testing.T) {
 		})
 	}
 }
+
+// BenchmarkSelected is the face of one cell in the selected row, which a list
+// asks for per cell per frame.
+func BenchmarkSelected(b *testing.B) {
+	s := skin.New(theme.Macchiato(), theme.Macchiato().Blue)
+	st := s.Accent
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = s.Selected(st)
+	}
+}
+
+// BenchmarkSelect is one selected row drawn.
+func BenchmarkSelect(b *testing.B) {
+	s := skin.New(theme.Macchiato(), theme.Macchiato().Blue)
+	row := s.Accent.Render("○") + "  krpztump  " + s.Muted.Render("feat(cache): ttl")
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = s.Select(row, 80)
+	}
+}

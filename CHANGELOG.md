@@ -1,3 +1,13 @@
+## v1.35.0 (2026-11-25)
+
+### Feat
+
+- **icons**: draw Nerd icons by default in terminals that bundle them
+
+### Fix
+
+- **keyhint**: fill the cell between a hint's key and its word
+
 ## v1.34.2 (2026-11-25)
 
 ### Fix

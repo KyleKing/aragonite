@@ -61,6 +61,22 @@ Principles 2–10 and 12 of the spec stand. Changes:
   (`alt+⏎` too, where the terminal reports it), and cancels on esc. The footer under an open field says so in
   those words: `⏎ save · ctrl+j new line · esc cancel`. A field opens with the cursor at the end of any text it
   already holds. No field sends anything off the machine on `⏎`; that stays behind `P` (P13).
+
+  **The vim layer.** aragonite `tui/vimtext` is the field every tool builds on, a vim layer over this contract. A
+  field opens in insert mode, so someone who does not use vim just types, with a badge in the footer
+  naming the mode (`INSERT`, `NORMAL`, `VISUAL`, `V-LINE`) and the footer's keys following it:
+  `⏎ save · ctrl+j new line · esc normal` in insert mode, `⏎ save · i insert · esc cancel` in normal mode.
+  `⏎` saves in every mode, and `o`/`O` open lines in normal mode. Esc backs out one level at a time, so P14
+  holds inside the field: insert goes to normal (the cursor steps back one, as in vim), a selection or a
+  half-typed operator or count goes back to plain normal mode, and only esc in plain normal mode cancels
+  the field, handing the caller the text to keep as a draft or drop. Inside a field vim's keys win over
+  the family's reservations, since the field has the keyboard: `u` and `ctrl+r` are the field's own undo
+  and redo, `v`/`V` its own visual modes, and `Y` is `y$` as in nvim, not yank-to-clipboard (`WithClipboard`
+  copies every yank over OSC 52 instead). `ctrl+e` hands the text to `$EDITOR` and takes it back, keeping
+  the draft if the editor fails; `ctrl+c` is never the field's, so it still quits. A tool or user setting
+  can turn the layer off (`WithVim(false)`): the same `⏎`, `ctrl+j`, and esc, with esc cancelling from the
+  start, which makes the footer `⏎ save · ctrl+j new line · esc cancel`. A one-line field (a bookmark name)
+  has no line break, and `j`, `k`, `o`, and `O` do nothing in it.
 - **P16 (new): a destructive write confirms only when content would be lost.** `a` abandon (jojo) and `R`
   discard (jj-diff) act on one key when nothing goes with them, such as an empty change or a no-op discard.
   When content would go, they ask on one line, naming what goes and how to get it back:

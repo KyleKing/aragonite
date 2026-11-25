@@ -1,0 +1,8 @@
+[1mdescribe qpvx[m                                                                   
+[mFix the race [m[7mi[m[4;7;4mn[m[m the read marks: two panes wrote the same file at once, and the [m 
+[msecond write dropped the first one's marks.[m                                     
+                                                                                
+[mRefs: 日本語 and naïve café[m                                                     
+[m- one[m                                                                           
+[m- two[m                                                                           
+ [1mVISUAL[m  [m⏎[m[m save[m[m · [m[md[m[m delete[m[m · [m[my[m[m yank[m[m · [m[mc[m[m change[m[m · [m[mesc[m[m normal[m[m · [m[mctrl+e[m[m $EDITOR[m    

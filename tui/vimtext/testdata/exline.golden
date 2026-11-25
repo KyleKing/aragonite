@@ -1,0 +1,17 @@
+describe qpvx                                                                   
+Fix the race in the read marks: two panes wrote the same file at once, and the  
+second write dropped the first one's marks.                                     
+                                                                                
+Refs: 日本語 and naïve café                                                     
+- one                                                                           
+- two                                                                           
+ NORMAL  :wq                                                                    
+
+[1;38;2;202;211;245mdescribe qpvx[m                                                                   
+[38;2;202;211;245mFix the race in the read marks: two panes wrote the same file at once, and the [m 
+[38;2;202;211;245msecond write dropped the first one's marks.[m                                     
+                                                                                
+[38;2;202;211;245mRefs: 日本語 and naïve café[m                                                     
+[38;2;202;211;245m- one[m                                                                           
+[38;2;202;211;245m- tw[m[7mo[m                                                                           
+[48;2;63;67;89m [m[1;38;2;202;211;245;48;2;63;67;89mNORMAL[m[48;2;63;67;89m [m [38;2;198;160;246m:wq[m[7m [m                                                                   

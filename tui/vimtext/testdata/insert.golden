@@ -1,0 +1,17 @@
+describe qpvx                                                                   
+Fix the race in the read marks: two panes wrote the same file at once, and the  
+second write dropped the first one's marks.                                     
+                                                                                
+Refs: 日本語 and naïve café                                                     
+- one                                                                           
+- two                                                                           
+ INSERT  ⏎ save · ctrl+j new line · esc normal · ctrl+e $EDITOR                 
+
+[1;38;2;202;211;245mdescribe qpvx[m                                                                   
+[38;2;202;211;245mFix the race in the read marks: two panes wrote the same file at once, and the [m 
+[38;2;202;211;245msecond write dropped the first one's marks.[m                                     
+                                                                                
+[38;2;202;211;245mRefs: 日本語 and naïve café[m                                                     
+[38;2;202;211;245m- one[m                                                                           
+[38;2;202;211;245m- two[m[7m [m                                                                          
+[48;2;198;160;246m [m[1;38;2;36;39;58;48;2;198;160;246mINSERT[m[48;2;198;160;246m [m [38;2;198;160;246m⏎[m[38;2;128;135;162m save[m[38;2;128;135;162m · [m[38;2;198;160;246mctrl+j[m[38;2;128;135;162m new line[m[38;2;128;135;162m · [m[38;2;198;160;246mesc[m[38;2;128;135;162m normal[m[38;2;128;135;162m · [m[38;2;198;160;246mctrl+e[m[38;2;128;135;162m $EDITOR[m                 

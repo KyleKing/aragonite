@@ -1,0 +1,7 @@
+describe qpvx                                                                   
+name: Fix the race in the read marks: two panes wrote the same file at once, and
+ NORMAL  ⏎ save · i insert · esc cancel · ctrl+e $EDITOR                        
+
+[1;38;2;202;211;245mdescribe qpvx[m                                                                   
+[38;2;198;160;246mname: [m[7mF[m[38;2;202;211;245mix the race in the read marks: two panes wrote the same file at once, and[m
+[48;2;63;67;89m [m[1;38;2;202;211;245;48;2;63;67;89mNORMAL[m[48;2;63;67;89m [m [38;2;198;160;246m⏎[m[38;2;128;135;162m save[m[38;2;128;135;162m · [m[38;2;198;160;246mi[m[38;2;128;135;162m insert[m[38;2;128;135;162m · [m[38;2;198;160;246mesc[m[38;2;128;135;162m cancel[m[38;2;128;135;162m · [m[38;2;198;160;246mctrl+e[m[38;2;128;135;162m $EDITOR[m                        

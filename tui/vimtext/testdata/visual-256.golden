@@ -1,0 +1,8 @@
+[1;38;5;189mdescribe qpvx[m                                                                   
+[38;5;189mFix the race [m[38;5;189;48;5;238mi[m[4;7;4mn[m[38;5;189m the read marks: two panes wrote the same file at once, and the [m 
+[38;5;189msecond write dropped the first one's marks.[m                                     
+                                                                                
+[38;5;189mRefs: 日本語 and naïve café[m                                                     
+[38;5;189m- one[m                                                                           
+[38;5;189m- two[m                                                                           
+[48;5;239m [m[1;38;5;183;48;5;239mVISUAL[m[48;5;239m [m [38;5;183m⏎[m[38;5;103m save[m[38;5;103m · [m[38;5;183md[m[38;5;103m delete[m[38;5;103m · [m[38;5;183my[m[38;5;103m yank[m[38;5;103m · [m[38;5;183mc[m[38;5;103m change[m[38;5;103m · [m[38;5;183mesc[m[38;5;103m normal[m[38;5;103m · [m[38;5;183mctrl+e[m[38;5;103m $EDITOR[m    

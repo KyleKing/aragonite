@@ -129,7 +129,16 @@ func TestWelcome_OnlyHelpAndPaletteKeysActWhileDismissing(t *testing.T) {
 	for _, tc := range []struct {
 		key  string
 		pass bool
-	}{{"j", false}, {"a", false}, {"S", false}, {"enter", false}, {"q", false}, {"esc", false}, {"?", true}, {":", true}} {
+	}{
+		{"j", false},
+		{"a", false},
+		{"S", false},
+		{"enter", false},
+		{"q", false},
+		{"esc", false},
+		{"?", true},
+		{":", true},
+	} {
 		l, err := coach.LedgerAt("")
 		if err != nil {
 			t.Fatal(err)

@@ -9,7 +9,7 @@ import (
 )
 
 // JJApp is the state directory every tool keeps a jj repository's read marks under, named for
-// jojo, where marks are made. jojo and jj-diff scope it by change id.
+// jojo, where marks are made. Both jojo and jj-diff scope it by change id.
 const JJApp = "jojo"
 
 // OpenJJ is the read-mark store for the jj repository dir is in, whichever workspace or

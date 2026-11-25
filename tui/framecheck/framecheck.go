@@ -215,8 +215,8 @@ type cell struct {
 }
 
 type grid struct {
-	rows  [][]cell
 	nodes map[string]bool
+	rows  [][]cell
 }
 
 // arms is the directions the glyph s joins in this frame: a box glyph's own

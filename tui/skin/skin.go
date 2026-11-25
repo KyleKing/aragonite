@@ -31,8 +31,8 @@ import (
 // so a program builds one and its components share it by pointer: a component
 // that keeps its own copy multiplies the size of every model that holds it, and
 // a Bubble Tea model copied by value per message, per method value, or per
-// footer hint then copies every one of them. jojo's model reached 700 KB that
-// way. Passing a Skin by value into a call is cheap by comparison (Render and
+// footer hint then copies every one of them. The jojo model reached 700 KB
+// that way. Passing a Skin by value into a call is cheap by comparison (Render and
 // Selected measure the same either way); keeping copies is what costs.
 type Skin struct {
 	// Title is the frame's own name, and the heading of a group of rows.

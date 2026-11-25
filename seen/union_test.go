@@ -36,6 +36,26 @@ func TestUnion_LaysEveryChangesMarksOverAReviewsOwn(t *testing.T) {
 		t.Fatalf("the union read %d hunks, want 2", got)
 	}
 
+	union.Mark(true, live[2].ID)
+
+	s, err := jj.Set("krpztump")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if s.Has(live[2].ID) {
+		t.Error("marking through the union reached a scope")
+	}
+}
+
+// Include lays the union over a review's own set without writing it into the review's file.
+func TestInclude_ReadsForeignMarksWithoutSavingThem(t *testing.T) {
+	t.Parallel()
+
+	live := seen.Hunks(diff.Parse([]byte(patch)))
+	union := seen.New()
+	union.Mark(true, live[0].ID, live[1].ID)
+
 	own := filepath.Join(t.TempDir(), "local.toml")
 
 	read, err := seen.Load(own)
@@ -62,13 +82,8 @@ func TestUnion_LaysEveryChangesMarksOverAReviewsOwn(t *testing.T) {
 	}
 
 	if back.Has(live[0].ID) || !back.Has(live[2].ID) {
-		t.Errorf("the review's own file holds jojo's mark %v or lost its own %v", back.Has(live[0].ID), back.Has(live[2].ID))
-	}
-
-	union.Mark(true, live[2].ID)
-
-	if s, _ := jj.Set("krpztump"); s.Has(live[2].ID) {
-		t.Error("marking through the union reached a scope")
+		t.Errorf("the review's own file holds jojo's mark %v or lost its own %v",
+			back.Has(live[0].ID), back.Has(live[2].ID))
 	}
 }
 

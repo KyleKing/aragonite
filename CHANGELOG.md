@@ -1,3 +1,9 @@
+## v1.35.1 (2026-11-25)
+
+### Fix
+
+- **pane**: close the emulator only after the pump and input copy return
+
 ## v1.35.0 (2026-11-25)
 
 ### Feat

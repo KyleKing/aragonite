@@ -1,3 +1,13 @@
+## v1.34.0 (2026-11-25)
+
+### Feat
+
+- **launch**: start a program without losing the first key typed
+
+### Fix
+
+- **coach**: concurrent ledger saves each succeed
+
 ## v1.33.0 (2026-11-25)
 
 ### Feat

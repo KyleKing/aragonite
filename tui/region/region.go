@@ -227,7 +227,7 @@ func padBottom(lines []string, height int) []string {
 		return lines[:max(height, 0)]
 	}
 
-	return append(lines, make([]string, height-len(lines))...)
+	return append(lines, make([]string, max(0, height-len(lines)))...)
 }
 
 // fit trims a rendered region to height, keeping the closing divider, which is

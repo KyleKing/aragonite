@@ -20,6 +20,11 @@ than one file resolves to whichever file loaded last. Name your project file so 
 sorts after `template.toml` (`user.toml` works; `project.toml` does not, since
 `p` < `t`) or a same-named task override will silently do nothing.
 
+mise runs an inline `run` script with `sh -o errexit -c`. `sh` is bash in POSIX mode on
+macOS and dash on Ubuntu, so `set -o pipefail`, `(( ))`, and `[[ ]]` pass on a Mac and
+fail in CI with "Illegal option -o pipefail". A task that uses them sets
+`shell = "bash -c"`.
+
 | Command | Description |
 |---------|-------------|
 | `mise run bench` | Run benchmarks |
@@ -32,6 +37,7 @@ sorts after `template.toml` (`user.toml` works; `project.toml` does not, since
 | `mise run lint` | Run linter |
 | `mise run test` | Run tests with coverage |
 | `mise run test:coverage-min` | Fail below the 70% coverage threshold |
+| `mise run test:golden-orphans` | Fail on any `.golden` file no test regenerates (`GOLDEN_TAGS=golden mise run test:golden-orphans` when the golden tests sit behind a build tag) |
 | `mise run test:view-coverage` | Open the coverage report in a browser |
 | `mise tasks` | List all available tasks |
 

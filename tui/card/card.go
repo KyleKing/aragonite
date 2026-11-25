@@ -119,7 +119,7 @@ func (p painter) top(title, note string, width int) string {
 }
 
 func (p painter) body(line string, inner int) string {
-	pad := strings.Repeat(" ", inner-lipgloss.Width(line))
+	pad := strings.Repeat(" ", max(0, inner-lipgloss.Width(line)))
 
 	return p.edge.Render("│") + p.text(" "+line+pad+" ") + p.edge.Render("│")
 }

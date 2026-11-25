@@ -51,8 +51,8 @@ func TestFitDistributesSurplusByWeight(t *testing.T) {
 	l := table.Fit(cols(), width)
 	base := map[string]int{"name": 16, "branch": 10, "template": 10}
 	gained := map[string]int{}
-	for key, min := range base {
-		gained[key] = l.Width(key) - min
+	for key, floor := range base {
+		gained[key] = l.Width(key) - floor
 	}
 
 	if gained["name"] <= gained["branch"] || gained["branch"] <= gained["template"] {

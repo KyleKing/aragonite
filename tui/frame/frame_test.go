@@ -143,7 +143,7 @@ func TestStripDrawsTabsLeftRuleAndPanel(t *testing.T) {
 		t.Errorf("a strip's hints should be bare: %q", foot)
 	}
 
-	if lines[height-3] != "subject line"+strings.Repeat(" ", width-12) || lines[height-2][:10] != "facts line" {
+	if lines[height-3] != "subject line"+strings.Repeat(" ", max(0, width-12)) || lines[height-2][:10] != "facts line" {
 		t.Errorf("panel should sit above the footer: %q", lines[height-3:])
 	}
 }

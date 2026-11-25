@@ -307,8 +307,8 @@ func rule(s skin.Skin, f Frame, h head, width int) string {
 	}
 
 	return s.Hairline.Render(strings.Repeat("─", under.from)) +
-		s.Accent.Render(strings.Repeat("━", under.to-under.from)) +
-		s.Hairline.Render(strings.Repeat("─", room-under.to)) + tail
+		s.Accent.Render(strings.Repeat("━", max(0, under.to-under.from))) +
+		s.Hairline.Render(strings.Repeat("─", max(0, room-under.to))) + tail
 }
 
 func footer(s skin.Skin, f Frame, width int) string {

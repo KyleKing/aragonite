@@ -30,8 +30,10 @@ Known false negatives, each of which has already cost a session:
   writes `hook.hk-*.command` into `.git/config` and creates no `.git/hooks/pre-commit`.
   Check with `git config --get-regexp '^hook\.'` (expect six entries) or
   `git hook list pre-commit` (expect `hk-pre-commit`). A file-existence check is wrong.
-- **Never pipe or chain `git commit`.** `git commit … | tail` reports the pipe's exit
-  code, so a failing hook looks like success and the follow-up push ships nothing.
+- **Never pipe or chain `git commit`.** That means `|`, `;`, `&&`, and `||`.
+  `git commit … | tail` reports the pipe's exit code, and `;` runs the next command
+  after a rejected commit, so a failing hook looks like success and the follow-up push
+  ships nothing.
   Commit as its own command, then confirm with `git log -1`. Hooks rewrite files here;
   when one fails that way, `git add -A` its edits and commit again.
 - **A workflow that passes yamllint can still be broken.** `hk.pkl` excludes
@@ -41,7 +43,9 @@ Known false negatives, each of which has already cost a session:
 - **A release is verified by distinct hashes, not asset count.** Ten assets can be one
   binary published ten times. Confirm with
   `gh release download <tag> -p checksums.txt -O - | awk '{print $1}' | sort -u | wc -l`
-  and expect the same number as there are binaries.
+  and expect the same number as there are binaries. `gh release download` resolves
+  the release over GraphQL, so where only REST is reachable fetch the asset by id:
+  `gh api -H 'Accept: application/octet-stream' "repos/{owner}/{repo}/releases/assets/$(gh api repos/{owner}/{repo}/releases/tags/<tag> --jq '.assets[] | select(.name == "checksums.txt") | .id')"`.
 - **`hk check --all` aborts without mise on PATH.** The hk steps shell out to mise's
   tools, so a plain shell (no `mise activate`) dies on `ls-lint: command not found`
   and every later step reads as aborted. Run it as
@@ -50,6 +54,7 @@ Known false negatives, each of which has already cost a session:
 When a check fails, fix the cause. Do not skip a test, widen a timeout, or disable a
 linter to get to green. Three fix-and-push rounds with no new root cause means stop and
 report what you found.
+
 
 ## Layout
 
@@ -95,6 +100,50 @@ diff, never hand-edit. `hk.pkl` excludes `**/*.golden` from the whitespace fixer
 fixture under any other name (`testdata/golden_*.txt`) will be silently rewritten on
 commit; either rename it or add its glob to that exclude.
 
+A test that runs `git`, `jj`, `gh`, or the built binary inherits the runner's home and
+writes to the real account: jj 0.47 records every repository it opens under
+`$XDG_CONFIG_HOME/jj/repos`, `git config --global` lands in `~/.gitconfig`, and the
+tool's own state goes to the user config directory. Give each test binary a home of
+its own in `TestMain`, before any test runs: point `HOME`, each `XDG_*_HOME`, `TMPDIR`,
+`GIT_CONFIG_GLOBAL` (with `GIT_CONFIG_NOSYSTEM=1`), `JJ_CONFIG`, and `GH_CONFIG_DIR` at
+a temp root, and leave `GOCACHE` and `GOPATH` on the real ones so builds stay warm.
+Where `github.com/kyleking/aragonite` is already a dependency, its `hermetic` package
+does this and fails the run when the real home changed anyway:
+`func TestMain(m *testing.M) { hermetic.Main(m, hermetic.App("aragonite")) }` in
+each package, plus one test calling `hermetic.RequireEveryPackage` so a new package
+cannot skip it. Point a fixture repository's remote at an address that answers
+nothing (`https://127.0.0.1:1/<owner>/<repo>.git`), so a new network call fails at
+once rather than passing on a laptop with credentials and hanging in CI.
+
+A test run from a git hook inherits the hook's repository: git sets `GIT_DIR` (and in a
+linked work tree `GIT_WORK_TREE`, `GIT_INDEX_FILE`, and the rest of
+`git rev-parse --local-env-vars`) before it runs pre-commit or pre-push, and hk runs
+`go test` inside that hook. Every fixture `git init`, `git add`, or `git commit` in a
+temp directory then writes into the repository being pushed: it stages stale files into
+the real index and sets `core.worktree` in `.git/config`. Unset every variable
+`git rev-parse --local-env-vars` prints, plus `GIT_NAMESPACE`, in `TestMain` before any
+test runs. aragonite `hermetic.Main` (v1.31.1 or later) does this and also fails the run
+when the real repository's config, HEAD, refs, or staged entries changed. To check by
+hand, `GIT_DIR=$PWD/.git go test ./...` must pass and leave `git status` and
+`git config --get core.worktree` as they were.
+
+Write a stub executable from a child process
+(`sh -c 'cat > "$1" && chmod 700 "$1"' sh <path>` with the script on stdin), never
+`os.WriteFile` with an exec bit. A parallel test's child forked while the file is open
+for writing holds the descriptor until it execs, and running the stub meanwhile fails
+with "text file busy" (golang/go#22315).
+
+## Dependency updates
+
+The weekly Freshness workflow runs doneram and opens draft PRs on `doneram/*` branches.
+Two skills in `.agents/skills` finish what it cannot:
+
+- `doneram-fix-bump` on a `doneram/failing-<tool>` or `doneram/review-<tool>` branch:
+  `doneram explain <tool> --validate` gives the change, where it is pinned, the
+  breaking notes, and the `mise run ci` output; adapt the code until that passes.
+- `copier-update-conflicts` when the updates PR carries a template update: resolve the
+  `.rej` files under the rules below.
+
 ## Template-managed files
 
 This project is generated from
@@ -108,8 +157,9 @@ After `copier update --UNSAFE --conflict=rej --defaults`, re-apply real local co
 from each `.rej`, discard hunks the new template supersedes, and delete the files (a
 hook blocks committing them). Three specifics:
 
-- `.cz.toml` is re-rendered with `version = "0.0.0"`. Restore the real version by hand
-  or the next release cuts `v0.0.1`.
+- `.cz.toml` keeps its version: the update's diff carries it, and a post-update
+  migration reads it back from `HEAD` if a conflict left the `0.0.0` placeholder.
+  Check `grep ^version .cz.toml` anyway, since a `0.0.0` cuts `v0.0.1` on the next release.
 - Scaffolding the project then implements (the `cmd/` entry point, the `bindings/` cgo
   shim, its Python wrapper) conflicts on every update, because the template keeps
   rendering its starting version. Re-apply from the `.rej` and move on

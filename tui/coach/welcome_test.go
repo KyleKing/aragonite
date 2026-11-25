@@ -49,7 +49,7 @@ func screen(width, height int) []string {
 	out := make([]string, height)
 	for i := range out {
 		out[i] = ansi.Truncate(strings.Repeat(fmt.Sprintf("row %02d · ", i), width), width, "")
-		out[i] += strings.Repeat(" ", width-ansi.StringWidth(out[i]))
+		out[i] += strings.Repeat(" ", max(0, width-ansi.StringWidth(out[i])))
 	}
 
 	return out

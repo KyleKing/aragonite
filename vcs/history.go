@@ -249,7 +249,8 @@ func (b *BlobReader) Read(shas []string) (map[string][]byte, error) {
 		b.err = err
 		// Killing the process unblocks a writer stuck on a full pipe.
 		_ = b.cmd.Process.Kill() //nolint:errcheck // the read error is the one worth reporting
-		<-written
+		// The writer then fails on the pipe the kill closed, which says nothing new.
+		<-written //nolint:errcheck // the read error above is the one to report
 
 		return nil, err
 	}

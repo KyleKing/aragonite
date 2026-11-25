@@ -157,7 +157,8 @@ func Box(s Styles, title string, lines []string, height, at int) []string {
 	out := []string{edge(top, "╮")}
 
 	for _, l := range visible {
-		out = append(out, s.Frame.Render("│ ")+l+strings.Repeat(" ", width-lipgloss.Width(l))+s.Frame.Render(" │"))
+		pad := strings.Repeat(" ", max(0, width-lipgloss.Width(l)))
+		out = append(out, s.Frame.Render("│ ")+l+pad+s.Frame.Render(" │"))
 	}
 
 	return append(out, edge(bot, "╯"))

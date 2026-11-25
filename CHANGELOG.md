@@ -1,3 +1,9 @@
+## v1.34.1 (2026-11-25)
+
+### Fix
+
+- **hermetic**: turn off git auto maintenance in the isolated home
+
 ## v1.34.0 (2026-11-25)
 
 ### Feat

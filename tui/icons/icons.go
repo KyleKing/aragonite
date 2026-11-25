@@ -1,8 +1,22 @@
 // Package icons names the glyphs these tools draw beside files, folders,
-// threads, and states, in one of three sets: plain unicode, the default; none
-// at all; and Nerd Font icons, which a reader opts into.
+// threads, and states, in one of three sets: plain unicode; none at all; and
+// Nerd Font icons.
 //
-// Unicode is the default because it is the only set whose width every
+// Which set is drawn is resolved by Resolve and Explain: the ARAGONITE_ICONS
+// override, then the tool's own setting, then Auto. Auto draws Nerd icons in a
+// terminal that bundles the Nerd symbols itself, so no patched font is needed
+// (WezTerm, kitty 0.33 and later, Ghostty), and unicode everywhere else,
+// because a terminal without the font draws a Nerd icon as tofu.
+//
+// Auto reads the environment only and never asks the terminal: Bubble Tea owns
+// stdin, and a query sent before it starts loses the first key typed. Inside
+// tmux, TERM_PROGRAM names tmux, so the WEZTERM_*, KITTY_*, and GHOSTTY_*
+// variables the tmux server inherited name the outer terminal instead. A tmux
+// session started in one terminal and attached from another is therefore
+// read as the first, and ARAGONITE_ICONS or the setting is how a reader
+// corrects it.
+//
+// Unicode is the fallback because it is the only set whose width every
 // terminal agrees on. A Nerd Font icon is a private-use code point: one cell to
 // every width function and to tmux, and drawn two cells wide by a
 // proportional ("Propo") Nerd Font or a fallback font, which overlaps whatever
@@ -27,48 +41,198 @@ import (
 // Mode is which set is drawn.
 type Mode int
 
+// The setting spellings Mode.String writes, and the terminals NerdTerminal names.
 const (
-	// Nerd draws Nerd Font icons. It needs a patched font, and a reader asks
-	// for it.
+	nerdWord    = "nerd"
+	unicodeWord = "unicode"
+	noneWord    = "none"
+	autoWord    = "auto"
+
+	wezterm = "WezTerm"
+	kitty   = "kitty"
+	ghostty = "Ghostty"
+)
+
+const (
+	// Nerd draws Nerd Font icons. It needs a patched font or a terminal that
+	// bundles the symbols.
 	Nerd Mode = iota
-	// Unicode draws only glyphs every monospace font carries, and is the
-	// default.
+	// Unicode draws only glyphs every monospace font carries, and is what
+	// Auto falls back to.
 	Unicode
 	// None draws no icon at all; a screen says the same thing in words.
 	None
+	// Auto is a setting rather than a set: Resolve turns it into Nerd in a
+	// terminal NerdTerminal recognizes and Unicode elsewhere. It is the
+	// default. A Set built with it directly draws Unicode, since New does not
+	// read the environment.
+	Auto
 )
 
+// String is the mode's setting spelling: "nerd", "unicode", "none", or "auto".
+func (m Mode) String() string {
+	switch m {
+	case Nerd:
+		return nerdWord
+	case Unicode:
+		return unicodeWord
+	case None:
+		return noneWord
+	case Auto:
+		return autoWord
+	}
+
+	return unicodeWord
+}
+
 // EnvOverride names the variable that picks a set regardless of the tool's
-// own setting: "unicode" (or "plain"), "none" (or "off"), or "nerd".
+// own setting: "auto" (or empty), "unicode" (or "plain"), "none" (or "off"),
+// or "nerd".
 const EnvOverride = "ARAGONITE_ICONS"
 
-// Parse reads a setting's spelling of a mode. Anything it does not recognize
-// is Unicode, the default, and reports false.
+// Parse reads a setting's spelling of a mode, including "auto" and the empty
+// string, both Auto. Anything it does not recognize is Auto and reports false.
 func Parse(s string) (Mode, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "unicode", "plain", "":
+	case autoWord, "":
+		return Auto, true
+	case unicodeWord, "plain":
 		return Unicode, true
-	case "none", "off":
+	case noneWord, "off":
 		return None, true
-	case "nerd":
+	case nerdWord:
 		return Nerd, true
 	}
 
-	return Unicode, false
+	return Auto, false
 }
 
-// Resolve picks a mode from the environment override, then a tool's
-// configured value, then the default.
-func Resolve(configured string) Mode {
+// Resolve picks the set to draw: the environment override, then a tool's
+// configured value, then Auto, which reads the terminal from the environment.
+// It never returns Auto. Explain says the same and why.
+func Resolve(configured string) Mode { return Explain(configured).Mode }
+
+// Source is where a Resolution's mode came from.
+type Source int
+
+const (
+	// FromAuto is the default: the mode followed from the terminal.
+	FromAuto Source = iota
+	// FromEnv is the ARAGONITE_ICONS override.
+	FromEnv
+	// FromSetting is the tool's own configured value.
+	FromSetting
+)
+
+// String names the source as a reader would set it: "auto", the override's
+// variable name, or "setting".
+func (s Source) String() string {
+	switch s {
+	case FromEnv:
+		return EnvOverride
+	case FromSetting:
+		return "setting"
+	case FromAuto:
+	}
+
+	return autoWord
+}
+
+// Resolution is the set Explain picked and why, for a help drawer to say.
+type Resolution struct {
+	// Detail is the terminal Auto recognized ("WezTerm", "kitty", "Ghostty"),
+	// empty where it recognized none, or for FromEnv and FromSetting the
+	// spelling that was read.
+	Detail string
+	// Mode is the set to draw: Nerd, Unicode, or None, never Auto.
+	Mode Mode
+	// Source is which input decided it.
+	Source Source
+}
+
+// String says the resolution in a few words, for a `?` drawer:
+// "nerd (auto: WezTerm)", "unicode (auto: no Nerd terminal detected)",
+// "none (ARAGONITE_ICONS=off)", or "nerd (setting)".
+func (r Resolution) String() string {
+	switch r.Source {
+	case FromEnv:
+		return r.Mode.String() + " (" + EnvOverride + "=" + r.Detail + ")"
+	case FromSetting:
+		return r.Mode.String() + " (setting)"
+	case FromAuto:
+	}
+
+	if r.Detail == "" {
+		return r.Mode.String() + " (auto: no Nerd terminal detected)"
+	}
+
+	return r.Mode.String() + " (auto: " + r.Detail + ")"
+}
+
+// Explain resolves a mode as Resolve does and reports which input decided it.
+// An override or setting that spells auto, or that Parse cannot read, defers
+// to the next input, so a bad override never hides a good setting.
+func Explain(configured string) Resolution {
 	if env := os.Getenv(EnvOverride); env != "" {
-		if m, ok := Parse(env); ok {
-			return m
+		if m, ok := Parse(env); ok && m != Auto {
+			return Resolution{Mode: m, Source: FromEnv, Detail: strings.TrimSpace(env)}
 		}
 	}
 
-	m, _ := Parse(configured)
+	if m, ok := Parse(configured); ok && m != Auto {
+		return Resolution{Mode: m, Source: FromSetting, Detail: strings.TrimSpace(configured)}
+	}
 
-	return m
+	if term := NerdTerminal(); term != "" {
+		return Resolution{Mode: Nerd, Source: FromAuto, Detail: term}
+	}
+
+	return Resolution{Mode: Unicode, Source: FromAuto}
+}
+
+// NerdTerminal names the terminal the environment identifies when it is one
+// that bundles the Nerd Font symbols ("WezTerm", "kitty", or "Ghostty"), and
+// is empty otherwise. It reads, in order:
+//
+//   - TERM_PROGRAM: WezTerm or ghostty
+//   - TERM: xterm-kitty or xterm-ghostty, which also survive ssh
+//   - the variables each terminal exports (WEZTERM_EXECUTABLE, WEZTERM_PANE,
+//     KITTY_WINDOW_ID, GHOSTTY_RESOURCES_DIR), but only where TERM_PROGRAM is
+//     unset or names tmux or screen, since a terminal started from a WezTerm
+//     shell (an editor's, say) inherits them and names itself in TERM_PROGRAM
+func NerdTerminal() string {
+	program := strings.ToLower(os.Getenv("TERM_PROGRAM"))
+
+	switch program {
+	case "wezterm":
+		return wezterm
+	case "ghostty":
+		return ghostty
+	case kitty:
+		return kitty
+	}
+
+	switch os.Getenv("TERM") {
+	case "xterm-kitty":
+		return kitty
+	case "xterm-ghostty":
+		return ghostty
+	}
+
+	if program != "" && program != "tmux" && program != "screen" {
+		return ""
+	}
+
+	switch {
+	case os.Getenv("WEZTERM_PANE") != "" || os.Getenv("WEZTERM_EXECUTABLE") != "":
+		return wezterm
+	case os.Getenv("KITTY_WINDOW_ID") != "":
+		return kitty
+	case os.Getenv("GHOSTTY_RESOURCES_DIR") != "":
+		return ghostty
+	}
+
+	return ""
 }
 
 // Glyph is one icon: the text drawn and the color it is drawn in. An empty
@@ -96,8 +260,15 @@ type Set struct {
 	mode Mode
 }
 
-// New builds a set.
-func New(m Mode, p theme.Palette) Set { return Set{mode: m, p: p} }
+// New builds a set. Auto draws as Unicode here, because New does not read the
+// environment; pass a mode from Resolve instead.
+func New(m Mode, p theme.Palette) Set {
+	if m == Auto {
+		m = Unicode
+	}
+
+	return Set{mode: m, p: p}
+}
 
 // Mode reports which set this is.
 func (s Set) Mode() Mode { return s.mode }

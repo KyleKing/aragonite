@@ -107,10 +107,17 @@ reference setup):
   no wide glyph, and no private-use glyph outside `tui/icons`' Nerd set.
   `framecheck.Source` enforces it per module, and framecheck's Glyph rule per
   frame. The stand-ins: ▶ ▸, ◀ ◂, ⚠ ▲, ✔ ✓, ✖ ✗ or ✘, ☑ ☒, ⬇ ↓, ❤ ♡.
-- **Icons default to unicode.** Nerd icons are opt-in (`ARAGONITE_ICONS=nerd`, or a
-  tool's `icons = "nerd"`). A Nerd Font Mono draws them in one cell; a proportional
-  one or a fallback draws two, so every Nerd icon is drawn as icon and space and
-  the overflow lands on the blank.
+- **Icons default to auto, and auto falls back to unicode.** `ARAGONITE_ICONS`, then a
+  tool's `icons` setting, then auto. Auto draws Nerd icons only where the terminal
+  bundles the symbols (WezTerm, kitty 0.33+, Ghostty), so no patched font is needed,
+  and unicode on any terminal it does not recognize, since a missing font draws
+  tofu. It reads the environment only (`TERM_PROGRAM`, `TERM`, and the
+  `WEZTERM_*`/`KITTY_WINDOW_ID`/`GHOSTTY_RESOURCES_DIR` variables, which inside
+  tmux name the terminal the server was started from) and never queries the
+  terminal, which would race Bubble Tea for stdin. A tmux session attached from a
+  different terminal is misread; the override or setting corrects it. A Nerd Font
+  Mono draws the icons in one cell; a proportional one or a fallback draws two, so
+  every Nerd icon is drawn as icon and space and the overflow lands on the blank.
 - **Content is settled before it is measured** (`glyph.Settle`). WezTerm measures
   by Unicode 9 tables by default and tmux by its libc's, so an emoji newer than
   Unicode 9 (🩺 🟠) is one cell there and two to lipgloss, and a VS16 heart is one

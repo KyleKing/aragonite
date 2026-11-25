@@ -175,11 +175,22 @@ func build(p theme.Palette, accent color.Color, profile colorprofile.Profile, mo
 	}
 }
 
+// ForBackground builds a skin for a terminal whose background is dark or not,
+// honoring the CATPPUCCIN_THEME override, fitted to the color profile stdout
+// supports. It queries nothing.
+func ForBackground(dark bool, accent func(theme.Palette) color.Color) Skin {
+	p := theme.ForBackground(dark)
+
+	return For(p, accent(p), theme.Profile(os.Stdout, os.Environ()))
+}
+
 func noColor() bool { return os.Getenv(noColorEnv) != "" }
 
 // Detected builds a skin for whichever flavor the terminal's background calls
-// for, fitted to the color profile stdout supports, which is the call every one
-// of these tools makes on startup.
+// for, fitted to the color profile stdout supports. It queries the terminal
+// through theme.Detect, so a Bubble Tea program must not call it before
+// Program.Run, where it would eat the keys typed meanwhile; such a program
+// starts under tui/launch and builds with [ForBackground].
 func Detected(accent func(theme.Palette) color.Color) Skin {
 	p := theme.Detect()
 

@@ -61,3 +61,38 @@ func TestSemanticDrawsFromItsFlavor(t *testing.T) {
 		t.Error("Latte and Macchiato produced identical semantic roles")
 	}
 }
+
+// TestForBackground_HonorsTheOverrideAndQueriesNothing pins the pair a program started under
+// tui/launch builds with: Pinned says whether the background is needed at all, and ForBackground
+// takes the answer the program learned rather than asking the terminal.
+// It sets CATPPUCCIN_THEME, which the process shares, so it runs alone.
+func TestForBackground_HonorsTheOverrideAndQueriesNothing(t *testing.T) {
+	for _, tc := range []struct {
+		dark       theme.Palette
+		light      theme.Palette
+		override   string
+		wantPinned bool
+	}{
+		{theme.Macchiato(), theme.Latte(), "", false},
+		{theme.Macchiato(), theme.Latte(), "solarized", false},
+		{theme.Latte(), theme.Latte(), "latte", true},
+		{theme.Macchiato(), theme.Macchiato(), "dark", true},
+		{theme.Ink(), theme.Ink(), "ink", true},
+	} {
+		t.Run("override="+tc.override, func(t *testing.T) {
+			t.Setenv(theme.EnvOverride, tc.override)
+
+			if got := theme.Pinned(); got != tc.wantPinned {
+				t.Errorf("Pinned() = %t, want %t", got, tc.wantPinned)
+			}
+
+			if got := theme.ForBackground(true); got != tc.dark {
+				t.Errorf("ForBackground(dark) = %v, want %v", got, tc.dark)
+			}
+
+			if got := theme.ForBackground(false); got != tc.light {
+				t.Errorf("ForBackground(light) = %v, want %v", got, tc.light)
+			}
+		})
+	}
+}

@@ -229,3 +229,99 @@ func TestPaneResize(t *testing.T) {
 		t.Errorf("the pane draws %d rows after the resize", len(got))
 	}
 }
+
+// Killing a pane whose child is still writing is how the screen leaves a
+// busy one, and the emulator must outlive the goroutines still using it:
+// closed under the pump's write or the input copy's read, it races both. The
+// screen is read while the output streams and again after the kill, and a
+// second kill is the no-op the screen's every exit path relies on.
+func TestPaneKillWhileOutputStreams(t *testing.T) {
+	t.Parallel()
+
+	p, err := pane.New(t.Context(), []string{"yes", "streaming"}, 40, 6)
+	if err != nil {
+		t.Fatalf("starting the pane: %v", err)
+	}
+
+	wait(t, p, "streaming")
+
+	for range 20 {
+		_ = p.Lines()
+		_ = p.Transcript()
+	}
+
+	killed := make(chan struct{})
+
+	go func() {
+		p.Kill()
+		p.Kill()
+		close(killed)
+	}()
+
+	select {
+	case <-killed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("killing a streaming pane never returned")
+	}
+
+	if !strings.Contains(p.String(), "streaming") {
+		t.Errorf("the killed pane lost its screen:\n%s", p.String())
+	}
+
+	if msg := gone(t, p); msg.Err == nil {
+		t.Error("a killed child reported a clean exit")
+	}
+}
+
+// A pane whose child already exited is killed all the same when the screen
+// closes it, and that kill must neither hang on a pump that has finished nor
+// fail on a second call.
+func TestPaneKillAfterTheChildExited(t *testing.T) {
+	t.Parallel()
+
+	p, err := pane.New(t.Context(), []string{"true"}, 40, 6)
+	if err != nil {
+		t.Fatalf("starting the pane: %v", err)
+	}
+
+	if msg := gone(t, p); msg.Err != nil {
+		t.Fatalf("a clean exit reported %v", msg.Err)
+	}
+
+	start := time.Now()
+
+	p.Kill()
+	p.Kill()
+
+	if took := time.Since(start); took > time.Second {
+		t.Errorf("killing an exited pane took %s", took)
+	}
+}
+
+// A grandchild the kill does not reach keeps the pty open, so the pump's read
+// never returns. Kill gives up waiting rather than hang the screen.
+func TestPaneKillDoesNotHangOnAGrandchild(t *testing.T) {
+	t.Parallel()
+
+	p, err := pane.New(t.Context(), []string{"sh", "-c", "sleep 4 & echo ready; exec cat"}, 40, 6)
+	if err != nil {
+		t.Fatalf("starting the pane: %v", err)
+	}
+
+	wait(t, p, "ready")
+
+	killed := make(chan struct{})
+
+	go func() {
+		p.Kill()
+		close(killed)
+	}()
+
+	select {
+	case <-killed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("a grandchild holding the pty hung the kill")
+	}
+
+	_ = p.Lines()
+}

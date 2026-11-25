@@ -19,7 +19,9 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
@@ -36,13 +38,25 @@ type Pane struct {
 	tty  *os.File
 	cmd  *exec.Cmd
 	done chan error
+	// pumped and copied close as the pump and the input copy return. The
+	// emulator is closed only after both, because its Close writes the flag
+	// their Write and Read check without a lock. closed follows that close.
+	pumped chan struct{}
+	copied chan struct{}
+	closed chan struct{}
 	// woke is signaled when the emulator's contents changed, buffered to one
 	// because every wake redraws the whole pane anyway.
 	woke chan struct{}
-	// cursor is whether the program wants a cursor drawn, which nvim toggles
-	// as it changes shape, and shape is the one it asked for.
+	// shape is the cursor the program asked for, and cursor whether it wants
+	// one drawn at all, which nvim toggles as it changes shape.
+	shape atomic.Int64
+	// screen orders the pump's writes against every read of the emulated
+	// screen. SafeEmulator locks one call at a time, and that is not enough:
+	// String and the scrollback's lines go unlocked, CellAt hands back a cell
+	// the next write changes, and a frame drawn a cell per lock tears.
+	screen sync.RWMutex
+	kill   sync.Once
 	cursor atomic.Bool
-	shape  atomic.Int64
 }
 
 // ErrNoProgram is a pane asked to run nothing.
@@ -55,9 +69,12 @@ func New(ctx context.Context, argv []string, w, h int) (*Pane, error) {
 	}
 
 	p := &Pane{
-		emu:  vt.NewSafeEmulator(w, h),
-		done: make(chan error, 1),
-		woke: make(chan struct{}, 1),
+		emu:    vt.NewSafeEmulator(w, h),
+		done:   make(chan error, 1),
+		woke:   make(chan struct{}, 1),
+		pumped: make(chan struct{}),
+		copied: make(chan struct{}),
+		closed: make(chan struct{}),
 	}
 	p.emu.SetCallbacks(vt.Callbacks{
 		CursorVisibility: func(v bool) { p.cursor.Store(v) },
@@ -80,8 +97,11 @@ func New(ctx context.Context, argv []string, w, h int) (*Pane, error) {
 	go p.pump()
 	// The emulator's read side is what a real terminal sends: keys, replies to
 	// the child's queries, pasted text. It all belongs on the child's stdin.
-	//nolint:errcheck // the copy ends when either side closes, which is the pane ending
-	go func() { _, _ = io.Copy(tty, p.emu) }()
+	go func() {
+		defer close(p.copied)
+		//nolint:errcheck // the copy ends when either side closes, which is the pane ending
+		_, _ = io.Copy(tty, p.emu)
+	}()
 
 	return p, nil
 }
@@ -102,12 +122,18 @@ func cells(n int) uint16 {
 // pump moves the child's output onto the emulated screen, then reports the
 // exit once the pty has nothing left to say.
 func (p *Pane) pump() {
+	defer close(p.pumped)
+
 	buf := make([]byte, 32*1024)
 
 	for {
 		n, err := p.tty.Read(buf)
 		if n > 0 {
-			if _, werr := p.emu.Write(buf[:n]); werr != nil {
+			p.screen.Lock()
+			_, werr := p.emu.Write(buf[:n])
+			p.screen.Unlock()
+
+			if werr != nil {
 				break
 			}
 
@@ -179,7 +205,9 @@ func (p *Pane) Paste(text string) {
 // Resize tells both sides of the pane: the emulator the screen draws, and
 // the winsize the child would ask about.
 func (p *Pane) Resize(w, h int) {
+	p.screen.Lock()
 	p.emu.Resize(w, h)
+	p.screen.Unlock()
 	//nolint:errcheck // a resize the child never hears costs a repaint, nothing more
 	_ = pty.Setsize(p.tty, &pty.Winsize{Rows: cells(h), Cols: cells(w)})
 }
@@ -193,27 +221,65 @@ func (p *Pane) Stop() {
 	}
 }
 
-// Kill ends a pane the screen is done with without waiting for the child.
+// killWait bounds how long Kill waits on the pump. A grandchild the kill
+// did not reach can hold the pty open, and a pty read is not interrupted by
+// its close, so the pump ends when that grandchild does.
+const killWait = 2 * time.Second
+
+// Kill ends a pane the screen is done with. It is safe to call again and
+// after the child has exited.
+//
+// The emulator is the last thing closed. Its input is closed first, so the
+// copy into the pty sees the end of it; then the child is killed and the pty
+// closed, so the pump's read returns; and once both have returned the
+// emulator closes. Kill waits for that up to killWait, and a pump still held
+// past it closes the emulator itself on the way out.
 func (p *Pane) Kill() {
-	if p.cmd.Process != nil {
-		//nolint:errcheck // the child is already gone often enough to not be news
-		_ = p.cmd.Process.Kill()
+	p.kill.Do(func() {
+		// Closing the emulator's input pipe is what its own Close does, minus
+		// the unguarded flag: a read blocked on it returns, and so does any
+		// reply the emulator was writing into it.
+		if in, ok := p.emu.InputPipe().(io.Closer); ok {
+			//nolint:errcheck // a pipe close never fails
+			_ = in.Close()
+		}
+
+		if p.cmd.Process != nil {
+			//nolint:errcheck // the child is already gone often enough to not be news
+			_ = p.cmd.Process.Kill()
+		}
+
+		//nolint:errcheck // a closed pty is the wanted state either way
+		_ = p.tty.Close()
+
+		go func() {
+			<-p.copied
+			<-p.pumped
+
+			//nolint:errcheck // the emulator's close is cleanup, not a decision
+			_ = p.emu.Close()
+
+			close(p.closed)
+		}()
+	})
+
+	select {
+	case <-p.closed:
+	case <-time.After(killWait):
 	}
-
-	//nolint:errcheck // the emulator's close is cleanup, not a decision
-	_ = p.emu.Close()
-
-	//nolint:errcheck // a closed pty is the wanted state either way
-	_ = p.tty.Close()
 }
 
 // String is the emulated screen as text, for the caller that wants to say
 // what the pane showed rather than draw it.
 func (p *Pane) String() string {
+	p.screen.RLock()
+	defer p.screen.RUnlock()
+
 	return p.emu.String()
 }
 
-// row is one screen line as cells.
+// row is one screen line as cells. The caller holds the screen lock, since a
+// cell CellAt returns is the live one.
 func (p *Pane) row(y int) uv.Line {
 	w := p.emu.Width()
 	row := make(uv.Line, w)
@@ -233,6 +299,9 @@ func (p *Pane) row(y int) uv.Line {
 // overlay, so an underline is the cell's and a bar is a glyph at its left
 // edge.
 func (p *Pane) Lines() []string {
+	p.screen.RLock()
+	defer p.screen.RUnlock()
+
 	at := p.emu.CursorPosition()
 	out := make([]string, 0, p.emu.Height())
 
@@ -263,6 +332,9 @@ func (p *Pane) Lines() []string {
 // byte log would carry, so the note gets what ran rather than how it was
 // drawn.
 func (p *Pane) Transcript() string {
+	p.screen.RLock()
+	defer p.screen.RUnlock()
+
 	sb := p.emu.Scrollback().Lines()
 	rows := make([]string, 0, len(sb)+p.emu.Height())
 

@@ -54,6 +54,19 @@ Principles 2–10 and 12 of the spec stand. Changes:
 - **P13 (new): `P` publishes, and never on one key.** Everything that leaves the machine sits on `P` and
   shows what will go out before it goes: jojo push (dry-run table, `y`), jojo outline submit (plan, `⏎`),
   second-look publish (page names the event, the second key sends or opens the existing confirm).
+- **P14 (new): esc backs out and never quits.** Esc closes the innermost thing that is open: a prompt, a
+  modal, a pending chord, a tick set, a nested screen. At a root screen it does nothing except say `q quits`.
+  `q` quits a root, and `ctrl+c` quits from anywhere. Repeated esc is therefore always safe to press.
+- **P15 (new): one text-entry contract.** Every field submits on `⏎`, inserts a newline on `ctrl+j`
+  (`alt+⏎` too, where the terminal reports it), and cancels on esc. The footer under an open field says so in
+  those words: `⏎ save · ctrl+j new line · esc cancel`. A field opens with the cursor at the end of any text it
+  already holds. No field sends anything off the machine on `⏎`; that stays behind `P` (P13).
+- **P16 (new): a destructive write confirms only when content would be lost.** `a` abandon (jojo) and `R`
+  discard (jj-diff) act on one key when nothing goes with them, such as an empty change or a no-op discard.
+  When content would go, they ask on one line, naming what goes and how to get it back:
+  `abandon qpvx and its 3 changed files?  y abandon · n keep · u undoes it`. Only `y` acts. Any other key
+  cancels and is not replayed. `u` then means `jj undo` of that write in every tool: jj-diff's `u` restores
+  the operation recorded before its last write, as jojo's does.
 
 ## 2. Audit: every key whose meaning differs
 

@@ -298,7 +298,7 @@ func TestDisagreementsNameTheClash(t *testing.T) {
 	t.Parallel()
 
 	got := keys.Disagreements(shared(), []keys.Binding{
-		{Action: "apply", Keys: []string{"a", "] h"}, Contexts: keys.Select},
+		{Action: "apply", Keys: []string{"A", "] h"}, Contexts: keys.Select},
 	})
 
 	if len(got) != 1 || !strings.Contains(got[0], "]h is apply") {

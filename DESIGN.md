@@ -166,6 +166,15 @@ rules the pieces share:
   card costs one keystroke for that. `?` and `:` are the exceptions: they dismiss it and open the
   legend or palette the card points at.
   It lives in `tui/coach` because the ledger is what remembers it was seen
+- A key means one thing across the family. Within a tool, `Merge` refuses two actions on one key
+  where their screens meet; across tools, `Disagreements` refuses a tool key the shared table gives
+  another action, and the keys in `Reserved` (the ones whose family meaning writes, publishes, or is
+  a gesture every screen shares) are refused for any other action on any screen, because two tools
+  never share a screen and so context cannot excuse a habit carried between them. Space is one
+  concept, the tick, whose kind (read, select, check) each pane names in its footer, and a tick
+  never writes: verbs act on ticks. Everything that leaves the machine sits on `P` and shows what
+  goes out first. A key whose job moved says where for one release (`Moves`), then goes unbound.
+  [docs/keymap.md](docs/keymap.md) is the spec and records each decision
 - `fuzzy` and `trail` hold no styles in their data halves, so a tool that wants only the scorer or
   the log pays nothing for the views
 

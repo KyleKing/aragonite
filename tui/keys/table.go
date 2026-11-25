@@ -96,6 +96,13 @@ const (
 	ActionEditRegion  = "edit-region"
 	ActionResetRegion = "reset-region"
 	ActionMergeTool   = "merge-tool"
+
+	// The family verbs on reserved keys, which only some tools have (Verbs).
+	ActionInsert       = "insert"
+	ActionPublish      = "publish"
+	ActionBranches     = "branches"
+	ActionBranchDelete = "branch-delete"
+	ActionInfo         = "info"
 )
 
 // Groups the split columns and the conflict viewer file their bindings under.
@@ -183,10 +190,7 @@ func DiffView() []Binding {
 			Action: ActionFilter, Keys: []string{"f"}, What: "show only files matching a pattern", Short: "filter",
 			Group: GroupFind, Contexts: Diff | List,
 		},
-		{
-			Action: ActionRead, Keys: []string{"space"}, What: "mark the hunk read", Short: "read",
-			Group: GroupRead, Contexts: View,
-		},
+		Tick(TickRead),
 		d(ActionOnlyUnread, GroupRead, "only what is unread", "unread", "U"),
 		d(ActionRounds, GroupRead, "choose the round to compare against", "rounds", "H"),
 		d(ActionOutline, GroupRead, "outline", "", "I"),
@@ -279,11 +283,37 @@ func ConflictPicks() []Binding {
 	}
 }
 
+// Groups the family verbs file under.
+const (
+	GroupWrite  = "Write"
+	GroupBranch = "Branch"
+)
+
+// Verbs is the family's verbs on reserved keys that not every tool has: i writes prose at point
+// (a comment on a line, a reply on a thread, a comment on the pull request, the severity chord
+// following where a tool has one), P opens the publish page, "b b" and "b d" are the branches, and
+// "g i" is the card about what is open. A tool merges the ones it has; a tool without one leaves the key
+// unbound rather than reuse it, which Unreserved checks.
+func Verbs() []Binding {
+	v := func(action, group, what, short, keys string) Binding {
+		return Binding{Action: action, Keys: []string{keys}, What: what, Short: short, Group: group}
+	}
+
+	return []Binding{
+		v(ActionInsert, GroupWrite, "write prose here: comment on the line, reply on a thread", "comment", "i"),
+		v(ActionPublish, GroupWrite, "publish: a page names what goes out, a second key sends it", "publish", "P"),
+		v(ActionBranches, GroupBranch, "the branches and their checks", "branches", "b b"),
+		v(ActionBranchDelete, GroupBranch, "delete a branch, after a confirm", "", "b d"),
+		v(ActionInfo, GroupGeneral, "about what is open", "info", "g i"),
+	}
+}
+
 // Disagreements lists every tool binding that reuses a key the shared table gives another action
-// on an overlapping screen. A tool's TestKeymap_AgreesWithShared fails on any, which is what keeps
-// one key meaning one thing across the family.
+// on an overlapping screen, and every one that puts a reserved key to another use on any screen
+// (Unreserved). A tool's TestKeymap_AgreesWithShared fails on any, which is what keeps one key
+// meaning one thing across the family.
 func Disagreements(shared, tool []Binding) []string {
-	var out []string
+	out := Unreserved(tool)
 
 	for _, t := range tool {
 		for _, s := range shared {

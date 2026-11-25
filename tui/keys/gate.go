@@ -66,7 +66,7 @@ func (k *Keymap) LegendAt(ctx Context, gate Gate) []keyhint.Hint {
 	byGroup := map[string][]keyhint.Hint{}
 
 	for _, b := range k.bindings {
-		if len(b.Keys) == 0 || !b.Contexts.Overlaps(ctx) {
+		if len(b.Keys) == 0 || !b.Contexts.Overlaps(ctx) || b.Group == GroupMoved {
 			continue
 		}
 
@@ -89,12 +89,12 @@ func (k *Keymap) LegendAt(ctx Context, gate Gate) []keyhint.Hint {
 }
 
 // Bound is every binding with a key on screen ctx, in the keymap's order, which is what a palette
-// lists.
+// lists. Moved bindings are left out, since they are notices rather than things to run.
 func (k *Keymap) Bound(ctx Context) []Binding {
 	out := make([]Binding, 0, len(k.bindings))
 
 	for _, b := range k.bindings {
-		if len(b.Keys) > 0 && b.Contexts.Overlaps(ctx) {
+		if len(b.Keys) > 0 && b.Contexts.Overlaps(ctx) && b.Group != GroupMoved {
 			out = append(out, b)
 		}
 	}

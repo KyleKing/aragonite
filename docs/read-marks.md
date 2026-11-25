@@ -133,7 +133,8 @@ call `store.Migrate(changeID)` before reading a scope, which moves marks an olde
 `change_id.shortest(8)` into the full id's file: that prefix grows once another change comes to
 share it, so a file named by it is lost to a reader that recomputes the prefix. A read hunk's heading
 is dimmed behind a read glyph, a file read whole carries one in the file list, `]u` / `[u` step
-between unread hunks, and `U` shows only unread hunks. `␣` already means select in jj-diff's editing
-modes (keymap §2.6), so it stays read-only and marking happens in jojo. Run as a diff editor
+between unread hunks, and `U` shows only unread hunks. In browse, `␣` marks the hunk read in the
+shared store (`seen.OpenJJ`, keymap v2 D-1); its editing modes keep `␣` as select and never mark
+there, one tick kind per pane ([keymap.md](keymap.md)). Run as a diff editor
 (`--tool jj-diff`) it sees two directories and no change id, so it has nothing to scope marks by and
 shows none.

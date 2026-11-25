@@ -9,9 +9,11 @@ type Object struct {
 	Key string
 	// Noun names the object in actions ("hunk" makes "hunk-next" and "hunk-prev") and in legends.
 	Noun string
-	// Review marks an object only second-look has (comments, threads, problems, stops, asks), which
-	// the other tools leave out of their keymaps rather than draw dead.
+	// Review marks an object only second-look has (comments, threads, problems, stops, asks,
+	// queues), which the other tools leave out of their keymaps rather than draw dead.
 	Review bool
+	// Contexts are the screens its motions apply on, zero meaning every diff.
+	Contexts Context
 }
 
 // The objects' nouns, which a tool switches on after Motion.Resolve.
@@ -27,6 +29,9 @@ const (
 	ObjProblem  = "problem"
 	ObjStop     = "stop"
 	ObjAsk      = "ask"
+	// ObjQueue is a list screen's queue (second-look's inbox, conversations, reviews), stepped
+	// between with ]q and [q rather than a bare bracket, which never acts alone.
+	ObjQueue = "queue"
 	// ObjSearch is the last / search, which n and N step through once one has run.
 	ObjSearch = "search"
 )
@@ -45,6 +50,7 @@ func Objects() []Object {
 		{Key: "p", Noun: ObjProblem, Review: true},
 		{Key: "s", Noun: ObjStop, Review: true},
 		{Key: "a", Noun: ObjAsk, Review: true},
+		{Key: "q", Noun: ObjQueue, Review: true, Contexts: List},
 	}
 }
 
@@ -65,14 +71,19 @@ func Motions(objects []Object) []Binding {
 			back = "["
 		}
 
+		ctx := o.Contexts
+		if ctx == 0 {
+			ctx = Diff
+		}
+
 		out = append(out,
 			Binding{
 				Action: NextAction(o.Noun), Keys: []string{"] " + o.Key}, Group: GroupMotion,
-				What: "next " + o.Noun, Short: o.Noun, Contexts: Diff,
+				What: "next " + o.Noun, Short: o.Noun, Contexts: ctx,
 			},
 			Binding{
 				Action: PrevAction(o.Noun), Keys: []string{"[ " + back}, Group: GroupMotion,
-				What: "previous " + o.Noun, Contexts: Diff,
+				What: "previous " + o.Noun, Contexts: ctx,
 			},
 		)
 	}

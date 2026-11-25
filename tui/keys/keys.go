@@ -6,7 +6,11 @@
 //
 // A key sequence is written as key names separated by spaces, each name as Bubble Tea's
 // KeyPressMsg.String spells it: "j", "ctrl+d", "space", "] h", "g g", "\\ s". A sequence of more
-// than one key starts with a prefix ("]", "[", "g", "z", "\\", "-"), which never acts alone.
+// than one key starts with a prefix ("]", "[", "g", "z", "\\", "-", "b"), which never acts alone.
+//
+// Some keys are reserved (Reserved): they mean one thing in every tool, and a tool without the
+// concept leaves them unbound. Space is the tick (Tick), whose kind each pane names in its footer.
+// A key whose job moved answers with where it went for one release (Moves).
 package keys
 
 import (
@@ -60,6 +64,8 @@ type Binding struct {
 	Short string
 	// Group is the legend heading the binding is filed under.
 	Group string
+	// To is the action a Moved binding's old keys now belong to, empty on every other binding.
+	To string
 	// Keys are the sequences that press it, the first being the one a footer shows.
 	Keys []string
 	// Contexts are the screens it applies on, zero meaning all of them.
@@ -174,6 +180,12 @@ func Merge(shared, tool []Binding, overrides map[string]string) (*Keymap, error)
 		}
 	}
 
+	for _, b := range all {
+		if b.To != "" && !seen[b.To] {
+			return nil, fmt.Errorf("%w: %q moved to %q", ErrUnknownAction, label(strings.Join(b.Keys, " ")), b.To)
+		}
+	}
+
 	if err := collisions(all); err != nil {
 		return nil, err
 	}
@@ -267,7 +279,7 @@ func (k *Keymap) Next(ctx Context, prefix []string) []keyhint.Hint {
 	seen := map[string]bool{}
 
 	for _, b := range k.bindings {
-		if !b.Contexts.Overlaps(ctx) {
+		if !b.Contexts.Overlaps(ctx) || b.Group == GroupMoved {
 			continue
 		}
 

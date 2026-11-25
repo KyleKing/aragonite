@@ -146,10 +146,51 @@ func viewportCases() []checkCase {
 	}
 }
 
+// jjLog is `jj log` over a merge and a side branch, as jj 0.3x draws it.
+const jjLog = "@  side\n│ ○  top\n│ ○  merge\n╭─┤\n│ ○  c\n│ ○  b\n○ │  a\n○ │\n├─╯\n◆"
+
+// graphCases are revision graphs, whose lines run through node glyphs.
+func graphCases() []checkCase {
+	return []checkCase{
+		{
+			name:  "a jj log with a merge and a branch",
+			frame: jjLog,
+			opts:  []framecheck.Option{framecheck.Graph()},
+		},
+		{
+			name:  "the same log without Graph reads its nodes as text",
+			frame: jjLog,
+			want:  []string{"4:3 corner", "9:1 corner", "7:1 edge"},
+		},
+		{
+			name:  "a branch closing under a node beside a pane",
+			frame: "○    a  │ x\n│ ○  b  │ y\n├─╯     │ z\n◆    c  │\n│       │\n~       │",
+			opts:  []framecheck.Option{framecheck.Graph()},
+		},
+		{
+			name:  "a node a template draws joins once named",
+			frame: "│ ◎  b\n├─╯\n◆",
+			opts:  []framecheck.Option{framecheck.Graph("◎")},
+		},
+		{
+			name:  "an unnamed node is still text",
+			frame: "│ ◎  b\n├─╯\n◆",
+			opts:  []framecheck.Option{framecheck.Graph()},
+			want:  []string{"2:3 corner"},
+		},
+		{
+			name:  "a graph does not excuse a box that runs into text",
+			frame: "╭──╮\n│  │\nx  │\n╰──╯",
+			opts:  []framecheck.Option{framecheck.Graph()},
+			want:  []string{"4:1 corner", "3:1 edge"},
+		},
+	}
+}
+
 func TestCheck(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range slices.Concat(checkCases(), viewportCases()) {
+	for _, tc := range slices.Concat(checkCases(), viewportCases(), graphCases()) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

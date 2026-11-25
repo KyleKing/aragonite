@@ -20,6 +20,10 @@
 //
 // A box that is covered by another (an overlay over a pane) is not broken: a side
 // that runs into another box's border ends there.
+//
+// A revision graph (jj log) draws its lines with box glyphs and its revisions
+// with node glyphs (○ ◆ @ × ~) that the lines run through: `├─╯` under `│ ○`
+// branches into a node. Graph teaches Check that, so a log frame lints clean.
 package framecheck
 
 import (
@@ -61,6 +65,7 @@ func (f Fault) String() string {
 
 type options struct {
 	allow    map[string]bool
+	nodes    map[string]bool
 	view     *viewport
 	nerd     bool
 	width    int
@@ -101,6 +106,33 @@ func Viewport(top, bottom int) Option {
 	return func(o *options) { o.view = &viewport{top: top, bottom: bottom} }
 }
 
+// GraphNodes are the glyphs jj's default log templates draw a revision with: @ the
+// working copy, ○ a mutable revision, ◆ an immutable one, × a conflicted one, ~
+// elided history, and the ◉ ● ◌ ◇ older releases and hidden revisions use.
+const GraphNodes = "@○◆×~◉●◌◇"
+
+// Graph says the frame draws a revision graph, so a node glyph joins the graph
+// lines above and below it as a │ would: `├─╯` under `│ ○` branches into the
+// node rather than leaving an arm with nothing to join. The nodes are
+// GraphNodes plus any extra a tool's template draws. It is an option rather
+// than the default because outside a graph a node glyph is text (`@` in a
+// sentence), and a box corner that runs into text is a fault.
+func Graph(extra ...string) Option {
+	return func(o *options) {
+		if o.nodes == nil {
+			o.nodes = map[string]bool{}
+		}
+
+		for _, r := range GraphNodes {
+			o.nodes[string(r)] = true
+		}
+
+		for _, g := range extra {
+			o.nodes[g] = true
+		}
+	}
+}
+
 // Nerd accepts private-use glyphs, for a frame drawn with the Nerd icon set a
 // reader opted into. Each one must still be drawn through icons.Glyph.Prefix,
 // with the blank cell its overflow lands on.
@@ -115,6 +147,7 @@ func Check(frame string, opts ...Option) []Fault {
 	}
 
 	g := newGrid(frame)
+	g.nodes = o.nodes
 
 	return slices.Concat(g.widths(o), g.glyphs(o), g.corners(o), g.edges(o))
 }
@@ -182,7 +215,22 @@ type cell struct {
 }
 
 type grid struct {
-	rows [][]cell
+	rows  [][]cell
+	nodes map[string]bool
+}
+
+// arms is the directions the glyph s joins in this frame: a box glyph's own
+// arms, and up and down for a graph node when the frame is a Graph.
+func (g grid) arms(s string) (arm, bool) {
+	if a, ok := joins[s]; ok {
+		return a, true
+	}
+
+	if g.nodes[s] {
+		return up | down, true
+	}
+
+	return 0, false
 }
 
 func newGrid(frame string) grid {
@@ -323,7 +371,7 @@ func (g grid) loose(row, col int, arms arm) string {
 			continue
 		}
 
-		if joins[g.at(ni, nj)]&d.back == 0 {
+		if a, _ := g.arms(g.at(ni, nj)); a&d.back == 0 {
 			loose = append(loose, fmt.Sprintf("%s (%q)", d.name, g.at(ni, nj)))
 		}
 	}
@@ -361,7 +409,7 @@ func (g grid) edges(o options) []Fault {
 func (g grid) trace(row, col, last int) (Fault, bool) {
 	for i := row + 1; i <= last; i++ {
 		here := g.at(i, col)
-		arms, isBox := joins[here]
+		arms, isBox := g.arms(here)
 
 		switch {
 		case isBox && arms&up != 0 && arms&down == 0:

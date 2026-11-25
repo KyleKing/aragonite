@@ -179,3 +179,37 @@ func write(t *testing.T, path, text string) {
 		t.Fatal(err)
 	}
 }
+
+// A commit under isolation starts no auto maintenance, which newer git detaches past the commit's
+// return to write into .git/objects while t.TempDir's cleanup is removing it.
+func TestIsolate_GitCommitStartsNoDetachedMaintenance(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	dir := t.TempDir()
+	var got []byte
+	for _, args := range [][]string{
+		{"init", "--quiet", "."},
+		{"commit", "--quiet", "--allow-empty", "-m", "c1"},
+	} {
+		//nolint:gosec // G204: fixture runs the literal git binary with test arguments.
+		cmd := exec.CommandContext(t.Context(), "git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "GIT_TRACE=2")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		got = append(got, out...)
+	}
+
+	if !strings.Contains(string(got), "git commit") {
+		t.Fatalf("the trace never saw the commit:\n%s", got)
+	}
+	if strings.Contains(string(got), "maintenance run") || strings.Contains(string(got), "gc --auto") {
+		t.Errorf("git commit started auto maintenance:\n%s", got)
+	}
+}

@@ -213,7 +213,8 @@ func envOr(key, fallback string) string {
 // user config, gh's config, and the temp directory, so every t.TempDir and every repository a test
 // makes is under root too. It unsets GitRepoEnv, which a git hook running the tests sets, so a
 // fixture's git finds the repository it is run in rather than the one being committed. It names
-// the committer for jj and git and sets RootEnv to root. Go's own caches stay where owner's are,
+// the committer for jj and git, turns off git's auto maintenance (see gitConfig), and sets RootEnv
+// to root. Go's own caches stay where owner's are,
 // since a cold build cache would rebuild the standard library for every test that builds a binary.
 func Isolate(root string, owner Paths) error {
 	home := filepath.Join(root, "home")
@@ -255,5 +256,16 @@ func Isolate(root string, owner Paths) error {
 		}
 	}
 
+	if err := os.WriteFile(filepath.Join(home, ".gitconfig"), []byte(gitConfig), fileMode); err != nil {
+		return fmt.Errorf("writing the isolated git config: %w", err)
+	}
+
 	return unsetRepoEnv()
 }
+
+// gitConfig is the isolated home's global git config. A commit, merge, or fetch ends by starting
+// `git maintenance run --auto`, which git 2.47 and later detaches: it takes objects/maintenance.lock
+// and returns before releasing it, and an older git's `gc --auto` detaches the same way once it
+// has work. Either one writes into .git/objects after the command that started it has returned,
+// so t.TempDir's cleanup fails with "directory not empty" when it runs first.
+const gitConfig = "[maintenance]\n\tauto = false\n"

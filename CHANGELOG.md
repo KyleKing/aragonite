@@ -1,3 +1,9 @@
+## v1.36.0 (2026-11-25)
+
+### Feat
+
+- **vimtext**: add a vim-modal text field for prose typed in place
+
 ## v1.35.1 (2026-11-25)
 
 ### Fix
